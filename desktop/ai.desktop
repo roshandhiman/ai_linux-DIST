@@ -8,3 +8,4 @@ Icon=utilities-terminal
 Terminal=false
 Categories=Utility;System;
 StartupNotify=true
+
