@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# Model Download & Registry Script for JarvisOS
 set -euo pipefail
 
-MODELS_DIR="${HOME}/.local/share/jarvis/models"
+MODELS_DIR="${HOME}/.local/share/ai/models"
 mkdir -p "${MODELS_DIR}"
 
 MODEL_NAME="${1:-qwen2.5-1.5b}"
@@ -21,19 +20,12 @@ case "${MODEL_NAME}" in
         FILE="${MODELS_DIR}/llama-3.2-1b-instruct-q4_k_m.gguf"
         ;;
     *)
-        echo "Unknown preset: ${MODEL_NAME}. Pass a valid name (qwen2.5-1.5b, qwen2.5-0.5b, llama3.2-1b) or download your own .gguf file into ${MODELS_DIR}."
         exit 1
         ;;
 esac
 
-if [[ -f "${FILE}" ]]; then
-    echo "Model already downloaded: ${FILE}"
-else
-    echo "Downloading ${MODEL_NAME} into ${FILE}..."
+if [[ ! -f "${FILE}" ]]; then
     curl -L --progress-bar -o "${FILE}" "${URL}"
-    echo "Download completed!"
 fi
 
-# Set active model symlink
 ln -sf "${FILE}" "${MODELS_DIR}/active.gguf"
-echo "Active model set to: $(basename "${FILE}")"

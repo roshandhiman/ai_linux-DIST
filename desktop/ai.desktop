@@ -1,9 +1,9 @@
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=Jarvis AI
-Comment=Iron Man Jarvis AI Assistant & OS Controller
-Exec=/usr/local/bin/jarvis-hud
+Name=AI Core
+Comment=System AI Assistant & Controller
+Exec=/usr/local/bin/ai-hud
 Icon=utilities-terminal
 Terminal=false
 Categories=Utility;System;

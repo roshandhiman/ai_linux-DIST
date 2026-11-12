@@ -1,28 +1,20 @@
 VM_HOST ?= roshanpreet@10.211.55.12
-REMOTE_DIR ?= /home/roshanpreet/jarvis-os
+REMOTE_DIR ?= /home/roshanpreet/distro-dev
 
-.PHONY: help live-sync live-hud test-ai git-push
-
-help:
-	@echo "JarvisOS Development Workflow:"
-	@echo "  make live-sync    - Sync all files to live Debian VM"
-	@echo "  make live-hud     - Launch Jarvis Spotlight HUD on VM display"
-	@echo "  make test-ai      - Test Jarvis AI Agent CLI"
-	@echo "  make git-push     - Commit & push changes to GitHub"
+.PHONY: live-sync live-hud test-ai git-push
 
 live-sync:
-	@echo "Syncing code to Debian VM..."
 	rsync -avz --exclude '.git' --exclude '*.gguf' --exclude '*.iso' ./ $(VM_HOST):$(REMOTE_DIR)/
-	ssh $(VM_HOST) "sudo mkdir -p /opt/jarvis && sudo cp -r $(REMOTE_DIR)/ai-agent/* /opt/jarvis/ && sudo ln -sf /opt/jarvis/jarvis.py /usr/local/bin/jarvis && sudo chmod +x /usr/local/bin/jarvis"
-	ssh $(VM_HOST) "sudo cp $(REMOTE_DIR)/desktop/jarvis.desktop /usr/share/applications/ && sudo chmod +x /usr/share/applications/jarvis.desktop"
+	ssh $(VM_HOST) "sudo mkdir -p /opt/ai && sudo cp -r $(REMOTE_DIR)/ai-agent/* /opt/ai/ && sudo ln -sf /opt/ai/jarvis.py /usr/local/bin/ai && sudo ln -sf /opt/ai/jarvis_gui.py /usr/local/bin/ai-hud && sudo chmod +x /usr/local/bin/ai /usr/local/bin/ai-hud /opt/ai/jarvis.py /opt/ai/jarvis_gui.py"
+	ssh $(VM_HOST) "sudo cp $(REMOTE_DIR)/desktop/ai.desktop /usr/share/applications/ && sudo chmod +x /usr/share/applications/ai.desktop"
 
 live-hud:
-	ssh $(VM_HOST) "DISPLAY=:0 python3 /opt/jarvis/jarvis_gui.py"
+	ssh $(VM_HOST) "DISPLAY=:0 python3 /opt/ai/jarvis_gui.py"
 
 test-ai:
-	ssh $(VM_HOST) "jarvis 'open files and check battery status'"
+	ssh $(VM_HOST) "ai 'open files and check memory'"
 
 git-push:
 	git add .
-	git commit -m "Update JarvisOS core and UI features"
+	git commit -m "update core and ui"
 	git push origin main

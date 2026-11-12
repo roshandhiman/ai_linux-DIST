@@ -1,8 +1,4 @@
 #!/usr/bin/env python3
-"""
-Jarvis Core Agent for JarvisOS
-Orchestrates offline LLM reasoning and system action execution.
-"""
 import sys
 import json
 import os
@@ -12,7 +8,7 @@ from tools import system_ctrl, iot_ctrl, model_mgr
 
 OLLAMA_API = "http://127.0.0.1:11434/api/generate"
 DEFAULT_MODEL = "qwen2.5:1.5b"
-CONFIG_FILE = os.path.expanduser("~/.config/jarvis/config.json")
+CONFIG_FILE = os.path.expanduser("~/.config/ai/config.json")
 
 def get_active_model() -> str:
     if os.path.exists(CONFIG_FILE):
@@ -23,36 +19,36 @@ def get_active_model() -> str:
             pass
     return DEFAULT_MODEL
 
-SYSTEM_PROMPT = """You are JARVIS, an advanced AI Operating System Agent embedded in an AI-powered Linux Distro.
+SYSTEM_PROMPT = """You are an AI Operating System Agent embedded in an AI-powered Linux Distro.
 You have direct control over this OS and connected hardware (ESP32 / Arduino / Bluetooth).
 
 When the user asks you to do something, determine if you need to execute an OS/hardware action.
 If an action is needed, return a STRICT JSON object in this format:
 {
-  "thought": "brief explanation of what you are doing",
+  "thought": "brief explanation",
   "action": "open_app" | "set_volume" | "system_status" | "esp32_cmd" | "bluetooth_scan" | "switch_model" | "run_command" | "chat",
   "params": { ... },
-  "response": "friendly Jarvis-style response to the user"
+  "response": "short friendly response"
 }
 
 Actions & Params:
-- "open_app": {"app": "firefox" | "terminal" | "files" | "settings" | "calculator" | ...}
+- "open_app": {"app": "firefox" | "terminal" | "files" | "settings" | "calculator"}
 - "set_volume": {"percentage": 0 to 100}
 - "system_status": {}
-- "esp32_cmd": {"command": "LIGHT_ON" | "LIGHT_OFF" | "FAN_ON" | ...}
+- "esp32_cmd": {"command": "LIGHT_ON" | "LIGHT_OFF" | "FAN_ON"}
 - "bluetooth_scan": {}
 - "switch_model": {"model": "model_name"}
 - "run_command": {"cmd": "safe bash command"}
-- "chat": {} (normal answers, explanations, assistance)
+- "chat": {}
 
-Always maintain the calm, capable persona of JARVIS. Output ONLY valid JSON.
+Output ONLY valid JSON.
 """
 
 def query_llm(prompt: str) -> dict:
     model = get_active_model()
     payload = {
         "model": model,
-        "prompt": f"{SYSTEM_PROMPT}\nUser: {prompt}\nJarvis JSON:",
+        "prompt": f"{SYSTEM_PROMPT}\nUser: {prompt}\nAI JSON:",
         "stream": False,
         "format": "json"
     }
@@ -68,7 +64,7 @@ def query_llm(prompt: str) -> dict:
     except Exception as e:
         return {
             "action": "chat",
-            "response": f"Jarvis Core Offline or Initializing ({e}). Please ensure Ollama is active."
+            "response": f"AI Engine Offline ({e})"
         }
 
 def execute_action(action_data: dict) -> str:
@@ -76,7 +72,7 @@ def execute_action(action_data: dict) -> str:
     params = action_data.get("params", {})
     response = action_data.get("response", "")
 
-    print(f"\n⚡ JARVIS: {response}")
+    print(f"\nAI: {response}")
 
     result_detail = None
     if action == "open_app":
@@ -102,17 +98,13 @@ def execute_action(action_data: dict) -> str:
         result_detail = system_ctrl.run_cmd(cmd)
 
     if result_detail:
-        print(f"   ↳ [System Action] {result_detail}")
+        print(f"   ↳ {result_detail}")
 
     return response
 
 def main():
     if len(sys.argv) < 2:
-        print("⚡ JARVIS AI Operating System Core")
-        print("Usage: jarvis <instruction>")
-        print("Example: jarvis 'open files and set volume to 70'")
-        print("         jarvis 'turn on living room light via esp32'")
-        print("         jarvis 'switch model to llama3.2'")
+        print("Usage: ai <instruction>")
         sys.exit(0)
 
     prompt = " ".join(sys.argv[1:])

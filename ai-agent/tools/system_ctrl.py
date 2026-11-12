@@ -1,7 +1,3 @@
-"""
-Jarvis System Controller Tool
-Handles volume, brightness, battery, power, and app launching.
-"""
 import subprocess
 import shutil
 import os
@@ -37,12 +33,11 @@ def open_app(app_name: str) -> str:
         return f"Failed to open {app_name}: {e}"
 
 def set_volume(percentage: int) -> str:
-    # Use amixer or pactl
     if shutil.which("pactl"):
         return run_cmd(f"pactl set-sink-volume @DEFAULT_SINK@ {percentage}%")
     elif shutil.which("amixer"):
         return run_cmd(f"amixer set Master {percentage}%")
-    return "Volume control utility not found (install pulseaudio-utils or alsa-utils)"
+    return "Volume control utility not found"
 
 def get_system_status() -> dict:
     mem = run_cmd("free -h | awk '/^Mem:/ {print $3 \" / \" $2}'")
