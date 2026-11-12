@@ -4,10 +4,36 @@ import os
 
 def run_cmd(cmd):
     try:
-        res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=10)
+        res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=15)
         return res.stdout.strip() or res.stderr.strip() or "Success"
     except Exception as e:
         return f"Error: {e}"
+
+def create_file(path: str, content: str = "") -> str:
+    expanded_path = os.path.expanduser(path.strip())
+    os.makedirs(os.path.dirname(expanded_path), exist_ok=True)
+    try:
+        with open(expanded_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        return f"Created file {expanded_path}"
+    except Exception as e:
+        return f"Failed to create file: {e}"
+
+def read_file(path: str) -> str:
+    expanded_path = os.path.expanduser(path.strip())
+    try:
+        with open(expanded_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception as e:
+        return f"Error reading file: {e}"
+
+def list_files(path: str = ".") -> str:
+    expanded_path = os.path.expanduser(path.strip())
+    try:
+        files = os.listdir(expanded_path)
+        return ", ".join(files) if files else "Directory is empty"
+    except Exception as e:
+        return f"Error listing directory: {e}"
 
 def open_app(app_name: str) -> str:
     app_lower = app_name.lower().strip()

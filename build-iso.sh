@@ -51,3 +51,4 @@ sudo mksquashfs "${ROOTFS}" "${IMAGE_DIR}/live/filesystem.squashfs" -comp xz
 grub-mkrescue -o "${OUTPUT_ISO}" "${IMAGE_DIR}"
 
 echo "ISO Generated: ${OUTPUT_ISO}"
+
