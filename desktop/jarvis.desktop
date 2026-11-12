@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Jarvis AI
+Comment=Iron Man Jarvis AI Assistant & OS Controller
+Exec=/usr/local/bin/jarvis-hud
+Icon=utilities-terminal
+Terminal=false
+Categories=Utility;System;
+StartupNotify=true

@@ -1,0 +1,21 @@
+# Distro Build artifacts
+*.iso
+*.img
+*.squashfs
+build/
+cache/
+chroot/
+
+# Heavy AI model weights (downloaded via download-models.sh)
+*.gguf
+*.bin
+models/*.gguf
+
+# System & OS files
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc
+
+# Local runtime logs
+*.log
