@@ -4,9 +4,20 @@ from tkinter import ttk
 import threading
 import sys
 import os
+import socket
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import jarvis
+
+def acquire_lock():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.bind(("127.0.0.1", 48484))
+        return s
+    except socket.error:
+        sys.exit(0)
+
+lock_socket = acquire_lock()
 
 class ChatHUD:
     def __init__(self, root):
@@ -42,7 +53,7 @@ class ChatHUD:
 
         self.close_btn = tk.Label(self.header, text="✕", font=("Segoe UI", 10), fg="#64748b", bg="#0f131a", cursor="hand2")
         self.close_btn.pack(side="right")
-        self.close_btn.bind("<Button-1>", lambda e: self.root.destroy())
+        self.close_btn.bind("<Button-1>", lambda e: self.close())
 
         self.chat_canvas = tk.Canvas(self.main_frame, bg="#0f131a", bd=0, highlightthickness=0)
         self.scrollbar = ttk.Scrollbar(self.main_frame, orient="vertical", command=self.chat_canvas.yview)
@@ -55,7 +66,6 @@ class ChatHUD:
 
         self.canvas_window = self.chat_canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw", width=440)
         self.chat_canvas.configure(yscrollcommand=self.scrollbar.set)
-
         self.chat_canvas.pack(fill="both", expand=True, padx=12, pady=5)
 
         self.input_container = tk.Frame(self.main_frame, bg="#161b24", bd=1, relief="solid", highlightbackground="#2d3748", highlightthickness=1)
@@ -70,9 +80,17 @@ class ChatHUD:
         self.send_btn.bind("<Button-1>", lambda e: self.on_send())
 
         self.root.bind("<Return>", lambda e: self.on_send())
-        self.root.bind("<Escape>", lambda e: self.root.destroy())
+        self.root.bind("<Escape>", lambda e: self.close())
 
         self.add_message("assistant", "Hello! How can I help you today?")
+
+    def close(self):
+        try:
+            lock_socket.close()
+        except Exception:
+            pass
+        self.root.destroy()
+        sys.exit(0)
 
     def add_message(self, sender, text, detail=None):
         msg_box = tk.Frame(self.scrollable_frame, bg="#0f131a", pady=4)
