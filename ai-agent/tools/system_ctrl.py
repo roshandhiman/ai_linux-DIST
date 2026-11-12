@@ -3,6 +3,52 @@ import shutil
 import os
 import urllib.parse
 
+COMMON_SITES = {
+    "youtube": "https://www.youtube.com",
+    "youtbe": "https://www.youtube.com",
+    "yt": "https://www.youtube.com",
+    "whatsapp": "https://web.whatsapp.com",
+    "google": "https://www.google.com",
+    "gmail": "https://mail.google.com",
+    "github": "https://www.github.com",
+    "chatgpt": "https://chatgpt.com",
+    "netflix": "https://www.netflix.com",
+    "spotify": "https://open.spotify.com",
+    "instagram": "https://www.instagram.com",
+    "reddit": "https://www.reddit.com",
+    "twitter": "https://x.com",
+    "x": "https://x.com",
+    "linkedin": "https://www.linkedin.com"
+}
+
+APP_MAP = {
+    "browser": "firefox",
+    "firefox": "firefox",
+    "chrome": "google-chrome",
+    "terminal": "xfce4-terminal",
+    "console": "xfce4-terminal",
+    "files": "thunar",
+    "file manager": "thunar",
+    "folder": "thunar",
+    "documents": "thunar ~/Documents",
+    "downloads": "thunar ~/Downloads",
+    "desktop": "thunar ~/Desktop",
+    "settings": "xfce4-settings-manager",
+    "calculator": "gnome-calculator",
+    "editor": "mousepad",
+    "text editor": "mousepad",
+    "code": "code",
+    "vscode": "code",
+    "task manager": "xfce4-taskmanager"
+}
+
+def get_desktop_env():
+    env = dict(os.environ)
+    env["DISPLAY"] = ":0"
+    if "DBUS_SESSION_BUS_ADDRESS" not in env:
+        env["DBUS_SESSION_BUS_ADDRESS"] = "unix:path=/run/user/1000/bus"
+    return env
+
 def run_cmd(cmd):
     try:
         res = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=15)
@@ -11,47 +57,38 @@ def run_cmd(cmd):
         return f"Error: {e}"
 
 def open_url(url: str) -> str:
-    if not url.startswith("http://") and not url.startswith("https://"):
-        url = "https://" + url
-    subprocess.Popen(f"x-www-browser '{url}'", shell=True, env=dict(os.environ, DISPLAY=":0"))
-    return f"Opened {url}"
+    url_clean = url.strip()
+    if not url_clean.startswith("http://") and not url_clean.startswith("https://"):
+        url_clean = "https://" + url_clean
+    subprocess.Popen(f"xdg-open '{url_clean}'", shell=True, env=get_desktop_env())
+    return f"Opened {url_clean}"
 
 def web_search(query: str, platform: str = "google") -> str:
-    encoded = urllib.parse.quote_plus(query)
+    encoded = urllib.parse.quote_plus(query.strip())
     if "youtube" in platform.lower():
         target = f"https://www.youtube.com/results?search_query={encoded}"
     else:
         target = f"https://www.google.com/search?q={encoded}"
-    subprocess.Popen(f"x-www-browser '{target}'", shell=True, env=dict(os.environ, DISPLAY=":0"))
-    return f"Searching {platform} for '{query}'"
+    return open_url(target)
 
 def open_app(app_name: str) -> str:
     app_lower = app_name.lower().strip()
-    
-    if "youtube" in app_lower:
-        return open_url("https://www.youtube.com")
-    if "google" in app_lower:
-        return open_url("https://www.google.com")
-    if "github" in app_lower:
-        return open_url("https://www.github.com")
 
-    mapping = {
-        "browser": "x-www-browser",
-        "firefox": "firefox",
-        "terminal": "xfce4-terminal",
-        "files": "thunar",
-        "file manager": "thunar",
-        "settings": "xfce4-settings-manager",
-        "calculator": "gnome-calculator",
-        "editor": "mousepad",
-        "text editor": "mousepad",
-        "code": "code",
-        "task manager": "xfce4-taskmanager",
-        "music": "pragha"
-    }
-    cmd = mapping.get(app_lower, app_lower)
+    for site_key, site_url in COMMON_SITES.items():
+        if site_key in app_lower:
+            return open_url(site_url)
+
+    for tld in [".com", ".org", ".net", ".io", ".in", ".co", ".app", ".ai"]:
+        if tld in app_lower:
+            return open_url(app_lower)
+
+    for app_key, cmd in APP_MAP.items():
+        if app_key in app_lower:
+            subprocess.Popen(cmd, shell=True, env=get_desktop_env())
+            return f"Opened {app_key}"
+
     try:
-        subprocess.Popen(cmd, shell=True, env=dict(os.environ, DISPLAY=":0"))
+        subprocess.Popen(app_lower, shell=True, env=get_desktop_env())
         return f"Opened {app_name}"
     except Exception as e:
         return f"Failed to open {app_name}: {e}"
