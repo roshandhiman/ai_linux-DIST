@@ -19,35 +19,33 @@ def get_active_model() -> str:
             pass
     return DEFAULT_MODEL
 
-SYSTEM_PROMPT = """You are an AI Operating System Agent embedded in an AI-powered Linux Distro.
-You have direct execution control over this OS, files, and connected hardware.
+SYSTEM_PROMPT = """You are an AI Operating System Assistant embedded in Linux.
+You respond in pure ENGLISH only. Never use Chinese or any other language.
 
-CRITICAL RULES:
-1. When asked to create, write, or generate a file, you MUST use action "create_file". Provide the target path and complete file content. Default paths: ~/Documents, ~/Desktop, or current folder.
-2. When asked to open apps, use action "open_app".
-3. When asked to run bash commands, use action "run_command".
-4. When asked to control volume, status, or hardware, use the corresponding action.
+Your job is to select the exact right action.
+
+Action Selection Rules:
+1. For conversations, greetings, questions about yourself, questions about programming, or small talk (e.g. "hi", "who are you", "what can you do"):
+   action must be "chat" and params must be {}. DO NOT call any tools.
+2. For opening websites or searching:
+   - "open youtube" or "open browser" -> action "open_app", params: {"app": "youtube" | "browser" | ...}
+   - "search youtube for X" or "search X on youtube" -> action "web_search", params: {"query": "X", "platform": "youtube"}
+   - "search google for X" -> action "web_search", params: {"query": "X", "platform": "google"}
+3. For creating/writing files:
+   - action "create_file", params: {"path": "~/Documents/filename.ext", "content": "file code or text"}
+4. For system status/memory:
+   - ONLY when user explicitly asks about RAM, memory, CPU, or disk -> action "system_status", params: {}
+5. For volume:
+   - action "set_volume", params: {"percentage": 0 to 100}
+6. For ESP32/Hardware:
+   - action "esp32_cmd", params: {"command": "LIGHT_ON" | "LIGHT_OFF" | "FAN_ON" | "FAN_OFF"}
 
 Output STRICT JSON only:
 {
-  "thought": "brief thought",
-  "action": "create_file" | "open_app" | "run_command" | "set_volume" | "system_status" | "esp32_cmd" | "bluetooth_scan" | "switch_model" | "chat",
+  "action": "chat" | "open_app" | "web_search" | "create_file" | "system_status" | "set_volume" | "esp32_cmd" | "run_command",
   "params": { ... },
-  "response": "short friendly response"
+  "response": "friendly response in English"
 }
-
-Params specifications:
-- "create_file": {"path": "~/Documents/script.py", "content": "..."}
-- "open_app": {"app": "firefox" | "thunar" | "terminal" | "settings" | "calculator"}
-- "run_command": {"cmd": "shell command"}
-- "set_volume": {"percentage": 0 to 100}
-- "system_status": {}
-- "esp32_cmd": {"command": "LIGHT_ON" | "LIGHT_OFF" | "FAN_ON"}
-- "bluetooth_scan": {}
-- "switch_model": {"model": "model_name"}
-- "chat": {}
-
-Never output conversational text outside the JSON.
 """
 
 def query_llm(prompt: str) -> dict:
@@ -56,7 +54,10 @@ def query_llm(prompt: str) -> dict:
         "model": model,
         "prompt": f"{SYSTEM_PROMPT}\nUser: {prompt}\nAI JSON:",
         "stream": False,
-        "format": "json"
+        "format": "json",
+        "options": {
+            "temperature": 0.2
+        }
     }
     req = urllib.request.Request(
         OLLAMA_API,
@@ -79,13 +80,17 @@ def execute_action(action_data: dict) -> dict:
     response = action_data.get("response", "")
 
     result_detail = None
-    if action == "create_file":
+    if action == "open_app":
+        app = params.get("app", "")
+        result_detail = system_ctrl.open_app(app)
+    elif action == "web_search":
+        q = params.get("query", "")
+        p = params.get("platform", "google")
+        result_detail = system_ctrl.web_search(q, p)
+    elif action == "create_file":
         path = params.get("path", "~/Documents/untitled.txt")
         content = params.get("content", "")
         result_detail = system_ctrl.create_file(path, content)
-    elif action == "open_app":
-        app = params.get("app", "")
-        result_detail = system_ctrl.open_app(app)
     elif action == "run_command":
         cmd = params.get("cmd", "")
         result_detail = system_ctrl.run_cmd(cmd)
@@ -101,9 +106,6 @@ def execute_action(action_data: dict) -> dict:
     elif action == "bluetooth_scan":
         devices = iot_ctrl.scan_bluetooth()
         result_detail = f"Found {len(devices)} device(s)"
-    elif action == "switch_model":
-        model = params.get("model", "")
-        result_detail = model_mgr.set_active_model(model, CONFIG_FILE)
 
     return {
         "response": response,
