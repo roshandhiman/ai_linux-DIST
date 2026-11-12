@@ -22,10 +22,10 @@ lock_socket = acquire_lock()
 class ChatHUD:
     def __init__(self, root):
         self.root = root
-        self.root.title("AI")
-        self.root.overrideredirect(True)
+        self.root.title("AI Assistant")
         self.root.attributes("-topmost", True)
         self.root.configure(bg="#0c0e14")
+        self.root.resizable(False, False)
 
         screen_w = self.root.winfo_screenwidth()
         screen_h = self.root.winfo_screenheight()
@@ -51,10 +51,6 @@ class ChatHUD:
         self.title_lbl = tk.Label(self.header, text="AI Assistant", font=("Segoe UI", 10, "bold"), fg="#e2e8f0", bg="#0f131a", padx=6)
         self.title_lbl.pack(side="left")
 
-        self.close_btn = tk.Label(self.header, text="✕", font=("Segoe UI", 10), fg="#64748b", bg="#0f131a", cursor="hand2")
-        self.close_btn.pack(side="right")
-        self.close_btn.bind("<Button-1>", lambda e: self.close())
-
         self.chat_canvas = tk.Canvas(self.main_frame, bg="#0f131a", bd=0, highlightthickness=0)
         self.scrollbar = ttk.Scrollbar(self.main_frame, orient="vertical", command=self.chat_canvas.yview)
         self.scrollable_frame = tk.Frame(self.chat_canvas, bg="#0f131a")
@@ -73,7 +69,6 @@ class ChatHUD:
 
         self.entry = tk.Entry(self.input_container, font=("Segoe UI", 11), bg="#161b24", fg="#f8fafc", insertbackground="#00f2fe", bd=0, highlightthickness=0)
         self.entry.pack(side="left", fill="x", expand=True, ipady=8, padx=10)
-        self.entry.focus_set()
 
         self.send_btn = tk.Label(self.input_container, text="↵", font=("Segoe UI", 12, "bold"), fg="#00f2fe", bg="#161b24", cursor="hand2", padx=10)
         self.send_btn.pack(side="right")
@@ -81,8 +76,15 @@ class ChatHUD:
 
         self.root.bind("<Return>", lambda e: self.on_send())
         self.root.bind("<Escape>", lambda e: self.close())
+        self.root.protocol("WM_DELETE_WINDOW", self.close)
 
+        self.root.after(100, self.focus_entry)
         self.add_message("assistant", "Hello! How can I help you today?")
+
+    def focus_entry(self):
+        self.root.focus_force()
+        self.entry.focus_set()
+        self.entry.focus_force()
 
     def close(self):
         try:
@@ -156,7 +158,7 @@ class ChatHUD:
     def finish_response(self, res):
         self.add_message("assistant", res.get("response", ""), res.get("detail"))
         self.entry.config(state="normal")
-        self.entry.focus_set()
+        self.focus_entry()
 
 if __name__ == "__main__":
     root = tk.Tk()
