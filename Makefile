@@ -5,8 +5,12 @@ REMOTE_DIR ?= /home/roshanpreet/distro-dev
 
 live-sync:
 	rsync -avz --exclude '.git' --exclude '*.gguf' --exclude '*.iso' ./ $(VM_HOST):$(REMOTE_DIR)/
-	ssh $(VM_HOST) "sudo mkdir -p /opt/ai && sudo cp -r $(REMOTE_DIR)/ai-agent/* /opt/ai/ && sudo ln -sf /opt/ai/jarvis.py /usr/local/bin/ai && sudo ln -sf /opt/ai/jarvis_gui.py /usr/local/bin/ai-hud && sudo chmod +x /usr/local/bin/ai /usr/local/bin/ai-hud /opt/ai/jarvis.py /opt/ai/jarvis_gui.py"
+	ssh $(VM_HOST) "sudo mkdir -p /opt/ai && sudo cp -r $(REMOTE_DIR)/ai-agent/* /opt/ai/ && sudo ln -sf /opt/ai/jarvis.py /usr/local/bin/ai && sudo ln -sf /opt/ai/jarvis_gui.py /usr/local/bin/ai-hud && sudo chmod +x /usr/local/bin/ai /usr/local/bin/ai-hud /opt/ai/*.py"
 	ssh $(VM_HOST) "sudo cp $(REMOTE_DIR)/desktop/ai.desktop /usr/share/applications/ && sudo chmod +x /usr/share/applications/ai.desktop"
+	ssh $(VM_HOST) "sudo cp $(REMOTE_DIR)/rootfs/etc/profile.d/ai-shell.sh /etc/profile.d/ && sudo chmod +x /etc/profile.d/ai-shell.sh"
+	ssh $(VM_HOST) "sudo cp $(REMOTE_DIR)/rootfs/etc/sysctl.d/99-ai-kernel.conf /etc/sysctl.d/ && sudo sysctl -p /etc/sysctl.d/99-ai-kernel.conf || true"
+	ssh $(VM_HOST) "sudo mkdir -p /etc/udev/rules.d && sudo cp $(REMOTE_DIR)/rootfs/etc/udev/rules.d/99-ai-hardware.rules /etc/udev/rules.d/ && sudo cp $(REMOTE_DIR)/rootfs/usr/local/bin/ai-hardware-event /usr/local/bin/ && sudo chmod +x /usr/local/bin/ai-hardware-event && sudo udevadm control --reload-rules || true"
+	ssh $(VM_HOST) "sudo cp $(REMOTE_DIR)/rootfs/etc/systemd/system/ai-sentinel.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now ai-sentinel.service || true"
 
 live-hud:
 	ssh $(VM_HOST) "DISPLAY=:0 python3 /opt/ai/jarvis_gui.py"
@@ -16,5 +20,5 @@ test-ai:
 
 git-push:
 	git add .
-	git commit -m "update core and ui"
+	git commit -m "update deep os kernel, udev, sentinel and shell integrations"
 	git push origin main
