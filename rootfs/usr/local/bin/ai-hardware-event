@@ -10,3 +10,4 @@ if [[ -n "${DISPLAY:-}" || -f "/tmp/.X11-unix/X0" ]]; then
     export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/1000/bus"
     notify-send "⚡ Hardware Connected" "Device ${DEVICE} ready for AI control" -u normal -a "AI Core" || true
 fi
+

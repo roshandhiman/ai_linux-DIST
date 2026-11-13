@@ -3,3 +3,4 @@ SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", SYMLINK+="a
 SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", MODE="0666", SYMLINK+="ai-serial", TAG+="systemd"
 SUBSYSTEM=="tty", KERNEL=="ttyUSB*|ttyACM*", MODE="0666", SYMLINK+="ai-iot", TAG+="systemd", RUN+="/usr/local/bin/ai-hardware-event add %k"
 SUBSYSTEM=="bluetooth", ACTION=="add", RUN+="/usr/local/bin/ai-hardware-event bt_add %k"
+
