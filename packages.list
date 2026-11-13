@@ -35,3 +35,19 @@ python3-pip
 build-essential
 cmake
 
+picom
+plank
+tint2
+rofi
+arc-theme
+papirus-icon-theme
+fonts-inter
+python3-gi
+python3-requests
+gir1.2-gtk-3.0
+dconf-cli
+pavucontrol
+gvfs-backends
+gvfs-fuse
+thunar-archive-plugin
+file-roller

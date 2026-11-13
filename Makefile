@@ -1,7 +1,7 @@
 VM_HOST ?= roshanpreet@10.211.55.12
 REMOTE_DIR ?= /home/roshanpreet/distro-dev
 
-.PHONY: live-sync live-hud test-ai git-push
+.PHONY: live-sync live-desktop live-hud test-ai git-push
 
 live-sync:
 	rsync -avz --exclude '.git' --exclude '*.gguf' --exclude '*.iso' ./ $(VM_HOST):$(REMOTE_DIR)/
@@ -11,6 +11,11 @@ live-sync:
 	ssh $(VM_HOST) "sudo cp $(REMOTE_DIR)/rootfs/etc/sysctl.d/99-ai-kernel.conf /etc/sysctl.d/ && sudo sysctl -p /etc/sysctl.d/99-ai-kernel.conf || true"
 	ssh $(VM_HOST) "sudo mkdir -p /etc/udev/rules.d && sudo cp $(REMOTE_DIR)/rootfs/etc/udev/rules.d/99-ai-hardware.rules /etc/udev/rules.d/ && sudo cp $(REMOTE_DIR)/rootfs/usr/local/bin/ai-hardware-event /usr/local/bin/ && sudo chmod +x /usr/local/bin/ai-hardware-event && sudo udevadm control --reload-rules || true"
 	ssh $(VM_HOST) "sudo cp $(REMOTE_DIR)/rootfs/etc/systemd/system/ai-sentinel.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now ai-sentinel.service || true"
+
+live-desktop:
+	rsync -avz --exclude '__pycache__' desktop/ $(VM_HOST):/opt/ai/desktop/
+	rsync -avz ai-agent/jarvis_gui.py $(VM_HOST):/opt/ai/jarvis_gui.py
+	ssh $(VM_HOST) "chmod +x /opt/ai/desktop/*.sh /opt/ai/jarvis_gui.py && bash /opt/ai/desktop/apply-theme.sh"
 
 live-hud:
 	ssh $(VM_HOST) "DISPLAY=:0 python3 /opt/ai/jarvis_gui.py"

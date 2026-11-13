@@ -1,0 +1,31 @@
+@define-color theme_bg_color #f2f2f2;
+@define-color theme_fg_color #242424;
+@define-color theme_base_color #ffffff;
+@define-color theme_text_color #242424;
+@define-color theme_selected_bg_color #d6d6d6;
+@define-color theme_selected_fg_color #171717;
+@define-color insensitive_fg_color #929292;
+@define-color borders #d1d1d1;
+@define-color selected_bg_color #d6d6d6;
+@define-color selected_fg_color #171717;
+window, .background { background-color: #f5f5f5; color: #242424; }
+headerbar, .titlebar { background-image: none; background-color: #ededed; border-color: #d1d1d1; color: #303030; box-shadow: none; min-height: 35px; }
+button { background-image: none; background-color: #f6f6f6; color: #333333; border: 1px solid #cfcfcf; border-radius: 4px; box-shadow: none; text-shadow: none; padding: 5px 8px; }
+button:hover { background-color: #e8e8e8; border-color: #b5b5b5; }
+button:active, button:checked { background-color: #d9d9d9; color: #222222; }
+button.flat, toolbar button { background-color: transparent; border-color: transparent; }
+button.flat:hover, toolbar button:hover { background-color: #dddddd; }
+entry { background-image: none; background-color: #ffffff; color: #282828; border: 1px solid #c8c8c8; border-radius: 4px; box-shadow: none; padding: 6px 9px; caret-color: #333333; }
+entry:focus { border-color: #777777; }
+menu, .menu, popover { background-color: #f6f6f6; color: #252525; border-color: #cccccc; border-radius: 5px; }
+menuitem { padding: 5px 9px; }
+menuitem:hover { background-color: #dddddd; color: #111111; }
+toolbar, menubar { background-color: #ededed; border-color: #d4d4d4; color: #333333; }
+.view, iconview, treeview { background-color: #ffffff; color: #292929; }
+.view:selected, iconview:selected, treeview:selected { background-color: #d9d9d9; color: #111111; }
+.sidebar, .sidebar .view, placessidebar, placessidebar .view { background-color: #eeeeee; color: #393939; }
+separator { background-color: #d5d5d5; min-height: 1px; min-width: 1px; }
+scrollbar { background-color: transparent; }
+scrollbar slider { background-color: #b6b6b6; border-radius: 5px; min-width: 5px; min-height: 5px; }
+tooltip { background-color: #333333; color: #ffffff; border: none; border-radius: 4px; }
+selection { background-color: #d9d9d9; color: #111111; }

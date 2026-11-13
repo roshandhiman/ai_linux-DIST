@@ -1,20 +1,26 @@
 # MineOS
 
-A standalone AI-powered Linux operating system built with the Linux kernel and drivers, featuring a macOS x Windows 11 hybrid UI, embedded offline Qwen 2.5 1.5B, kernel-level telemetry, and hardware/IoT integration.
+A Debian-based Linux desktop project with a local Ollama assistant, a terminal agent, and system-monitoring services. Development currently targets Debian 13 ARM64 on Parallels.
 
-## Build Standalone Bootable ISO
+The desktop uses XFCE/X11, Thunar, a neutral light GTK theme, a slim charcoal top panel, a compact translucent Plank dock, and a photographic wallpaper. The assistant opens on demand; the desktop does not display service badges, promotional text, or a custom file-manager dashboard.
 
-Anyone on Debian/Ubuntu can build the complete bootable ISO with a single command:
+## Update the live desktop
+
+From the existing checkout, with SSH access to the Debian desktop user:
 
 ```bash
-git clone https://github.com/roshandhiman/ai_linux-DIST.git
-cd ai_linux-DIST
-sudo ./build-iso.sh
+make live-desktop
 ```
 
-## Features
-- **Linux Kernel & Hardware Drivers**: Full Wi-Fi, Bluetooth, GPU, audio, and USB support out-of-the-box.
-- **Custom Hybrid Desktop Shell**: macOS top translucent bar + Windows 11 centered floating glass dock.
-- **Embedded Offline AI**: Pre-baked Qwen 2.5 1.5B running on a native system daemon without internet.
-- **Kernel-Level Integration**: Udev hardware hotplug hooks (`/dev/ai-iot`, ESP32/Arduino) and kernel ring-buffer sentinel (`ai-sentinel.service`).
-- **Terminal Copilot**: Native shell execution (`?? <query>`) and kernel error diagnostics.
+Override `VM_HOST` when needed. This target copies only the desktop and graphical assistant and applies the user-session appearance. It does not build an ISO.
+
+Desktop setup and dependencies are documented in [desktop/README.md](desktop/README.md). Desktop runtime packages are listed in `packages.list`.
+
+## Other components
+
+- `ai-agent/jarvis.py`: terminal agent.
+- `ai-agent/jarvis_gui.py`: native GTK3 assistant with local model requests and explicit app actions.
+- `ai-agent/sentinel.py`: kernel-message monitoring service.
+- `rootfs/`: system service and shell integration overlays.
+
+`build-iso.sh` is the earlier image-build prototype. It has not been updated or executed as part of the desktop redesign, and its Openbox setup does not yet reproduce the current XFCE desktop. Use the live Debian VM to review this desktop.

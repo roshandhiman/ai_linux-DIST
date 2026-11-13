@@ -1,0 +1,17 @@
+configuration {
+    modi: "drun";
+    show-icons: true;
+    display-drun: "";
+    drun-display-format: "{name}";
+    font: "Inter 11";
+}
+* { background-color: transparent; text-color: #252525; border-color: #c2c2c2; }
+window { width: 520px; border: 1px; border-radius: 9px; background-color: #f3f3f3f5; padding: 14px; }
+mainbox { spacing: 10px; children: [ inputbar, listview ]; }
+inputbar { background-color: #ffffff; border: 1px; border-color: #c7c7c7; border-radius: 5px; padding: 12px; children: [ entry ]; }
+entry { placeholder: "Search"; placeholder-color: #888888; }
+listview { lines: 7; columns: 1; spacing: 2px; fixed-height: false; scrollbar: false; }
+element { padding: 9px; border-radius: 4px; spacing: 12px; }
+element selected.normal { background-color: #dedede; }
+element-icon { size: 28px; }
+element-text { vertical-align: 0.5; }

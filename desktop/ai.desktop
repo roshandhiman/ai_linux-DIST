@@ -1,11 +1,10 @@
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=AI Core
-Comment=System AI Assistant & Controller
-Exec=/usr/local/bin/ai-hud
-Icon=utilities-terminal
+Name=Assistant
+Exec=python3 /opt/ai/jarvis_gui.py
+Icon=system-search
 Terminal=false
-Categories=Utility;System;
+Categories=Utility;
+StartupWMClass=MineAI
 StartupNotify=true
-
