@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Desktop Companion
+Exec=python3 /opt/ai/desktop/companion.py
+Icon=face-smile
+Terminal=false
+Categories=Utility;

@@ -14,7 +14,7 @@ live-sync:
 
 live-desktop:
 	rsync -avz --exclude '__pycache__' desktop/ $(VM_HOST):/opt/ai/desktop/
-	rsync -avz ai-agent/jarvis_gui.py $(VM_HOST):/opt/ai/jarvis_gui.py
+	rsync -avz ai-agent/jarvis_gui.py ai-agent/research.py ai-agent/artifacts.py $(VM_HOST):/opt/ai/
 	ssh $(VM_HOST) "chmod +x /opt/ai/desktop/*.sh /opt/ai/jarvis_gui.py && bash /opt/ai/desktop/apply-theme.sh"
 
 live-hud:

@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=MineOS
+Description=MineOS startup animation
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/mineos
+ScriptFile=/usr/share/plymouth/themes/mineos/mineos.script

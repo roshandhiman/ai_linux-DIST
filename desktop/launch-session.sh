@@ -22,3 +22,6 @@ fi
 if ! pgrep -u "$(id -u)" -x plank >/dev/null; then
     nohup plank >>"$STATE_DIR/dock.log" 2>&1 </dev/null 9>&- &
 fi
+if ! pgrep -u "$(id -u)" -f '^(/usr/bin/)?python3 /opt/ai/desktop/companion.py$' >/dev/null; then
+    nohup python3 /opt/ai/desktop/companion.py >>"$STATE_DIR/companion.log" 2>&1 </dev/null 9>&- &
+fi

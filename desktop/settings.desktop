@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Settings
+Exec=python3 /opt/ai/desktop/settings.py
+Icon=preferences-desktop
+Terminal=false
+Categories=Settings;DesktopSettings;
+StartupWMClass=MineOSSettings

@@ -2,7 +2,7 @@
 
 A Debian-based Linux desktop project with a local Ollama assistant, a terminal agent, and system-monitoring services. Development currently targets Debian 13 ARM64 on Parallels.
 
-The desktop uses XFCE/X11, Thunar, a neutral light GTK theme, a slim charcoal top panel, a compact translucent Plank dock, and a photographic wallpaper. The assistant opens on demand; the desktop does not display service badges, promotional text, or a custom file-manager dashboard.
+The desktop uses XFCE/X11, Thunar, neutral light and dark GTK themes, a slim charcoal top panel, a compact translucent Plank dock, and still or live wallpaper. The assistant opens on demand; the desktop does not display service badges, promotional text, or a custom file-manager dashboard.
 
 ## Update the live desktop
 
@@ -23,4 +23,12 @@ Desktop setup and dependencies are documented in [desktop/README.md](desktop/REA
 - `ai-agent/sentinel.py`: kernel-message monitoring service.
 - `rootfs/`: system service and shell integration overlays.
 
-`build-iso.sh` is the earlier image-build prototype. It has not been updated or executed as part of the desktop redesign, and its Openbox setup does not yet reproduce the current XFCE desktop. Use the live Debian VM to review this desktop.
+## Startup branding
+
+Run `sudo bash boot/install.sh` on the installed Debian guest to apply the MineOS GRUB label and Plymouth theme. The installer backs up the system label and boot settings before updating the running kernel's initramfs.
+
+## Live ISO
+
+On a native Debian 13 ARM64 or AMD64 build machine, run `sudo bash build-iso.sh /absolute/path/to/MineOS.iso`. The builder creates a separate temporary Debian root and uses the XFCE desktop and MineOS splash from this repository. Building an ISO can use several gigabytes of disk space and downloads packages from Debian.
+
+Set `MINEOS_OLLAMA_DIR` to a trusted Ollama installation tree containing `bin/ollama` and `lib/ollama` to embed the local engine. Set `MINEOS_OLLAMA_MODELS` to its model store to include downloaded model weights. Without the Ollama tree the live desktop starts normally and Assistant needs a local model service.

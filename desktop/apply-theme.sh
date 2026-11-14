@@ -54,7 +54,11 @@ Icon=user-trash
 Terminal=false
 Categories=Utility;
 ENTRY
-for app in thunar firefox-esr xfce4-terminal org.xfce.mousepad xfce-settings-manager; do
+cp "$DESKTOP_DIR/settings.desktop" "$HOME/.local/share/applications/org.mineos.Settings.desktop"
+cp "$DESKTOP_DIR/companion.desktop" "$HOME/.local/share/applications/org.mineos.Companion.desktop"
+printf '[PlankDockItemPreferences]\nLauncher=file://%s\n' "$HOME/.local/share/applications/org.mineos.Settings.desktop" > "$HOME/.config/plank/dock1/launchers/mineos-settings.dockitem"
+printf '[PlankDockItemPreferences]\nLauncher=file://%s\n' "$HOME/.local/share/applications/org.mineos.Assistant.desktop" > "$HOME/.config/plank/dock1/launchers/mineos-assistant.dockitem"
+for app in thunar firefox-esr xfce4-terminal org.xfce.mousepad; do
     app_file="/usr/share/applications/$app.desktop"
     if [[ -f "$app_file" ]]; then
         printf '[PlankDockItemPreferences]\nLauncher=file://%s\n' "$app_file" > "$HOME/.config/plank/dock1/launchers/$app.dockitem"
@@ -62,7 +66,7 @@ for app in thunar firefox-esr xfce4-terminal org.xfce.mousepad xfce-settings-man
 done
 printf '[PlankDockItemPreferences]\nLauncher=file://%s\n' "$HOME/.local/share/applications/org.mineos.Trash.desktop" > "$HOME/.config/plank/dock1/launchers/trash.dockitem"
 dconf load / < "$DESKTOP_DIR/plank.conf"
-gsettings set net.launchpad.plank.dock.settings:/net/launchpad/plank/docks/dock1/ dock-items "['thunar.dockitem', 'firefox-esr.dockitem', 'xfce4-terminal.dockitem', 'org.xfce.mousepad.dockitem', 'xfce-settings-manager.dockitem', 'trash.dockitem']"
+gsettings set net.launchpad.plank.dock.settings:/net/launchpad/plank/docks/dock1/ dock-items "['thunar.dockitem', 'firefox-esr.dockitem', 'xfce4-terminal.dockitem', 'mineos-assistant.dockitem', 'mineos-settings.dockitem', 'trash.dockitem']"
 set_string() { xfconf-query -c "$1" -p "$2" --create -t string -s "$3"; }
 set_bool() { xfconf-query -c "$1" -p "$2" --create -t bool -s "$3"; }
 set_int() { xfconf-query -c "$1" -p "$2" --create -t int -s "$3"; }
@@ -91,7 +95,7 @@ done < <(xfconf-query -c xfce4-desktop -l)
 set_string xfce4-keyboard-shortcuts '/commands/custom/<Super>space' /opt/ai/desktop/launcher.sh
 set_string xfce4-keyboard-shortcuts '/commands/custom/<Super>e' thunar
 set_string xfce4-keyboard-shortcuts '/commands/custom/<Super>a' 'python3 /opt/ai/jarvis_gui.py'
-set_string xfce4-keyboard-shortcuts '/commands/custom/<Super>i' xfce4-settings-manager
+set_string xfce4-keyboard-shortcuts '/commands/custom/<Super>i' 'python3 /opt/ai/desktop/settings.py'
 set_string thunar /last-view ThunarIconView
 set_int thunar /last-window-width 790
 set_int thunar /last-window-height 500
@@ -131,9 +135,10 @@ Exec=/opt/ai/desktop/launch-session.sh
 OnlyShowIn=XFCE;
 Terminal=false
 ENTRY
-chmod +x "$DESKTOP_DIR/apply-theme.sh" "$DESKTOP_DIR/launch-session.sh" "$DESKTOP_DIR/launcher.sh"
+python3 "$DESKTOP_DIR/preferences.py"
 update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 pkill -u "$(id -u)" -x xfce4-panel 2>/dev/null || true
+pkill -u "$(id -u)" -f '^(/usr/bin/)?python3 /opt/ai/desktop/companion.py$' 2>/dev/null || true
 pkill -u "$(id -u)" -x tint2 2>/dev/null || true
 pkill -u "$(id -u)" -x picom 2>/dev/null || true
 sleep 0.3

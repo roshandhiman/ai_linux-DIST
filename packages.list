@@ -51,3 +51,11 @@ gvfs-backends
 gvfs-fuse
 thunar-archive-plugin
 file-roller
+gir1.2-gstreamer-1.0
+gstreamer1.0-gtk3
+gstreamer1.0-libav
+gstreamer1.0-plugins-good
+python3-cairo
+python3-gi-cairo
+plymouth
+plymouth-themes
