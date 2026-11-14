@@ -8,10 +8,12 @@ it is a JSON line to the parent, which decides -- see ``os_api.py``.
 
 Wire protocol, one JSON object per line:
 
-    parent -> child   {"code": str, "fns": [str], "imports": [str], "max_out": int}
+    parent -> child   {"fns": [str], "imports": [str], "max_out": int}     once
+    parent -> child   {"code": str}                                      per block
     child  -> parent  {"t": "call", "fn": str, "args": [...], "kwargs": {...}}
     parent -> child   {"ok": true, "value": ...} | {"ok": false, "error": str}
-    child  -> parent  {"t": "done", "out": str, "error": str | null}
+    child  -> parent  {"t": "done", "out": str, "error": str | null}  end of block
+    parent -> child   {"t": "exit"}                                      end of request
 """
 
 import json
@@ -75,10 +77,9 @@ def _public_view(module):
 
 
 def main():
-    request = _receive()
-    code = request["code"]
-    allowed = frozenset(request.get("imports", ()))
-    max_out = int(request.get("max_out", 4000))
+    setup = _receive()
+    allowed = frozenset(setup.get("imports", ()))
+    max_out = int(setup.get("max_out", 4000))
     captured = []
     size = [0]
 
@@ -110,9 +111,21 @@ def main():
     safe_builtins["MineError"] = MineError
     safe_builtins["True"], safe_builtins["False"], safe_builtins["None"] = True, False, None
 
-    mine = types.SimpleNamespace(**{name: _make_call(name) for name in request["fns"]})
+    mine = types.SimpleNamespace(**{name: _make_call(name) for name in setup["fns"]})
+    # One namespace for the whole request, so a variable from step one is
+    # still there in step two -- the way a notebook works.
     scope = {"__builtins__": safe_builtins, "__name__": "__mine__", "mine": mine}
 
+    while True:
+        request = _receive()
+        if request.get("t") == "exit" or "code" not in request:
+            return
+        captured.clear()
+        size[0] = 0
+        _run_block(request["code"], scope, captured, size, max_out)
+
+
+def _run_block(code, scope, captured, size, max_out):
     error = None
     try:
         exec(compile(code, "<mine>", "exec"), scope)

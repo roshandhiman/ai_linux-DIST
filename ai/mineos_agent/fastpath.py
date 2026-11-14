@@ -27,7 +27,9 @@ def run_fast(route: Route, api: OsApi) -> FastResult | None:
         return None
     try:
         return handler(route.slots, api)
-    except ApiError:
+    except (ApiError, OSError, ValueError):
+        # OSError: the program to launch is missing. The model gets a go,
+        # and its own call will come back with a readable error.
         return None
 
 

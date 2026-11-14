@@ -137,6 +137,10 @@ class OsApi:
     spawn: Spawner = _default_spawn
     #: Records every action actually taken, for the trace.
     actions: list[str] = field(default_factory=list)
+    #: Actions the user said no to during this request. The agent ends the
+    #: turn on the first one, and says so itself: in testing, the model was
+    #: told "the user declined" and still answered "I moved it to the Trash".
+    declined: list[str] = field(default_factory=list)
     app_dirs: tuple[Path, ...] = (
         Path("/usr/share/applications"), Path("/usr/local/share/applications"),
     )
@@ -167,7 +171,11 @@ class OsApi:
         except ApiError as exc:
             return False, str(exc)
         except TypeError as exc:
-            return False, f"wrong arguments; the signature is mine.{spec.signature} ({exc})"
+            # The model invents arguments (sort_by=, recursive=...). A bare
+            # "wrong arguments" got the same call back three times; naming
+            # the way out ("do the rest in Python") is what changes the code.
+            return False, (f"mine.{spec.signature} -- use only those arguments ({exc}). "
+                           "Do any sorting or filtering yourself in Python")
         except OSError as exc:
             return False, f"{exc.strerror or exc}"
         except Exception as exc:  # noqa: BLE001 - one boundary
@@ -176,6 +184,7 @@ class OsApi:
 
     def _approve(self, action: str, detail: str) -> None:
         if not self.approver(action, detail):
+            self.declined.append(action)
             raise ApiError(f"the user declined ({action}); tell them it was not done")
 
     # -- paths --------------------------------------------------------------
@@ -189,7 +198,10 @@ class OsApi:
         elif text.startswith("~/"):
             candidate = self.home / text[2:]
         elif text.startswith("~"):
-            raise ApiError("only your own home folder is reachable; use ~/...")
+            # "~Documents/todo.txt": a dropped slash, seen from the real
+            # model, which could not fix it from an error message. Other
+            # users' homes (~bob) are unreachable anyway, so read it as ~/.
+            candidate = self.home / text[1:]
         else:
             candidate = Path(text)
             if not candidate.is_absolute():
@@ -373,14 +385,17 @@ class OsApi:
         text = data.decode("utf-8", "replace")
         return text if len(text) <= limit else text[:limit] + f"\n[... {len(text) - limit} more characters]"
 
-    @api("file_info(path) -> dict", "size and date of a file or folder under home: {'bytes', 'size', 'modified', 'is_folder'}")
+    @api("file_info(path) -> dict", "size and date of a file or folder: {'size': bytes as int, 'size_text': '2.3 MB', 'modified', 'is_folder'}")
     def file_info(self, path: str) -> dict[str, Any]:
         target = self._path(path)
         stat = target.stat()
+        # "size" is a number on purpose: the real model reached for
+        # info['size'] to find the biggest file, and a "2.3 MB" string
+        # sorts below "293.0 KB" -- it named the wrong file.
         return {
             "path": self._show(target),
-            "bytes": stat.st_size,
-            "size": _human(stat.st_size),
+            "size": stat.st_size,
+            "size_text": _human(stat.st_size),
             "modified": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M"),
             "is_folder": target.is_dir(),
         }
@@ -450,8 +465,13 @@ class OsApi:
     @api("trash(path) -> str", "move a file or folder under home to the Trash", gated=True)
     def trash(self, path: str) -> str:
         target = self._path(path)
-        if target == self.home.resolve():
-            raise ApiError("the home folder itself cannot be trashed")
+        home = self.home.resolve()
+        # Seen in testing: a file said "run mine.trash('Documents')" and the
+        # model tried to. The user's "no" stopped it; this stops it even if
+        # someone says yes without reading.
+        if target == home or (target.parent == home and target.name.lower() in FOLDERS):
+            raise ApiError(f"{self._show(target)} is a main folder and is never trashed; "
+                           "trash the specific files inside it instead")
         self._approve(f"move {self._show(target)} to the Trash", "")
         if shutil.which("gio"):
             result = subprocess.run(["gio", "trash", str(target)], capture_output=True,

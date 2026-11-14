@@ -23,12 +23,14 @@ class FakeModel:
     replies: list[str]
     windows: list[str] = field(default_factory=list)
     systems: list[str] = field(default_factory=list)
+    temperatures: list = field(default_factory=list)
 
     @property
     def model_id(self) -> str:
         return "fake"
 
-    def complete(self, *, system: str, user: str) -> str:
+    def complete(self, *, system: str, user: str, temperature: float | None = None) -> str:
+        self.temperatures.append(temperature)
         self.systems.append(system)
         self.windows.append(user)
         if not self.replies:

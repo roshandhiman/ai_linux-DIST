@@ -44,7 +44,7 @@ class ChatModel(Protocol):
     @property
     def model_id(self) -> str: ...
 
-    def complete(self, *, system: str, user: str) -> str: ...
+    def complete(self, *, system: str, user: str, temperature: float | None = None) -> str: ...
 
 
 _THINK = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
@@ -86,9 +86,12 @@ class OpenAIChat:
             "stream": stream,
         }
 
-    def complete(self, *, system: str, user: str) -> str:
+    def complete(self, *, system: str, user: str, temperature: float | None = None) -> str:
         started = time.monotonic()
-        request = self._request(self._payload(system, user, stream=False))
+        payload = self._payload(system, user, stream=False)
+        if temperature is not None:
+            payload["temperature"] = temperature
+        request = self._request(payload)
         try:
             with urllib.request.urlopen(request, timeout=self.config.timeout) as response:
                 body = json.loads(response.read().decode("utf-8"))

@@ -15,7 +15,6 @@ printed, and the cost. ``--quiet`` hides it for normal use.
 import argparse
 import os
 import sys
-from pathlib import Path
 
 from . import __version__
 from .agent import Agent, Outcome, Turn
@@ -116,6 +115,11 @@ def _show_turn(turn: Turn, trace: Trace) -> None:
     else:
         style = "1" if turn.outcome is Outcome.ANSWERED else "1;33"
         _out(_c(style, turn.answer))
+    # What the harness actually did, independent of what the model said.
+    for action in turn.declined:
+        _out(_c("33", f"  not done (you said no): {action}"))
+    if trace.enabled and turn.actions:
+        _out(_c("2", "  done: " + "; ".join(turn.actions)))
     if trace.enabled:
         bits = [turn.mode]
         if turn.model_calls:
@@ -125,7 +129,7 @@ def _show_turn(turn: Turn, trace: Trace) -> None:
         if turn.peak_tokens:
             bits.append(f"~{turn.peak_tokens} tokens")
         bits.append(f"{turn.seconds:.1f}s")
-        if turn.outcome is not Outcome.ANSWERED:
+        if not turn.ok:
             bits.append(str(turn.outcome))
         _out(_c("2", "  (" + ", ".join(bits) + ")"))
 

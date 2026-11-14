@@ -37,6 +37,21 @@ class ValidateTests(unittest.TestCase):
         self.assertIn("line 2", validate("x = 1\nprint(x"))
 
 
+class TidyTests(unittest.TestCase):
+    def test_unused_forbidden_import_is_dropped(self):
+        from mineos_agent.sandbox import drop_unused_imports
+        self.assertEqual(drop_unused_imports("import os\nprint(mine.now())"), "print(mine.now())")
+        self.assertEqual(drop_unused_imports("import os, sys\nx = 1"), "x = 1")
+
+    def test_used_or_allowed_imports_are_kept(self):
+        from mineos_agent.sandbox import drop_unused_imports
+        used = "import os\nprint(os.name)"
+        self.assertEqual(drop_unused_imports(used), used)
+        self.assertIsNotNone(validate(drop_unused_imports(used)))
+        allowed = "import math\nprint(1)"
+        self.assertEqual(drop_unused_imports(allowed), allowed)
+
+
 class RunTests(unittest.TestCase):
     def setUp(self):
         self.sandbox = Sandbox(timeout=15, use_bwrap=False)
