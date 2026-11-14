@@ -11,7 +11,8 @@ for command in update-grub update-initramfs plymouth-set-default-theme; do
     command -v "$command" >/dev/null
 done
 BACKUP="$(mktemp -d /var/backups/mineos-startup-XXXXXXXX)"
-install -d -m 755 /etc/default/grub.d /usr/share/plymouth/themes/mineos
+install -d -m 755 /etc/default/grub.d /usr/share/plymouth/themes/mineos /usr/share/backgrounds/mineos
+install -m 644 "$SOURCE/../desktop/assets/dunes.png" /usr/share/backgrounds/mineos/dunes.png
 cp -a /etc/os-release "$BACKUP/os-release"
 cp -L /etc/os-release "$BACKUP/os-release-effective"
 cp -a /boot/grub/grub.cfg "$BACKUP/grub.cfg"
@@ -32,6 +33,7 @@ install -m 644 "$BACKUP/mineos-os-release" /etc/.mineos-os-release
 mv -Tf /etc/.mineos-os-release /etc/os-release
 cat > /etc/default/grub.d/95-mineos.cfg <<'GRUB'
 GRUB_DISTRIBUTOR="MineOS"
+GRUB_BACKGROUND="/usr/share/backgrounds/mineos/dunes.png"
 case " ${GRUB_CMDLINE_LINUX_DEFAULT:-} " in
     *" splash "*) ;;
     *) GRUB_CMDLINE_LINUX_DEFAULT="${GRUB_CMDLINE_LINUX_DEFAULT:-quiet} splash" ;;

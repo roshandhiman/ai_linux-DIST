@@ -66,6 +66,7 @@ install -m 644 "$SOURCE/desktop/companion.desktop" "$ROOTFS/usr/share/applicatio
 install -m 644 "$SOURCE/desktop/ai.desktop" "$ROOTFS/usr/share/applications/org.mineos.Assistant.desktop"
 install -m 644 "$SOURCE/boot/mineos/mineos.script" "$SOURCE/boot/mineos/mineos.plymouth" "$ROOTFS/usr/share/plymouth/themes/mineos/"
 install -m 644 "$SOURCE/rootfs/etc/lightdm/lightdm.conf.d/live.conf" "$ROOTFS/etc/lightdm/lightdm.conf.d/40-mineos.conf"
+bash "$SOURCE/boot/install-login.sh" "$ROOTFS"
 
 awk '
     /^NAME=/ { print "NAME=\"MineOS\""; next }

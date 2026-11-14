@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="151" height="38" viewBox="0 0 151 38">
+  <rect x="1" y="3" width="32" height="32" rx="8" fill="#efd0a7"/>
+  <path d="M9 26V12l8 8 8-8v14" fill="none" stroke="#2b2017" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="44" y="28" fill="#fff4e4" font-family="Inter, sans-serif" font-size="27" font-weight="700" letter-spacing="-.7">MineOS</text>
+</svg>

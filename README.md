@@ -27,6 +27,8 @@ Desktop setup and dependencies are documented in [desktop/README.md](desktop/REA
 
 Run `sudo bash boot/install.sh` on the installed Debian guest to apply the MineOS GRUB label and Plymouth theme. The installer backs up the system label and boot settings before updating the running kernel's initramfs.
 
+Apply the MineOS sign-in theme with `sudo bash boot/install-login.sh`. LightDM picks it up the next time the sign-in screen opens.
+
 ## Live ISO
 
 On a native Debian 13 ARM64 or AMD64 build machine, run `sudo bash build-iso.sh /absolute/path/to/MineOS.iso`. The builder creates a separate temporary Debian root and uses the XFCE desktop and MineOS splash from this repository. Building an ISO can use several gigabytes of disk space and downloads packages from Debian.
