@@ -117,6 +117,12 @@ ColorBackground=#252525
 ColorCursor=#ffffff
 BackgroundMode=TERMINAL_BACKGROUND_SOLID
 TERMINAL
+cat > "$HOME/.config/autostart/picom.desktop" <<'ENTRY'
+[Desktop Entry]
+Type=Application
+Name=Picom
+Hidden=true
+ENTRY
 cat > "$HOME/.config/autostart/mineos-ui.desktop" <<'ENTRY'
 [Desktop Entry]
 Type=Application
