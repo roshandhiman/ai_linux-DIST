@@ -4,6 +4,15 @@ A Debian-based Linux desktop project with a local Ollama assistant, a terminal a
 
 The desktop uses XFCE/X11, Thunar, neutral light and dark GTK themes, a slim charcoal top panel, a compact translucent Plank dock, and still or live wallpaper. The assistant opens on demand; the desktop does not display service badges, promotional text, or a custom file-manager dashboard.
 
+## Download MineOS 1.0 Live ISO
+
+| System | Download |
+| --- | --- |
+| Apple Silicon Mac (Parallels) or ARM64 UEFI VM | [ARM64 ISO](https://github.com/roshandhiman/ai_linux-DIST/actions/runs/43559432344/artifacts/14099846829) |
+| 64-bit Intel or AMD PC (UEFI or legacy BIOS) | [x86-64 ISO](https://github.com/roshandhiman/ai_linux-DIST/actions/runs/43559432344/artifacts/14099776983) |
+
+Sign in to GitHub to download. Unzip the artifact to get the `.iso` and its SHA-256 checksum. These links expire on November 28, 2026. For newer builds, open the latest successful [Build MineOS ISOs run](https://github.com/roshandhiman/ai_linux-DIST/actions/workflows/build-iso.yml?query=branch%3Amain+is%3Asuccess) and scroll to **Artifacts**.
+
 ## Update the live desktop
 
 From the existing checkout, with SSH access to the Debian desktop user:
@@ -29,13 +38,11 @@ Run `sudo bash boot/install.sh` on the installed Debian guest to apply the MineO
 
 Apply the MineOS sign-in theme with `sudo bash boot/install-login.sh`. LightDM picks it up the next time the sign-in screen opens.
 
-## Live ISO
+## Build a live ISO
 
 On a native Debian 13 ARM64 or AMD64 build machine, run `sudo bash build-iso.sh /absolute/path/to/MineOS.iso`. The builder creates a separate temporary Debian root and uses the XFCE desktop and MineOS splash from this repository. Building an ISO can use several gigabytes of disk space and downloads packages from Debian.
 
 Set `MINEOS_OLLAMA_DIR` to a trusted Ollama installation tree containing `bin/ollama` and `lib/ollama` to embed the local engine. Set `MINEOS_OLLAMA_MODELS` to its model store to include downloaded model weights. Without the Ollama tree the live desktop starts normally and Assistant needs a local model service.
-
-GitHub Actions builds ARM64 and x86-64 images in parallel and uploads the ISOs with SHA-256 checksums. Open the latest successful [Build MineOS ISOs run](https://github.com/roshandhiman/ai_linux-DIST/actions/workflows/build-iso.yml) and choose the artifact for your system. Unzip the artifact first.
 
 - **ARM64** boots in an ARM64 UEFI VM, such as Parallels on Apple Silicon.
 - **AMD64** boots on 64-bit Intel or AMD PCs, including machines that normally run Windows, and in compatible x86-64 VMs. The image supports UEFI and legacy BIOS. UEFI requires firmware configuration that permits the unsigned live bootloader.
