@@ -13,7 +13,13 @@ case "$ARCH" in
     amd64) grub_packages=(grub-efi-amd64-bin grub-pc-bin) ;;
     *) printf 'Unsupported architecture: %s\n' "$ARCH" >&2; exit 1 ;;
 esac
-OUTPUT=$(realpath -m -- "${1:-$PWD/MineOS-1.0-$ARCH.iso}")
+VERSION=$(tr -d '[:space:]' < "$SOURCE/VERSION")
+if [[ ! "$VERSION" =~ ^[0-9]+(\.[0-9]+)*$ ]]; then
+    printf 'VERSION must look like 1.0 or 1.2.3, got: %s\n' "$VERSION" >&2
+    exit 1
+fi
+BUILD_ID=${MINEOS_BUILD_ID:-$(date -u +%Y%m%d)}
+OUTPUT=$(realpath -m -- "${1:-$PWD/MineOS-$VERSION-$ARCH.iso}")
 if [[ -e "$OUTPUT" || ! -d "$(dirname -- "$OUTPUT")" ]]; then
     printf '%s\n' 'Choose a new ISO filename in an existing directory.' >&2
     exit 1
@@ -54,10 +60,11 @@ mount --make-rslave "$ROOTFS/dev"
 printf '#!/bin/sh\nexit 101\n' > "$ROOTFS/usr/sbin/policy-rc.d"
 chmod 755 "$ROOTFS/usr/sbin/policy-rc.d"
 
+# packages.list is architecture-neutral; the kernel for $ARCH is added below.
 packages=()
-while read -r package; do
+while read -r package _; do
     case "$package" in
-        ""|grub-efi-arm64|grub-common|linux-image-arm64|linux-headers-arm64) ;;
+        ""|"#"*) ;;
         *) packages+=("$package") ;;
     esac
 done < "$SOURCE/config/packages.list"
@@ -85,12 +92,27 @@ install -m 644 "$SOURCE/branding/plymouth/mineos.script" "$SOURCE/branding/plymo
 install -m 644 "$SOURCE/rootfs/etc/lightdm/lightdm.conf.d/live.conf" "$ROOTFS/etc/lightdm/lightdm.conf.d/40-mineos.conf"
 bash "$SOURCE/branding/install-login.sh" "$ROOTFS"
 
-awk '
-    /^NAME=/ { print "NAME=\"MineOS\""; next }
-    /^PRETTY_NAME=/ { print "PRETTY_NAME=\"MineOS\""; next }
-    { print }
-' "$ROOTFS/usr/lib/os-release" > "$ROOTFS/etc/mineos-os-release"
+install -m 755 "$SOURCE/rootfs/usr/local/bin/mineos-vm-display" "$ROOTFS/usr/local/bin/mineos-vm-display"
+
+# /etc/os-release tells every tool which OS this is. ID_LIKE=debian keeps
+# Debian-aware software working; VERSION_CODENAME stays the Debian codename.
+cat > "$ROOTFS/etc/mineos-os-release" <<OSRELEASE
+PRETTY_NAME="MineOS $VERSION (based on Debian 13)"
+NAME="MineOS"
+VERSION_ID="$VERSION"
+VERSION="$VERSION"
+VERSION_CODENAME=trixie
+ID=mineos
+ID_LIKE=debian
+BUILD_ID=$BUILD_ID
+HOME_URL="https://github.com/roshandhiman/ai_linux-DIST"
+SUPPORT_URL="https://github.com/roshandhiman/ai_linux-DIST/issues"
+BUG_REPORT_URL="https://github.com/roshandhiman/ai_linux-DIST/issues"
+OSRELEASE
 mv -Tf "$ROOTFS/etc/mineos-os-release" "$ROOTFS/etc/os-release"
+# \n and \l are agetty placeholders for the hostname and terminal, so pass them as data.
+printf 'MineOS %s %s\n\n' "$VERSION" '\n \l' > "$ROOTFS/etc/issue"
+printf 'MineOS %s\n' "$VERSION" > "$ROOTFS/etc/issue.net"
 printf '%s\n' mineos > "$ROOTFS/etc/hostname"
 printf '127.0.0.1 localhost\n127.0.1.1 mineos\n' > "$ROOTFS/etc/hosts"
 
@@ -101,6 +123,15 @@ Name=MineOS Desktop
 Exec=/opt/ai/desktop/first-login.sh
 OnlyShowIn=XFCE;
 Terminal=false
+ENTRY
+cat > "$ROOTFS/etc/xdg/autostart/mineos-vm-display.desktop" <<'ENTRY'
+[Desktop Entry]
+Type=Application
+Name=MineOS VM display size
+Exec=/usr/local/bin/mineos-vm-display
+OnlyShowIn=XFCE;
+Terminal=false
+NoDisplay=true
 ENTRY
 cat > "$ROOTFS/etc/xdg/autostart/picom.desktop" <<'ENTRY'
 [Desktop Entry]

@@ -42,9 +42,10 @@ For development over SSH, `make live-desktop` uses `VM_HOST` to select a test VM
 ## Repository layout
 
 ```
-.github/workflows/   build-iso.yml (CI ISO builds for amd64 and arm64), publish-iso.yml (release upload)
-scripts/             build-iso.sh (live ISO builder), update-desktop.sh (in-place desktop updater)
-config/              packages.list: Debian packages installed into the image
+VERSION              The MineOS version. Used for ISO names, artifacts and /etc/os-release
+.github/workflows/   build-iso.yml (CI ISO builds for amd64 and arm64, amd64 boot test), publish-iso.yml (release upload)
+scripts/             build-iso.sh (live ISO builder), boot-test.sh (headless QEMU boot test), update-desktop.sh (in-place desktop updater)
+config/              packages.list: architecture-neutral Debian packages installed into the image
 desktop/             XFCE desktop: launcher, dock, Settings, companion, themes. Installed as-is to /opt/ai/desktop
 branding/            Startup and sign-in branding
   install-startup.sh   Applies the GRUB label and Plymouth theme
@@ -79,6 +80,7 @@ The sentinel service, shell hook, udev rule and sysctl tuning are not part of th
 | Target | What it does |
 | --- | --- |
 | `make iso ISO=/absolute/path/MineOS.iso` | Builds a live ISO on a Debian 13 host |
+| `make boot-test ISO=MineOS-1.0-amd64.iso` | Boots an amd64 ISO in headless QEMU and waits for the desktop |
 | `make live-sync` | Copies the agent, shell hook, sysctl, udev and sentinel files to the test VM |
 | `make live-desktop` | Copies the desktop and Assistant to the test VM and reapplies the theme |
 | `make live-hud` | Starts the Assistant on the test VM display |
@@ -110,3 +112,18 @@ Set `MINEOS_OLLAMA_DIR` to a trusted Ollama installation tree containing `bin/ol
 - **AMD64** boots on 64-bit Intel or AMD PCs, including machines that normally run Windows, and in compatible x86-64 VMs. The image supports UEFI and legacy BIOS. UEFI requires firmware configuration that permits the unsigned live bootloader.
 
 These are live Linux ISOs. The included Ollama engine uses the CPU and comes with Qwen2.5 1.5B for offline chat.
+
+To release a new version, change the number in `VERSION`. The ISO name, the CI artifact and `/etc/os-release` all follow it. Every CI build boots the amd64 ISO in QEMU and fails if the desktop does not start. The serial log is uploaded as the `boot-test-log-amd64` artifact.
+
+## Run MineOS in a virtual machine
+
+The image includes guest tools for VMware (`open-vm-tools-desktop`) and QEMU/UTM (`spice-vdagent`), which resize the screen with the window and share the clipboard. Debian does not ship VirtualBox Guest Additions, so in VirtualBox MineOS switches to the largest screen mode up to 1920x1080 on login.
+
+| Setting | VirtualBox | VMware Workstation |
+| --- | --- | --- |
+| Type | Linux, Debian (64-bit) | Debian 12.x 64-bit or later |
+| Memory and CPUs | 4096 MB, 2 CPUs | 4 GB, 2 CPUs |
+| Display | VMSVGA, 128 MB video memory, 3D acceleration off | Defaults |
+| Firmware | BIOS (default) or EFI. Secure Boot off | BIOS or UEFI. Secure Boot off |
+
+Attach the ISO as the optical drive and start the VM. Use full-screen mode (VirtualBox: Host+F) when presenting.

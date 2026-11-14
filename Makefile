@@ -1,11 +1,15 @@
 VM_HOST ?= roshanpreet@10.211.55.12
 REMOTE_DIR ?= /home/roshanpreet/distro-dev
 
-.PHONY: live-sync live-desktop live-hud test-ai iso
+.PHONY: live-sync live-desktop live-hud test-ai iso boot-test
 
 # Build a live ISO on a Debian 13 host: make iso ISO=/absolute/path/MineOS.iso
 iso:
 	sudo bash scripts/build-iso.sh $(ISO)
+
+# Boot an amd64 ISO headless in QEMU and wait for the desktop: make boot-test ISO=MineOS.iso
+boot-test:
+	bash scripts/boot-test.sh $(ISO) boot-test.log
 
 live-sync:
 	rsync -avz --exclude '.git' --exclude '.venv' --exclude '*.gguf' --exclude '*.iso' --exclude 'dist' ./ $(VM_HOST):$(REMOTE_DIR)/
