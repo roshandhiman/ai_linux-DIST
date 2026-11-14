@@ -42,19 +42,57 @@ For development over SSH, `make live-desktop` uses `VM_HOST` to select a test VM
 ## Repository layout
 
 ```
-scripts/      build-iso.sh (live ISO builder), update-desktop.sh (in-place desktop updater)
-config/       packages.list: Debian packages installed into the image
-desktop/      XFCE desktop: launcher, dock, Settings, companion, themes. Installed as-is to /opt/ai/desktop
-branding/     GRUB/Plymouth startup animation and LightDM sign-in theme
-rootfs/       Files copied into the image (GRUB menu, LightDM live session, sysctl tuning)
-ai/           Everything AI-related, kept separate from the OS
-  agent/        jarvis.py (terminal agent), jarvis_gui.py (Assistant), sentinel.py, tools/
-  system/       Ollama and sentinel systemd units, shell hooks, ESP32 udev rules
-  fetch-offline-ai.sh   Downloads the verified Ollama engine and Qwen2.5 model for CI builds
-docs/         Extra documentation
+.github/workflows/   build-iso.yml (CI ISO builds for amd64 and arm64), publish-iso.yml (release upload)
+scripts/             build-iso.sh (live ISO builder), update-desktop.sh (in-place desktop updater)
+config/              packages.list: Debian packages installed into the image
+desktop/             XFCE desktop: launcher, dock, Settings, companion, themes. Installed as-is to /opt/ai/desktop
+branding/            Startup and sign-in branding
+  install-startup.sh   Applies the GRUB label and Plymouth theme
+  install-login.sh     Applies the LightDM sign-in theme
+  plymouth/            Plymouth boot animation theme
+  login/               LightDM greeter config, CSS and artwork
+  render_frames.py     Renders the boot animation frames
+rootfs/              Files copied into the image (GRUB menu, LightDM live session, sysctl tuning)
+ai/                  Everything AI-related, kept separate from the OS
+  agent/               jarvis.py (terminal agent), jarvis_gui.py (Assistant), sentinel.py, tools/
+  system/              Ollama and sentinel systemd units, shell hook, ESP32 udev rule and handler
+  fetch-offline-ai.sh  Downloads the verified Ollama engine and Qwen2.5 model for CI builds
+  download-model.sh    Downloads a GGUF model manually (not used by the build)
+docs/                desktop.md: desktop setup, dependencies and components
+Makefile             Shortcuts for ISO builds and pushing changes to a test VM
 ```
 
-The source layout differs from the installed layout. In the image, `ai/agent/*` lands in `/opt/ai/` and `desktop/` lands in `/opt/ai/desktop/`.
+The source layout differs from the installed layout:
+
+| Source | Installed path |
+| --- | --- |
+| `ai/agent/*` | `/opt/ai/` |
+| `desktop/` | `/opt/ai/desktop/` |
+| `ai/system/ai-core.service` | `/etc/systemd/system/` (only when the ISO embeds Ollama) |
+| `rootfs/etc/lightdm/lightdm.conf.d/live.conf` | `/etc/lightdm/lightdm.conf.d/40-mineos.conf` |
+| `rootfs/boot/grub/grub.cfg` | The ISO boot menu (`/boot/grub/grub.cfg` on the image) |
+
+The sentinel service, shell hook, udev rule and sysctl tuning are not part of the ISO build. `make live-sync` installs them on a test VM.
+
+## Make targets
+
+| Target | What it does |
+| --- | --- |
+| `make iso ISO=/absolute/path/MineOS.iso` | Builds a live ISO on a Debian 13 host |
+| `make live-sync` | Copies the agent, shell hook, sysctl, udev and sentinel files to the test VM |
+| `make live-desktop` | Copies the desktop and Assistant to the test VM and reapplies the theme |
+| `make live-hud` | Starts the Assistant on the test VM display |
+| `make test-ai` | Runs a sample prompt through the terminal agent on the test VM |
+
+The VM targets use `VM_HOST` and `REMOTE_DIR`. Override them per run, for example `make live-desktop VM_HOST=user@10.0.0.5`.
+
+## Working on Windows
+
+Everything in this repository runs on Linux. `.gitattributes` keeps LF line endings so shell scripts do not fail with `$'\r': command not found`. If you cloned before `.gitattributes` existed, run this once:
+
+```bash
+git add --renormalize .
+```
 
 ## Startup branding
 
