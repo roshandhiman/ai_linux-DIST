@@ -10,6 +10,7 @@ import subprocess
 import threading
 import sys
 import os
+import json
 import re
 
 from artifacts import materialize, requested_artifact
@@ -71,16 +72,34 @@ def handle_action(text):
     return None
 
 
-def ask_ollama(history, tokens=384):
-    response = requests.post(
+def ask_ollama(history, tokens=384, on_chunk=None):
+    chunks = []
+    finished = False
+    with requests.post(
         OLLAMA_URL,
-        json={"model": current_model(), "messages": history, "stream": False,
+        json={"model": current_model(), "messages": history, "stream": True,
               "options": {"temperature": 0.2, "num_predict": tokens, "num_ctx": 4096}},
-        timeout=(4, 120),
-    )
-    response.raise_for_status()
-    answer = response.json()["message"]["content"].strip()
-    return answer or "The model returned an empty response."
+        stream=True,
+        timeout=(4, 75),
+    ) as response:
+        response.raise_for_status()
+        for line in response.iter_lines():
+            if not line:
+                continue
+            part = json.loads(line)
+            if part.get("error"):
+                raise ValueError(part["error"])
+            content = part.get("message", {}).get("content", "")
+            if content:
+                chunks.append(content)
+                if on_chunk:
+                    on_chunk("".join(chunks))
+            if part.get("done"):
+                finished = True
+                break
+    if not finished:
+        raise requests.ConnectionError("Local model stream ended before completion.")
+    return "".join(chunks).strip() or "The model returned an empty response."
 
 
 def agent(role, text, tokens):
@@ -113,6 +132,7 @@ class AssistantWindow(Gtk.ApplicationWindow):
         self.mode.set_tooltip_text("Chat is local. Web sends the current query to a search provider. Team plans, drafts and reviews.")
         header.set_custom_title(self.mode)
         self.progress = Gtk.Label(label="", xalign=0, margin_start=14, margin_end=14)
+        self.progress.set_ellipsize(Pango.EllipsizeMode.END)
         layout = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.add(layout)
         scroll = Gtk.ScrolledWindow()
@@ -279,17 +299,17 @@ class AssistantWindow(Gtk.ApplicationWindow):
                     reply = "No matching sources. Try a shorter query with the topic or product name."
             elif mode == "Team":
                 GLib.idle_add(self.progress.set_text, "Planning…")
-                plan = agent("Make a concise English plan. Identify assumptions and missing facts.", text, 96)
+                plan = agent("Make a concise English plan. Identify assumptions and missing facts.", text, 64)
                 GLib.idle_add(self.progress.set_text, "Drafting…")
                 draft = agent("Draft an English answer using the plan. Do not claim any action was performed.",
-                              f"Request: {text}\nPlan: {plan}", 240)
+                              f"Request: {text}\nPlan: {plan}", 160)
                 GLib.idle_add(self.progress.set_text, "Reviewing…")
                 reply = agent("Review the draft for errors and omissions. Return only the improved English answer.",
-                              f"Request: {text}\nDraft: {draft}", 320)
+                              f"Request: {text}\nDraft: {draft}", 240)
             else:
                 reply = handle_action(text)
                 if reply is None:
-                    reply = ask_ollama(history)
+                    reply = ask_ollama(history, on_chunk=lambda output: GLib.idle_add(self.progress.set_text, output.split("\n")[-1][-120:]))
         except requests.Timeout:
             reply = "The request timed out. Please try again."
         except requests.RequestException:
