@@ -46,7 +46,17 @@ jobs:
           echo "MINEOS_BUILD_ID=$(date -u +%Y%m%d)-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends curl jq zstd python3-pip
-          df -h .
+
+      # The runner ships SDKs and Docker images this build never uses. The AI
+      # makes the ISO about 3 GB, and building it needs room for the models,
+      # the unpacked system, its squashfs and the ISO.
+      - name: Free disk space
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force > /dev/null
+          df -h /
 
       - name: Unit test the terminal assistant
         run: python3 -m unittest discover -s ai/tests -t ai -v

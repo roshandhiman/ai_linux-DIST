@@ -203,6 +203,10 @@ cp "$ROOTFS/boot/initrd.img-${kernel#vmlinuz-}" "$IMAGE/live/initrd.img"
 install -m 644 "$SOURCE/rootfs/boot/grub/grub.cfg" "$IMAGE/boot/grub/grub.cfg"
 grub-script-check "$IMAGE/boot/grub/grub.cfg"
 mksquashfs "$ROOTFS" "$IMAGE/live/filesystem.squashfs" -noappend -comp zstd -Xcompression-level 6 -processors "$(nproc)" -e boot
+# The squashfs now holds the whole system, so free the unpacked copy (about
+# 6 GB with the AI) before writing the ISO: a CI runner has too little disk
+# for both at once. Its /dev, /sys and /proc were unmounted above.
+rm -rf -- "$ROOTFS"
 PARTIAL=$(mktemp "$(dirname -- "$OUTPUT")/.mineos-XXXXXXXX.iso")
 grub-mkrescue -o "$PARTIAL" "$IMAGE" -- -volid MINEOS
 boot_report=$(xorriso -indev "$PARTIAL" -report_el_torito plain)
