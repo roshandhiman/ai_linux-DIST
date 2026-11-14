@@ -84,7 +84,7 @@ set_string xfwm4 /general/button_layout '|HMC'
 set_bool xfwm4 /general/use_compositing false
 set_int xfwm4 /general/workspace_count 1
 set_bool xfce4-session /general/SaveOnExit false
-xfconf-query -c xfce4-session -p /sessions/Failsafe/Client2_Command --force-array -t string -s /usr/bin/true
+"$DESKTOP_DIR/configure-session.sh"
 set_int xfce4-desktop /desktop-icons/style 0
 while IFS= read -r property; do
     case "$property" in

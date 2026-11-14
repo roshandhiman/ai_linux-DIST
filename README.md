@@ -34,3 +34,10 @@ Apply the MineOS sign-in theme with `sudo bash boot/install-login.sh`. LightDM p
 On a native Debian 13 ARM64 or AMD64 build machine, run `sudo bash build-iso.sh /absolute/path/to/MineOS.iso`. The builder creates a separate temporary Debian root and uses the XFCE desktop and MineOS splash from this repository. Building an ISO can use several gigabytes of disk space and downloads packages from Debian.
 
 Set `MINEOS_OLLAMA_DIR` to a trusted Ollama installation tree containing `bin/ollama` and `lib/ollama` to embed the local engine. Set `MINEOS_OLLAMA_MODELS` to its model store to include downloaded model weights. Without the Ollama tree the live desktop starts normally and Assistant needs a local model service.
+
+GitHub Actions builds ARM64 and x86-64 images in parallel and uploads the ISOs with SHA-256 checksums. Open the latest successful [Build MineOS ISOs run](https://github.com/roshandhiman/ai_linux-DIST/actions/workflows/build-iso.yml) and choose the artifact for your system. Unzip the artifact first.
+
+- **ARM64** boots in an ARM64 UEFI VM, such as Parallels on Apple Silicon.
+- **AMD64** boots on 64-bit Intel or AMD PCs, including machines that normally run Windows, and in compatible x86-64 VMs. The image supports UEFI and legacy BIOS. UEFI requires firmware configuration that permits the unsigned live bootloader.
+
+These are live Linux ISOs. The included Ollama engine uses the CPU and comes with Qwen2.5 1.5B for offline chat.

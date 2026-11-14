@@ -25,3 +25,5 @@ Open Settings from the dock or with Super+I. Appearance controls light and dark 
 Assistant uses the local Ollama model in Chat and Team modes. Team runs planner, writer, and reviewer passes. Web sends the current query to Wikimedia or Google News, with Brave available for broader searches when the session has a `BRAVE_SEARCH_API_KEY`. The selected model receives the returned excerpts over localhost, and the app shows the source links. File requests can produce HTML, text, Markdown, CSV, or JSON drafts for preview and saving.
 
 About → Startup Animation previews the same frames used by the MineOS Plymouth theme.
+
+The panel and dock start independently of the live wallpaper. MineOS keeps the original video and creates a smaller playback copy in the user cache, then pauses playback when the desktop is covered by a full-size window.
