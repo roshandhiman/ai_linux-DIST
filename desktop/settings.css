@@ -1,0 +1,41 @@
+.mineos-settings {
+    background-color: @mineos_surface;
+    color: @mineos_text;
+}
+.mineos-sidebar {
+    background-color: @mineos_nav;
+    border-right: 1px solid @mineos_line;
+}
+.mineos-toolbar {
+    background-color: @mineos_surface;
+    border-bottom: 1px solid @mineos_line;
+    box-shadow: none;
+    padding: 6px 14px;
+    min-height: 40px;
+}
+.mineos-toolbar .title { font-weight: 700; }
+.settings-navigation { padding: 4px 11px 14px; background-color: transparent; }
+.settings-navigation row { margin: 1px 0; border-radius: 9px; color: @mineos_text; }
+.settings-navigation row:hover { background-color: @mineos_hover; }
+.settings-navigation row:selected { background-color: @mineos_selected; color: @mineos_text; }
+.settings-account { padding: 4px 14px 12px; }
+.settings-account-name { font-weight: 700; font-size: 14px; }
+.settings-search { margin: 13px 12px 10px; border-radius: 9px; min-height: 34px; }
+.settings-section { font-size: 24px; font-weight: 700; }
+.settings-hero { padding: 20px 18px; border-radius: 16px; background-color: @mineos_card; border: 1px solid @mineos_line; }
+.settings-hero .settings-icon { border-radius: 16px; padding: 12px; }
+.settings-icon { border-radius: 7px; background-color: @mineos_hover; color: @mineos_text; padding: 5px; }
+.settings-icon.connect { background-color: alpha(#3892ff, .19); color: #589bff; }
+.settings-icon.hardware { background-color: alpha(#34b5ac, .16); color: #41b8ab; }
+.settings-icon.personal { background-color: alpha(#aa73ee, .17); color: #ab83ee; }
+.settings-icon.audio { background-color: alpha(#ed7e96, .16); color: #ec89a0; }
+.settings-group { border: 1px solid @mineos_line; border-radius: 13px; background-color: @mineos_card; }
+.settings-row { padding: 11px 14px; color: @mineos_text; }
+.settings-group separator { background-image: none; background-color: @mineos_line; min-height: 1px; margin: 0 14px; }
+.settings-value { color: @mineos_muted; }
+.settings-link { border: 0; border-radius: 12px; background-image: none; background-color: transparent; box-shadow: none; padding: 0; }
+.settings-link:hover { background-color: @mineos_hover; }
+.settings-preview { border: 1px solid @mineos_line; border-radius: 13px; padding: 8px; background-color: @mineos_card; }
+.settings-swatch { padding: 9px; border-radius: 11px; }
+.settings-swatch.selected { border-color: #518aff; }
+.settings-note { padding: 12px 2px; }

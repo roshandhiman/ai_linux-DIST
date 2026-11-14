@@ -1,3 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
-exec rofi -no-config -show drun -theme /opt/ai/desktop/launcher.rasi
+desktop="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+exec python3 "$desktop/launcher.py" "$@"

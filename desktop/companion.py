@@ -12,6 +12,7 @@ gi.require_version("Gst", "1.0")
 from gi.repository import Gdk, GdkPixbuf, Gio, GLib, Gst, Gtk
 
 import preferences
+from pixel_pet import draw as draw_pet
 from wallpaper_cache import playback_copy
 
 
@@ -25,30 +26,6 @@ def surface(window):
     window.set_skip_pager_hint(True)
 
 
-def ellipse(cr, x, y, width, height, color):
-    cr.save()
-    cr.translate(x, y)
-    cr.scale(width, height)
-    cr.arc(0, 0, 1, 0, math.tau)
-    cr.set_source_rgba(*color)
-    cr.fill()
-    cr.restore()
-
-
-def sphere(cr, x, y, rx, ry, color):
-    cr.save()
-    cr.translate(x, y)
-    cr.scale(rx, ry)
-    light = cairo.RadialGradient(-0.33, -0.5, 0.03, 0.05, 0.12, 1.02)
-    light.add_color_stop_rgb(0, *(min(1, component * 0.64 + 0.41) for component in color))
-    light.add_color_stop_rgb(0.47, *color)
-    light.add_color_stop_rgb(1, *(component * 0.53 for component in color))
-    cr.set_source(light)
-    cr.arc(0, 0, 1, 0, math.tau)
-    cr.fill()
-    cr.restore()
-
-
 class Pet(Gtk.Window):
     def __init__(self):
         super().__init__(type=Gtk.WindowType.POPUP)
@@ -56,39 +33,87 @@ class Pet(Gtk.Window):
         self.set_title("MineOS Companion")
         self.set_keep_above(True)
         self.set_accept_focus(False)
-        self.add_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK | Gdk.EventMask.POINTER_MOTION_MASK)
+        self.add_events(
+            Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK
+            | Gdk.EventMask.POINTER_MOTION_MASK | Gdk.EventMask.ENTER_NOTIFY_MASK
+            | Gdk.EventMask.LEAVE_NOTIFY_MASK
+        )
         self.set_tooltip_text("Chat with the assistant")
         self.connect("draw", self.paint)
         self.connect("button-press-event", self.press)
         self.connect("button-release-event", self.release)
         self.connect("motion-notify-event", self.drag)
+        self.connect("enter-notify-event", self.hover, True)
+        self.connect("leave-notify-event", self.hover, False)
+        self.connect("map-event", self.place)
+        self.connect("size-allocate", self.shape)
         self.origin = None
         self.held = None
         self.moved = False
         self.motion = True
-        self.size = 104
+        self.size = preferences.DEFAULTS["pet_size"]
         self.position = None
-        GLib.timeout_add(66, self.animate)
+        self.hovered = False
+        self.direction = 1
+        self.walking = False
+        self.frame = None
+        self.started = time.monotonic()
+        GLib.timeout_add(100, self.animate)
 
     def area(self):
         display = Gdk.Display.get_default()
         monitor = display.get_primary_monitor() or display.get_monitor(0)
         return monitor.get_workarea()
 
+    def place(self, *_):
+        self.reposition(0)
+        window = self.get_window()
+        if window:
+            cursor = Gdk.Cursor.new_from_name(window.get_display(), "pointer")
+            window.set_cursor(cursor)
+        return False
+
+    def shape(self, _, size):
+        if self.get_window():
+            side = min(size.width, size.height)
+            pixel = max(1, side // 26)
+            inset = (side - 20 * pixel) // 2
+            top = (side - 25 * pixel) // 2
+            self.input_shape_combine_region(cairo.Region(cairo.RectangleInt(inset, top, 20 * pixel, 24 * pixel)))
+
+    def hover(self, _, __, hovered):
+        self.hovered = hovered
+        self.queue_draw()
+        return False
+
+    def reposition(self, offset):
+        area = self.area()
+        x, y = self.origin or (area.x + area.width - self.size - 34, area.y + area.height - self.size - 82)
+        x = max(area.x, min(x + offset, area.x + area.width - self.size))
+        y = max(area.y, min(y, area.y + area.height - self.size))
+        position = (int(x), int(y))
+        if position != self.position:
+            self.move(*position)
+            self.position = position
+
     def animate(self):
-        if self.get_visible() and self.motion:
-            area = self.area()
-            offset = math.sin(time.monotonic() * 0.27) * 18
-            x, y = self.origin or (area.x + area.width - self.size - 34, area.y + area.height - self.size - 96)
-            if not self.held:
-                x = max(area.x, min(x + offset, area.x + area.width - self.size))
-                y = max(area.y, min(y, area.y + area.height - self.size))
-                position = (int(x), int(y))
-                if position != self.position:
-                    self.move(*position)
-                    self.position = position
+        if not self.get_visible() or not self.motion:
+            return GLib.SOURCE_CONTINUE
+        elapsed = time.monotonic() - self.started
+        phase = elapsed % 16
+        self.walking = not self.hovered and not self.held and phase < 9
+        if self.walking:
+            self.direction = -1 if phase < 4.5 else 1
+            travel = phase if phase < 4.5 else 9 - phase
+            self.reposition(-travel * 11)
+        elif not self.hovered and not self.held:
+            self.reposition(0)
+        frame = (self.direction, self.walking, elapsed % 4.9 > 4.72,
+                 (int(elapsed * 7) % 2, int(elapsed * 5) % 2) if self.walking else None)
+        if self.frame != frame:
+            self.frame = frame
             self.queue_draw()
-        return True
+        return GLib.SOURCE_CONTINUE
 
     def press(self, _, event):
         if event.button == 3:
@@ -100,6 +125,8 @@ class Pet(Gtk.Window):
             menu.show_all()
             menu.popup_at_pointer(event)
             return True
+        if event.button != 1:
+            return False
         self.held = (event.x, event.y)
         self.moved = False
         return True
@@ -108,7 +135,7 @@ class Pet(Gtk.Window):
         if self.held and (abs(event.x - self.held[0]) > 5 or abs(event.y - self.held[1]) > 5):
             self.moved = True
             self.origin = (int(event.x_root - self.held[0]), int(event.y_root - self.held[1]))
-            self.move(*self.origin)
+            self.reposition(0)
         return True
 
     def release(self, _, event):
@@ -122,31 +149,9 @@ class Pet(Gtk.Window):
         cr.set_source_rgba(0, 0, 0, 0)
         cr.paint()
         cr.set_operator(cairo.OPERATOR_OVER)
-        size = self.get_allocated_width()
-        cr.scale(size / 104, size / 104)
-        t = time.monotonic() if self.motion else 0
-        turn = math.sin(t * 1.18) * 0.66
-        bob = math.sin(t * 2.35) * 3.6
-        ellipse(cr, 52, 94, 24 - bob / 2, 3.3, (0, 0, 0, 0.22))
-        cr.translate(0, bob)
-        sin_turn, cos_turn = math.sin(turn), math.cos(turn)
-        parts = [
-            (-16, 78, 3, 8, 9, (0.56, 0.45, 0.34)),
-            (16, 78, 3, 8, 9, (0.56, 0.45, 0.34)),
-            (0, 69, 0, 22, 18, (0.88, 0.72, 0.53)),
-            (0, 70, 19, 5, 4, (0.42, 0.83, 0.66)),
-            (-28, 37, -2, 10, 13, (0.71, 0.55, 0.42)),
-            (28, 37, -2, 10, 13, (0.71, 0.55, 0.42)),
-            (0, 36, 0, 33, 28, (0.91, 0.82, 0.67)),
-            (0, 37, 24, 25 * cos_turn, 15, (0.13, 0.17, 0.18)),
-        ]
-        parts.sort(key=lambda part: part[2] * cos_turn - part[0] * sin_turn)
-        for x, y, z, width, height, color in parts:
-            sphere(cr, 52 + x * cos_turn + z * sin_turn, y, width, height, color)
-        eye_height = 1.2 if t % 5.4 > 5.2 else 3.1
-        for offset in (-9, 9):
-            ellipse(cr, 52 + offset * cos_turn + 29 * sin_turn, 36, 3.1, eye_height, (0.58, 0.98, 0.77, 1))
-        ellipse(cr, 52 + 29 * sin_turn, 43, 3.2, 1.0, (0.58, 0.98, 0.77, 0.57))
+        elapsed = time.monotonic() - self.started if self.motion else 0
+        draw_pet(cr, min(self.get_allocated_width(), self.get_allocated_height()), elapsed,
+                 self.direction, self.walking and self.motion, self.hovered)
         return True
 
 
@@ -271,9 +276,8 @@ class DesktopCompanion(Gtk.Application):
             self.pet.resize(self.pet.size, self.pet.size)
         self.pet.motion = values["pet_motion"]
         self.pet.set_visible(values["pet"])
-        if not previous and values["pet"]:
-            area = self.pet.area()
-            self.pet.move(area.x + area.width - self.pet.size - 34, area.y + area.height - self.pet.size - 96)
+        if values["pet"] and (not previous or not self.pet.motion or values["pet_size"] != previous["pet_size"]):
+            self.pet.reposition(0)
         self.pet.queue_draw()
         current = (values["live"], values["video"], values["backdrop"])
         if current != self.last_wallpaper:
@@ -284,7 +288,7 @@ class DesktopCompanion(Gtk.Application):
             if self.live:
                 self.live.destroy()
                 self.live = None
-            if current[0]:
+            if current[0] and (current[1] or current[2]):
                 self.prepare_timer = GLib.timeout_add_seconds(3 if not previous else 1, self.prepare, current)
         return GLib.SOURCE_REMOVE
 
@@ -317,10 +321,7 @@ class DesktopCompanion(Gtk.Application):
         if current != self.last_wallpaper:
             return
         try:
-            image = Path(current[2])
-            if not image.is_file():
-                image = Path(preferences.DEFAULTS["backdrop"])
-            self.live = LiveWallpaper(video, image)
+            self.live = LiveWallpaper(video, Path(current[2]))
             self.live.connect("destroy", self.wallpaper_closed)
             self.live.show_all()
             self.update_visibility()

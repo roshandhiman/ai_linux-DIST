@@ -14,11 +14,8 @@ ROOT="${ROOT%/}"
 ASSETS="$ROOT/usr/share/backgrounds/mineos"
 THEME="$ROOT/usr/share/themes/MineOS-Greeter/gtk-3.0"
 CONFIG="$ROOT/etc/lightdm/lightdm-gtk-greeter.conf"
-WALLPAPER="$SOURCE/../desktop/assets/dunes.png"
 
-test -r "$WALLPAPER"
 install -d -m 755 "$ASSETS" "$THEME"
-install -m 644 "$WALLPAPER" "$ASSETS/dunes.png"
 install -m 644 "$SOURCE/login/"*.svg "$ASSETS/"
 install -m 644 "$SOURCE/login/gtk.css" "$THEME/gtk.css"
 

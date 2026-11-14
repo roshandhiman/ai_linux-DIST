@@ -1,0 +1,66 @@
+window.mineos-launcher { background-color: transparent; }
+.launcher-surface {
+    background-color: @apps_surface;
+    color: @apps_text;
+    border: 1px solid @apps_border;
+    border-radius: 23px;
+}
+.launcher-toolbar { padding: 17px 18px 14px; }
+.launcher-title { font-family: Inter, sans-serif; font-size: 23px; font-weight: 700; }
+.launcher-search {
+    min-height: 32px;
+    border: 1px solid @apps_border;
+    border-radius: 11px;
+    color: @apps_text;
+    background: @apps_control;
+    box-shadow: none;
+    padding: 0 10px;
+}
+.launcher-search image, .launcher-search placeholder { color: @apps_muted; }
+.launcher-dismiss {
+    min-width: 27px;
+    min-height: 27px;
+    border: none;
+    border-radius: 15px;
+    background: @apps_control;
+    color: @apps_muted;
+    box-shadow: none;
+    padding: 0;
+}
+.launcher-dismiss:hover { color: @apps_text; background: @apps_hover; }
+.launcher-chips { padding: 0 18px 14px; }
+.launcher-chip {
+    font-family: Inter, sans-serif;
+    min-height: 24px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    color: @apps_muted;
+    background: @apps_control;
+    box-shadow: none;
+    padding: 2px 10px;
+}
+.launcher-chip:hover { color: @apps_text; background: @apps_hover; }
+.launcher-chip:checked { color: @apps_text; background: @apps_selected; border-color: @apps_selected_border; }
+.launcher-scroll, .launcher-grid { background-color: transparent; }
+.launcher-divider { background: @apps_border; min-height: 1px; }
+.launcher-section { font-family: Inter, sans-serif; font-size: 12px; color: @apps_muted; font-weight: 600; }
+.launcher-tile {
+    border: 1px solid transparent;
+    border-radius: 13px;
+    color: @apps_text;
+    outline-offset: -1px;
+    padding: 8px 1px 6px;
+}
+.launcher-tile:hover, .launcher-tile:selected, .launcher-tile:focus {
+    background-color: @apps_hover;
+    border-color: @apps_border;
+}
+.launcher-app-name { font-family: Inter, sans-serif; font-size: 11px; font-weight: 500; }
+.launcher-icon-well {
+    border: 1px solid @apps_border;
+    border-radius: 15px;
+    background-color: @apps_control;
+}
+.launcher-empty { color: @apps_muted; padding-top: 55px; }
+
+.launcher-scroll viewport, .launcher-surface scrolledwindow viewport { background-color: transparent; }

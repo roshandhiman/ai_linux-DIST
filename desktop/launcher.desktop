@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Apps
+Exec=/opt/ai/desktop/launcher.sh
+Icon=/opt/ai/desktop/assets/icons/apps.svg
+Terminal=false
+NoDisplay=true
+StartupWMClass=MineOSApplications

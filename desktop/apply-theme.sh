@@ -3,95 +3,73 @@ set -euo pipefail
 export DISPLAY="${DISPLAY:-:0}"
 export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=/run/user/$(id -u)/bus}"
 DESKTOP_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "$DESKTOP_DIR/session-processes.sh"
+CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}"
+DATA="${XDG_DATA_HOME:-$HOME/.local/share}"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/mineos"
 RETIRED_DIR="$STATE_DIR/retired-$(date +%Y%m%d-%H%M%S)"
-mkdir -p "$RETIRED_DIR" "$HOME/.config/tint2" "$HOME/.config/picom" "$HOME/.config/plank/dock1/launchers" "$HOME/.config/autostart" "$HOME/.config/gtk-3.0" "$HOME/.config/xfce4/terminal" "$HOME/.local/share/plank/themes/MineOS" "$HOME/.local/share/applications" "$HOME/.themes/MineOS/xfwm4"
-pkill -u "$(id -u)" -f '^(/usr/bin/)?python3 /opt/ai/desktop/mineos_home.py( |$)' 2>/dev/null || true
-pkill -u "$(id -u)" -f '^(/usr/bin/)?python3 /opt/ai/jarvis_gui.py( |$)' 2>/dev/null || true
-pkill -u "$(id -u)" -x plank 2>/dev/null || true
-cp -a "$HOME/.config/plank/dock1/launchers" "$RETIRED_DIR/dock-launchers"
+mkdir -p "$RETIRED_DIR" "$CONFIG/tint2" "$CONFIG/picom" "$CONFIG/plank/dock1/launchers" "$CONFIG/autostart" "$CONFIG/gtk-3.0" "$CONFIG/xfce4/terminal" "$DATA/plank/themes/MineOS" "$DATA/applications"
+session_stop -f '^(/usr/bin/)?python3 /opt/ai/desktop/mineos_home.py( |$)'
 for name in mineos-home mineos-ai mineos-settings mineos-launcher mineos-files org.mineos.Workspace; do
-    entry="$HOME/.local/share/applications/$name.desktop"
+    entry="$DATA/applications/$name.desktop"
     if [[ -f "$entry" ]]; then mv "$entry" "$RETIRED_DIR/"; fi
 done
-for launcher in "$HOME/.config/plank/dock1/launchers/"*.dockitem; do
-    [[ -f "$launcher" ]] && mv "$launcher" "$RETIRED_DIR/" || true
-done
-for name in mineos_home.py ui_base.py status.py; do
-    if [[ -f "$DESKTOP_DIR/$name" ]]; then mv "$DESKTOP_DIR/$name" "$RETIRED_DIR/"; fi
-done
-for name in mineos.svg mine-ai.svg wallpaper.svg; do
-    if [[ -f "$DESKTOP_DIR/assets/$name" ]]; then mv "$DESKTOP_DIR/assets/$name" "$RETIRED_DIR/"; fi
-done
-cat > "$HOME/.local/share/applications/ai.desktop" <<'ENTRY'
+cat > "$DATA/applications/ai.desktop" <<'ENTRY'
 [Desktop Entry]
 Type=Application
 Name=Assistant
 Hidden=true
 ENTRY
-cp "$DESKTOP_DIR/tint2rc" "$HOME/.config/tint2/tint2rc"
-cp "$DESKTOP_DIR/picom.conf" "$HOME/.config/picom/picom.conf"
-cp "$DESKTOP_DIR/gtk.css" "$HOME/.config/gtk-3.0/gtk.css"
-cp "$DESKTOP_DIR/dock.theme" "$HOME/.local/share/plank/themes/MineOS/dock.theme"
-cp -a /usr/share/themes/Arc/xfwm4/. "$HOME/.themes/MineOS/xfwm4/"
-printf '\nactive_text_color=#303030\ninactive_text_color=#8b8b8b\n' >> "$HOME/.themes/MineOS/xfwm4/themerc"
-cat > "$HOME/.local/share/applications/org.mineos.Assistant.desktop" <<'ENTRY'
-[Desktop Entry]
-Type=Application
-Name=Assistant
-Exec=python3 /opt/ai/jarvis_gui.py
-Icon=system-search
-Terminal=false
-Categories=Utility;
-StartupWMClass=MineAI
-ENTRY
-cat > "$HOME/.local/share/applications/org.mineos.Trash.desktop" <<'ENTRY'
+cp "$DESKTOP_DIR/tint2rc" "$CONFIG/tint2/tint2rc"
+cp "$DESKTOP_DIR/picom.conf" "$CONFIG/picom/picom.conf"
+cp "$DESKTOP_DIR/ai.desktop" "$DATA/applications/org.mineos.Assistant.desktop"
+cat > "$DATA/applications/org.mineos.Trash.desktop" <<'ENTRY'
 [Desktop Entry]
 Type=Application
 Name=Trash
 Exec=thunar trash:///
-Icon=user-trash
+Icon=/opt/ai/desktop/assets/icons/trash.svg
 Terminal=false
 Categories=Utility;
+NoDisplay=true
 ENTRY
-cp "$DESKTOP_DIR/settings.desktop" "$HOME/.local/share/applications/org.mineos.Settings.desktop"
-cp "$DESKTOP_DIR/companion.desktop" "$HOME/.local/share/applications/org.mineos.Companion.desktop"
-printf '[PlankDockItemPreferences]\nLauncher=file://%s\n' "$HOME/.local/share/applications/org.mineos.Settings.desktop" > "$HOME/.config/plank/dock1/launchers/mineos-settings.dockitem"
-printf '[PlankDockItemPreferences]\nLauncher=file://%s\n' "$HOME/.local/share/applications/org.mineos.Assistant.desktop" > "$HOME/.config/plank/dock1/launchers/mineos-assistant.dockitem"
+cp "$DESKTOP_DIR/launcher.desktop" "$DATA/applications/org.mineos.Apps.desktop"
+cp "$DESKTOP_DIR/settings.desktop" "$DATA/applications/org.mineos.Settings.desktop"
+cp "$DESKTOP_DIR/companion.desktop" "$DATA/applications/org.mineos.Companion.desktop"
+printf '[PlankDockItemPreferences]\nLauncher=file://%s\n' "$DATA/applications/org.mineos.Settings.desktop" > "$CONFIG/plank/dock1/launchers/mineos-settings.dockitem"
+printf '[PlankDockItemPreferences]\nLauncher=file://%s\n' "$DATA/applications/org.mineos.Assistant.desktop" > "$CONFIG/plank/dock1/launchers/mineos-assistant.dockitem"
 for app in thunar firefox-esr xfce4-terminal org.xfce.mousepad; do
     app_file="/usr/share/applications/$app.desktop"
     if [[ -f "$app_file" ]]; then
-        printf '[PlankDockItemPreferences]\nLauncher=file://%s\n' "$app_file" > "$HOME/.config/plank/dock1/launchers/$app.dockitem"
+        printf '[PlankDockItemPreferences]\nLauncher=file://%s\n' "$app_file" > "$CONFIG/plank/dock1/launchers/$app.dockitem"
     fi
 done
-printf '[PlankDockItemPreferences]\nLauncher=file://%s\n' "$HOME/.local/share/applications/org.mineos.Trash.desktop" > "$HOME/.config/plank/dock1/launchers/trash.dockitem"
-dconf load / < "$DESKTOP_DIR/plank.conf"
-gsettings set net.launchpad.plank.dock.settings:/net/launchpad/plank/docks/dock1/ dock-items "['thunar.dockitem', 'firefox-esr.dockitem', 'xfce4-terminal.dockitem', 'mineos-assistant.dockitem', 'mineos-settings.dockitem', 'trash.dockitem']"
+printf '[PlankDockItemPreferences]\nLauncher=file://%s\n' "$DATA/applications/org.mineos.Trash.desktop" > "$CONFIG/plank/dock1/launchers/trash.dockitem"
+if [[ ! -e "$CONFIG/mineos/appearance.json" ]]; then
+    dconf load / < "$DESKTOP_DIR/plank.conf"
+    python3 "$DESKTOP_DIR/app_catalog.py" --defaults
+else
+    python3 "$DESKTOP_DIR/app_catalog.py"
+fi
+for entry in xfce-settings-manager xfce-backdrop-settings xfce-ui-settings gnome-control-center org.gnome.Settings; do
+    install -m 644 "$DESKTOP_DIR/hidden-settings.desktop" "$DATA/applications/$entry.desktop"
+done
 set_string() { xfconf-query -c "$1" -p "$2" --create -t string -s "$3"; }
 set_bool() { xfconf-query -c "$1" -p "$2" --create -t bool -s "$3"; }
 set_int() { xfconf-query -c "$1" -p "$2" --create -t int -s "$3"; }
-set_string xsettings /Net/ThemeName Arc
-set_string xsettings /Net/IconThemeName Papirus
 set_string xsettings /Gtk/FontName 'Inter 9'
 set_string xsettings /Gtk/MonospaceFontName 'DejaVu Sans Mono 10'
 set_string xsettings /Gtk/CursorThemeName Adwaita
 set_string xsettings /Gtk/DecorationLayout 'menu:minimize,maximize,close'
 set_bool xsettings /Gtk/DialogsUseHeader true
-set_string xfwm4 /general/theme MineOS
 set_string xfwm4 /general/title_font 'Inter Medium 10'
 set_string xfwm4 /general/title_alignment center
 set_string xfwm4 /general/button_layout '|HMC'
 set_bool xfwm4 /general/use_compositing false
-set_int xfwm4 /general/workspace_count 1
 set_bool xfce4-session /general/SaveOnExit false
 "$DESKTOP_DIR/configure-session.sh"
 set_int xfce4-desktop /desktop-icons/style 0
-while IFS= read -r property; do
-    case "$property" in
-        */last-image) set_string xfce4-desktop "$property" "$DESKTOP_DIR/assets/dunes.png" ;;
-        */image-style) set_int xfce4-desktop "$property" 5 ;;
-    esac
-done < <(xfconf-query -c xfce4-desktop -l)
+set_bool xfce4-desktop /desktop-menu/show false
 set_string xfce4-keyboard-shortcuts '/commands/custom/<Super>space' /opt/ai/desktop/launcher.sh
 set_string xfce4-keyboard-shortcuts '/commands/custom/<Super>e' thunar
 set_string xfce4-keyboard-shortcuts '/commands/custom/<Super>a' 'python3 /opt/ai/jarvis_gui.py'
@@ -105,12 +83,12 @@ set_bool thunar /last-show-statusbar true
 set_string thunar /last-location-bar ThunarLocationButtons
 set_string thunar /last-side-pane ThunarShortcutsPane
 set_string thunar /last-icon-view-zoom-level THUNAR_ZOOM_LEVEL_100_PERCENT
-BOOKMARKS="$HOME/.config/gtk-3.0/bookmarks"
+BOOKMARKS="$CONFIG/gtk-3.0/bookmarks"
 touch "$BOOKMARKS"
 if ! grep -q '^computer:///' "$BOOKMARKS"; then
     printf 'computer:/// This PC\n' >> "$BOOKMARKS"
 fi
-cat > "$HOME/.config/xfce4/terminal/terminalrc" <<'TERMINAL'
+cat > "$CONFIG/xfce4/terminal/terminalrc" <<'TERMINAL'
 [Configuration]
 FontName=DejaVu Sans Mono 10
 MiscMenubarDefault=FALSE
@@ -121,26 +99,27 @@ ColorBackground=#252525
 ColorCursor=#ffffff
 BackgroundMode=TERMINAL_BACKGROUND_SOLID
 TERMINAL
-cat > "$HOME/.config/autostart/picom.desktop" <<'ENTRY'
+cat > "$CONFIG/autostart/picom.desktop" <<'ENTRY'
 [Desktop Entry]
 Type=Application
 Name=Picom
 Hidden=true
 ENTRY
-cat > "$HOME/.config/autostart/mineos-ui.desktop" <<'ENTRY'
+python3 "$DESKTOP_DIR/preferences.py"
+cat > "$CONFIG/autostart/mineos-ui.desktop" <<ENTRY
 [Desktop Entry]
 Type=Application
 Name=Desktop
-Exec=/opt/ai/desktop/launch-session.sh
+Exec=$DESKTOP_DIR/launch-session.sh
 OnlyShowIn=XFCE;
 Terminal=false
 ENTRY
-python3 "$DESKTOP_DIR/preferences.py"
-update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
-pkill -u "$(id -u)" -x xfce4-panel 2>/dev/null || true
-pkill -u "$(id -u)" -f '^(/usr/bin/)?python3 /opt/ai/desktop/companion.py$' 2>/dev/null || true
-pkill -u "$(id -u)" -x tint2 2>/dev/null || true
-pkill -u "$(id -u)" -x picom 2>/dev/null || true
+update-desktop-database "$DATA/applications" 2>/dev/null || true
+session_stop -x xfce4-panel
+session_stop -f '^(/usr/bin/)?python3 .*/companion.py$'
+session_stop -x tint2
+session_stop -x picom
+session_stop -x plank
 sleep 0.3
 "$DESKTOP_DIR/launch-session.sh"
 printf 'Desktop settings applied.\n'

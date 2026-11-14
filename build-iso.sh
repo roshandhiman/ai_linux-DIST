@@ -66,13 +66,16 @@ chroot "$ROOTFS" env DEBIAN_FRONTEND=noninteractive apt-get install -y "linux-im
     live-boot live-config live-config-systemd network-manager-gnome pulseaudio-utils desktop-file-utils xdg-user-dirs ca-certificates
 
 install -d "$ROOTFS/opt/ai/desktop" "$ROOTFS/usr/share/plymouth/themes/mineos" \
-    "$ROOTFS/etc/xdg/autostart" "$ROOTFS/usr/share/applications" \
+    "$ROOTFS/etc/xdg/autostart" "$ROOTFS/usr/share/applications" "$ROOTFS/usr/local/share/applications" \
     "$ROOTFS/etc/systemd/system" "$ROOTFS/etc/lightdm/lightdm.conf.d"
 cp -a "$SOURCE/ai-agent/." "$ROOTFS/opt/ai/"
 cp -a "$SOURCE/desktop/." "$ROOTFS/opt/ai/desktop/"
 ln -s /opt/ai/jarvis.py "$ROOTFS/usr/local/bin/ai"
 ln -s /opt/ai/jarvis_gui.py "$ROOTFS/usr/local/bin/ai-hud"
 install -m 644 "$SOURCE/desktop/settings.desktop" "$ROOTFS/usr/share/applications/org.mineos.Settings.desktop"
+for app in xfce-settings-manager xfce-backdrop-settings xfce-ui-settings; do
+    install -m 644 "$SOURCE/desktop/hidden-settings.desktop" "$ROOTFS/usr/local/share/applications/$app.desktop"
+done
 install -m 644 "$SOURCE/desktop/companion.desktop" "$ROOTFS/usr/share/applications/org.mineos.Companion.desktop"
 install -m 644 "$SOURCE/desktop/ai.desktop" "$ROOTFS/usr/share/applications/org.mineos.Assistant.desktop"
 SESSION_XML="$ROOTFS/etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-session.xml"

@@ -6,11 +6,13 @@ udev
 grub-efi-arm64
 grub-common
 network-manager
+gir1.2-nm-1.0
 network-manager-gnome
 wireless-tools
 wpasupplicant
 bluetooth
 bluez
+blueman
 pipewire
 pipewire-pulse
 wireplumber
@@ -44,6 +46,8 @@ python3-requests
 gir1.2-gtk-3.0
 dconf-cli
 pavucontrol
+packagekit
+packagekit-tools
 gvfs-backends
 gvfs-fuse
 thunar-archive-plugin

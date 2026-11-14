@@ -13,17 +13,31 @@ Open the [MineOS 1.0 GitHub release](https://github.com/roshandhiman/ai_linux-DI
 
 Download both ISO parts and the SHA-256 checksum for your architecture. Follow the release notes to join the parts and verify the ISO. For development builds, see [GitHub Actions](https://github.com/roshandhiman/ai_linux-DIST/actions/workflows/build-iso.yml).
 
-## Update the live desktop
+## Update an existing MineOS desktop
 
-From the existing checkout, with SSH access to the Debian desktop user:
+Open Terminal inside the running MineOS desktop (in your VM or on your PC). Use your normal account with sudo access.
+
+First time downloading the source:
 
 ```bash
-make live-desktop
+git clone --branch main https://github.com/roshandhiman/ai_linux-DIST.git ~/mineos-source
+cd ~/mineos-source
+bash update-desktop.sh
 ```
 
-Override `VM_HOST` when needed. This target copies only the desktop and graphical assistant and applies the user-session appearance. It does not build an ISO.
+For later updates from the same checkout:
 
-Desktop setup and dependencies are documented in [desktop/README.md](desktop/README.md). Desktop runtime packages are listed in `packages.list`.
+```bash
+cd ~/mineos-source
+git pull --ff-only
+bash update-desktop.sh
+```
+
+The script installs any missing desktop dependencies, saves a backup, and applies the latest launcher, dock, Settings, companion and graphical Assistant. The update keeps home files, installed models, and your saved wallpaper and dock preferences. Reopen Settings or Assistant if either was already open. The script prints the backup path.
+
+On a system installed to disk, the update survives reboot. If you booted the old live ISO, the update only lasts for the current session unless you configured persistence for the system. To keep the new desktop with a live ISO, get the latest successful [Build MineOS ISOs run](https://github.com/roshandhiman/ai_linux-DIST/actions/workflows/build-iso.yml?query=branch%3Amain+is%3Asuccess), unzip the ARM64 or x86-64 artifact, and attach the new ISO to your VM.
+
+For development over SSH, `make live-desktop` uses `VM_HOST` to select a test VM. Desktop setup and dependencies are documented in [desktop/README.md](desktop/README.md).
 
 ## Other components
 

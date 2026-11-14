@@ -1,4 +1,0 @@
-Tool: built-in imagegen
-Asset: desktop/assets/dunes.png
-
-Use case: photorealistic-natural. Asset type: premium desktop wallpaper, landscape 2560x1600 composition. A real-looking aerial photograph of sweeping golden and charcoal sand dunes in the Namib desert at late afternoon, sculptural graceful dune ridgelines, warm pale sand illuminated by soft sunlight with deep neutral brown shadows, restrained natural colors, exquisite fine sand textures and wind ripples, cinematic medium-format landscape photography, quiet and timeless enough for an operating system wallpaper. Fill the entire frame with dunes, no horizon or sky. Wide balanced composition, darker subtly textured regions suitable for desktop icons at the left, no distracting center subject. Absolutely no text, typography, letters, words, logos, icons, UI, borders, gradients, blue, purple, glow, abstract digital shapes or branding. A realistic photograph, not illustration.

@@ -2,7 +2,7 @@
 Type=Application
 Name=Settings
 Exec=python3 /opt/ai/desktop/settings.py
-Icon=preferences-desktop
+Icon=/opt/ai/desktop/assets/icons/settings.svg
 Terminal=false
-Categories=Settings;DesktopSettings;
+Categories=Settings;
 StartupWMClass=MineOSSettings

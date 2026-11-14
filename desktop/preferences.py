@@ -1,5 +1,7 @@
 import json
 import os
+import re
+import signal
 import subprocess
 import tempfile
 from pathlib import Path
@@ -9,20 +11,26 @@ CONFIG = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
 PREFS = CONFIG / "mineos" / "appearance.json"
 DOCK = "net.launchpad.plank.dock.settings:/net/launchpad/plank/docks/dock1/"
 DEFAULTS = {
-    "appearance": "light", "backdrop": str(DESKTOP / "assets" / "dunes.png"),
-    "video": "", "live": False, "dock_size": 42, "dock_opacity": 68,
-    "dock_position": "bottom", "dock_hide": True, "dock_zoom": True,
-    "dock_roundness": 14, "panel_opacity": 88, "blur": False,
-    "pet": True, "pet_motion": True, "pet_size": 104, "model": "",
+    "appearance": "dark", "backdrop": "", "background_color": "#14161b",
+    "wallpaper_fit": "5", "video": "", "live": False,
+    "dock_size": 46, "dock_opacity": 83, "dock_position": "bottom",
+    "dock_hide": True, "dock_zoom": True, "dock_roundness": 19,
+    "panel_opacity": 78, "clock_24h": True, "clock_seconds": False, "blur": False, "shadows": True, "animations": True,
+    "pet": True, "pet_motion": True, "pet_size": 80, "model": "",
 }
 
 
 def read():
     try:
         data = json.loads(PREFS.read_text())
-        return {**DEFAULTS, **{key: data[key] for key in DEFAULTS if key in data}}
-    except (OSError, ValueError, TypeError):
+        if not isinstance(data, dict):
+            return DEFAULTS.copy()
+    except (OSError, ValueError):
         return DEFAULTS.copy()
+    values = {**DEFAULTS, **{key: data[key] for key in DEFAULTS if key in data and type(data[key]) is type(DEFAULTS[key])}}
+    if values["backdrop"] == str(DESKTOP / "assets" / "dunes.png"):
+        values["backdrop"] = ""
+    return values
 
 
 def write(path, text):
@@ -43,17 +51,37 @@ def theme(values):
     write(CONFIG / "gtk-3.0" / "gtk.css", (DESKTOP / css_name).read_text())
     run("xfconf-query", "-c", "xsettings", "-p", "/Net/ThemeName", "-n", "-t", "string", "-s", theme_name)
     run("xfconf-query", "-c", "xsettings", "-p", "/Net/IconThemeName", "-n", "-t", "string", "-s", "Papirus-Dark" if dark else "Papirus")
-    run("xfconf-query", "-c", "xfwm4", "-p", "/general/theme", "-s", theme_name)
+    xfce("xfwm4", "/general/theme", "string", theme_name)
+
+
+def xfce(channel, property_name, kind, value):
+    run("xfconf-query", "-c", channel, "-p", property_name, "-n", "-t", kind, "-s", str(value))
 
 
 def wallpaper(values):
-    path = Path(values["backdrop"])
-    if not path.is_file():
-        path = DESKTOP / "assets" / "dunes.png"
-    properties = run("xfconf-query", "-c", "xfce4-desktop", "-l").splitlines()
-    for prop in properties:
-        if prop.endswith("/last-image"):
-            run("xfconf-query", "-c", "xfce4-desktop", "-p", prop, "-s", str(path))
+    channel = "xfce4-desktop"
+    image = values["backdrop"]
+    if not image or not Path(image).is_file():
+        image = ""
+    color = values["background_color"]
+    if not re.fullmatch(r"#[0-9a-fA-F]{6}", color):
+        color = DEFAULTS["background_color"]
+    channels = [str(int(color[index:index + 2], 16) / 255) for index in (1, 3, 5)]
+    properties = run("xfconf-query", "-c", channel, "-l").splitlines()
+    prefixes = {prop.rsplit("/", 1)[0] for prop in properties if re.match(r"/backdrop/screen[0-9]+/monitor[^/]+/workspace[0-9]+/", prop)}
+    prefixes.update(
+        f"/backdrop/screen0/monitor{line.split()[0]}/workspace0"
+        for line in run("xrandr", "--query").splitlines()
+        if len(line.split()) > 1 and line.split()[1] == "connected"
+    )
+    xfce(channel, "/backdrop/single-workspace-mode", "bool", "true")
+    xfce(channel, "/backdrop/single-workspace-number", "int", 0)
+    for prefix in sorted(prefixes):
+        xfce(channel, prefix + "/color-style", "int", 0)
+        args = [option for component in (*channels, "1") for option in ("-t", "double", "-s", component)]
+        run("xfconf-query", "-c", channel, "-p", prefix + "/rgba1", "-n", "-a", *args)
+        xfce(channel, prefix + "/last-image", "string", image)
+        xfce(channel, prefix + "/image-style", "int", values["wallpaper_fit"] if image else 0)
 
 
 def replace_setting(text, key, value):
@@ -63,14 +91,15 @@ def replace_setting(text, key, value):
 
 def dock(values):
     dark = values["appearance"] == "dark"
-    tint = "30;;30;;32" if dark else "225;;225;;225"
+    tint = "24;;27;;34" if dark else "46;;49;;58"
     alpha = round(values["dock_opacity"] * 255 / 100)
     template = (DESKTOP / "dock.theme").read_text()
     for field in ("FillStartColor", "FillEndColor"):
         template = replace_setting(template, field, f"{tint};;{alpha}")
     for field in ("TopRoundness", "BottomRoundness"):
         template = replace_setting(template, field, values["dock_roundness"])
-    theme_path = Path.home() / ".local/share/plank/themes/MineOS/dock.theme"
+    data = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share"))
+    theme_path = data / "plank/themes/MineOS/dock.theme"
     write(theme_path, template)
     settings = {
         "icon-size": str(values["dock_size"]), "position": "'" + values["dock_position"] + "'",
@@ -82,32 +111,56 @@ def dock(values):
         run("gsettings", "set", DOCK, key, value)
 
 
+def reload_process(name):
+    display = os.environ.get("DISPLAY", "").removesuffix(".0")
+    matches = subprocess.run(["pgrep", "-u", str(os.getuid()), "-x", name], capture_output=True, text=True)
+    for pid in matches.stdout.split():
+        try:
+            environment = Path(f"/proc/{pid}/environ").read_bytes().split(b"\0")
+            displays = [entry[8:].decode().removesuffix(".0") for entry in environment if entry.startswith(b"DISPLAY=")]
+            if display in displays:
+                os.kill(int(pid), signal.SIGUSR1)
+        except OSError:
+            continue
+
+
 def panel(values):
     template = (DESKTOP / "tint2rc").read_text()
     path = CONFIG / "tint2" / "tint2rc"
-    write(path, template.replace("background_color = #202020 88", f"background_color = #202020 {values['panel_opacity']}", 1))
-    subprocess.run(["pkill", "-USR1", "-u", str(os.getuid()), "-x", "tint2"], check=False)
+    template = template.replace("background_color = #202020 88", f"background_color = #202020 {values['panel_opacity']}", 1)
+    time = "%H:%M" if values["clock_24h"] else "%I:%M"
+    if values["clock_seconds"]:
+        time += ":%S"
+    if not values["clock_24h"]:
+        time += " %p"
+    write(path, template.replace("time1_format = %a %d %b  %H:%M", f"time1_format = %a %d %b  {time}"))
+    reload_process("tint2")
 
 
 def compositor(values):
     path = CONFIG / "picom" / "picom.conf"
     template = (DESKTOP / "picom.conf").read_text()
     if values["blur"]:
-        template = template.replace('blur-method = "none"', 'blur-method = "dual_kawase"').replace("blur-background = false", "blur-background = true")
+        template = template.replace('blur-method = "none"', 'blur-method = "gaussian"').replace("blur-background = false", "blur-background = true")
+    if not values["shadows"]:
+        template = template.replace("shadow = true", "shadow = false")
+    if not values["animations"]:
+        template = template.replace("fading = true", "fading = false")
     write(path, template)
+    reload_process("picom")
 
 
 def apply(values, old=None):
     old = old or {}
     if old.get("appearance") != values["appearance"]:
         theme(values)
-    if old.get("backdrop") != values["backdrop"]:
+    if any(old.get(key) != values[key] for key in ("backdrop", "background_color", "wallpaper_fit")):
         wallpaper(values)
     if any(old.get(key) != value for key, value in values.items() if key.startswith("dock_") or key == "appearance"):
         dock(values)
-    if old.get("panel_opacity") != values["panel_opacity"]:
+    if any(old.get(key) != values[key] for key in ("panel_opacity", "clock_24h", "clock_seconds")):
         panel(values)
-    if old.get("blur") != values["blur"]:
+    if any(old.get(key) != values[key] for key in ("blur", "shadows", "animations")):
         compositor(values)
     write(PREFS, json.dumps(values, indent=2) + "\n")
 
