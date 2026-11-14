@@ -36,28 +36,32 @@ else
     accel=(-accel tcg -cpu max)
 fi
 
+# systemd stops echoing status lines once the login prompt owns the serial
+# console, so journald also copies the system log there. That log records the
+# autologin session opening, which is the proof that the desktop started.
 : > "$LOG"
 qemu-system-x86_64 "${accel[@]}" -m 4096 -smp 2 \
     -display none -vga std -no-reboot -monitor none \
     -kernel "$WORK/vmlinuz" -initrd "$WORK/initrd.img" \
-    -append "boot=live components username=mineos hostname=mineos console=ttyS0,115200 systemd.show_status=1" \
+    -append "boot=live components username=mineos hostname=mineos console=ttyS0,115200 systemd.show_status=1 systemd.journald.forward_to_console=1" \
     -drive "file=$ISO,media=cdrom,readonly=on" \
     -serial "file:$LOG" &
 QEMU_PID=$!
 
 started=$SECONDS
-lightdm_at=""
+desktop_at=""
 while kill -0 "$QEMU_PID" 2>/dev/null; do
     if grep -Eq 'Kernel panic|Unable to find a medium|\(initramfs\)|emergency mode|Failed to start lightdm' "$LOG"; then
         break
     fi
-    if [[ -z "$lightdm_at" ]] && grep -Eq 'Started lightdm\.service|Started .*Light Display Manager' "$LOG"; then
-        lightdm_at=$SECONDS
+    # LightDM logs this through PAM when it signs the live user in automatically.
+    if [[ -z "$desktop_at" ]] && grep -Eq 'lightdm-autologin:session\): session opened for user mineos' "$LOG"; then
+        desktop_at=$SECONDS
     fi
-    # Give the display manager 30 seconds to crash before calling it a pass.
-    if [[ -n "$lightdm_at" ]] && (( SECONDS - lightdm_at >= 30 )); then
-        if ! grep -Eq 'lightdm\.service: (Main process exited|Failed)' "$LOG"; then
-            printf 'PASS: MineOS reached the desktop in %d seconds.\n' "$lightdm_at"
+    # Give the session 30 seconds to crash before calling it a pass.
+    if [[ -n "$desktop_at" ]] && (( SECONDS - desktop_at >= 30 )); then
+        if ! grep -Eq 'lightdm\.service: (Main process exited|Failed)|lightdm-autologin:session\): session closed' "$LOG"; then
+            printf 'PASS: MineOS reached the desktop in %d seconds.\n' "$desktop_at"
             exit 0
         fi
         break
