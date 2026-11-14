@@ -13,11 +13,11 @@ from pixel_pet import draw as draw_pet
 
 PALETTES = {
     "dark": {
-        "surface": "rgba(29,29,29,.90)", "nav": "alpha(#000,.16)", "card": "alpha(#fff,.07)", "line": "alpha(#fff,.17)",
+        "surface": "rgba(28,28,28,.84)", "nav": "alpha(#000,.16)", "card": "alpha(#fff,.07)", "line": "alpha(#fff,.17)",
         "text": "#f2f2f2", "muted": "#bdbdbd", "hover": "#393939", "selected": "#474747",
     },
     "light": {
-        "surface": "rgba(245,245,245,.95)", "nav": "alpha(#000,.04)", "card": "alpha(#fff,.65)", "line": "alpha(#000,.16)",
+        "surface": "rgba(246,246,246,.88)", "nav": "alpha(#000,.04)", "card": "alpha(#fff,.65)", "line": "alpha(#000,.16)",
         "text": "#222222", "muted": "#575757", "hover": "#e9e9e9", "selected": "#dcdcdc",
     },
 }
@@ -388,7 +388,7 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
         effects = self.group(page)
         self.switch(effects, "Window animations", "animations")
         self.switch(effects, "Window shadows", "shadows")
-        self.switch(effects, "Blur behind the app launcher", "blur")
+        self.switch(effects, "Glass blur", "blur")
 
     def wallpaper_preview(self, widget, cr):
         width, height = widget.get_allocated_width(), widget.get_allocated_height()

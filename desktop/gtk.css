@@ -27,9 +27,9 @@ menuitem:hover { background-color: alpha(#555555, .25); }
 toolbar, menubar { background-color: #f2f2f2; color: #222222; border-color: #cecece; }
 separator { background-color: #cecece; }
 selection { background-color: #555555; color: #fff; }
-switch { border-radius: 20px; background-color: #cecece; }
-switch:checked { background-color: #555555; }
-switch slider { border-radius: 20px; background-color: #fff; }
+switch { background-image: none; border-radius: 20px; background-color: #cecece; }
+switch:checked { background-image: none; background-color: #555555; }
+switch slider { background-image: none; border-radius: 20px; background-color: #fff; }
 scale highlight, progressbar progress { background-color: #555555; border-color: #555555; border-radius: 8px; }
 scrollbar slider { min-width: 5px; min-height: 5px; border-radius: 8px; background-color: alpha(#646464, .45); }
 tooltip { border-radius: 8px; background-color: #e7e7e7; color: #222222; }

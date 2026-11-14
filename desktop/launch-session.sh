@@ -23,8 +23,20 @@ if [[ -z "$(session_pids -x tint2)" ]]; then
     nohup tint2 -c "$CONFIG/tint2/tint2rc" >>"$STATE_DIR/bar.log" 2>&1 </dev/null 9>&- &
 fi
 if [[ -z "$(session_pids -x picom)" ]]; then
-    if ! picom --config "$CONFIG/picom/picom.conf" --daemon >>"$STATE_DIR/compositor.log" 2>&1 9>&- &&
-        ! picom --backend xrender --blur-method none --config "$CONFIG/picom/picom.conf" --daemon >>"$STATE_DIR/compositor.log" 2>&1 9>&-; then
+    picom_config="$CONFIG/picom/picom.conf"
+    compositor_log="$STATE_DIR/compositor.log"
+    picom_args=(--config "$picom_config" --daemon)
+    # Parallels returns invalid X Present timestamps. Keep GLX VSync, but skip
+    # the frame scheduler that depends on those timestamps.
+    if grep -qi '^Parallels' /sys/class/dmi/id/sys_vendor 2>/dev/null; then
+        picom_args+=(--no-frame-pacing)
+    fi
+    if timeout 4s picom --config "$picom_config" --diagnostics 2>>"$compositor_log" 9>&- |
+        awk '/^### Backend:/{glx = ($3 == "glx")} glx && /Accelerated: 1/{hardware = 1} END{exit !hardware}'; then
+        picom "${picom_args[@]}" >>"$compositor_log" 2>&1 9>&- || true
+    fi
+    if [[ -z "$(session_pids -x picom)" ]] &&
+        ! picom "${picom_args[@]}" --backend xrender --blur-method none >>"$compositor_log" 2>&1 9>&-; then
         printf '%s\n' 'Could not start picom. Starting the panel and dock anyway.' >>"$STATE_DIR/compositor.log"
         xfconf-query -c xfwm4 -p /general/use_compositing -n -t bool -s true
     fi

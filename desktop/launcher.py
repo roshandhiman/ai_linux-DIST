@@ -9,12 +9,12 @@ import app_catalog as catalog
 import preferences
 
 DARK = {
-    "surface": "rgba(29,29,29,.90)", "text": "#f2f2f2", "muted": "#bdbdbd",
+    "surface": "rgba(28,28,28,.80)", "text": "#f2f2f2", "muted": "#bdbdbd",
     "border": "alpha(#fff,.17)", "control": "alpha(#fff,.08)", "hover": "alpha(#fff,.14)",
     "selected": "#4a4a4a", "selected_border": "#717171",
 }
 LIGHT = {
-    "surface": "rgba(245,245,245,.95)", "text": "#222222", "muted": "#575757",
+    "surface": "rgba(246,246,246,.88)", "text": "#222222", "muted": "#575757",
     "border": "alpha(#000,.16)", "control": "#e8e8e8", "hover": "#e1e1e1",
     "selected": "#d6d6d6", "selected_border": "#a9a9a9",
 }

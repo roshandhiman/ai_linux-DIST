@@ -1,7 +1,7 @@
 window.mineos-launcher { background-color: transparent; }
 .launcher-surface {
     background-color: @apps_surface;
-    background-image: linear-gradient(155deg, alpha(#fff, .10), transparent 65%);
+    background-image: linear-gradient(155deg, alpha(#fff, .15), transparent 64%);
     box-shadow: inset 0 1px alpha(#fff, .13);
     color: @apps_text;
     border: 1px solid @apps_border;

@@ -50,7 +50,7 @@
 window.mineos-settings { background-color: @theme_bg_color; }
 window.mineos-settings.mineos-translucent {
     background-color: @mineos_surface;
-    background-image: linear-gradient(155deg, alpha(#fff, .07), transparent 60%);
+    background-image: linear-gradient(155deg, alpha(#fff, .12), transparent 65%);
 }
 .mineos-settings .mineos-toolbar { background-color: transparent; }
 .mineos-settings scrolledwindow viewport { background-color: transparent; }

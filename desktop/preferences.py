@@ -16,7 +16,7 @@ DEFAULTS = {
     "wallpaper_fit": "5", "video": "", "live": False,
     "dock_size": 52, "dock_opacity": 92, "dock_position": "bottom",
     "dock_hide": True, "dock_zoom": True, "dock_roundness": 19,
-    "panel_opacity": 92, "clock_24h": True, "clock_seconds": False, "blur": False, "shadows": True, "animations": True,
+    "panel_opacity": 92, "clock_24h": True, "clock_seconds": False, "blur": True, "shadows": True, "animations": True,
     "pet": True, "pet_motion": False, "pet_size": 80, "model": "",
 }
 
@@ -102,10 +102,11 @@ def replace_setting(text, key, value):
 def dock(values):
     dark = values["appearance"] == "dark"
     tint = "29;;29;;29" if dark else "228;;228;;228"
+    highlight = "54;;54;;54" if dark else "248;;248;;248"
     alpha = round(values["dock_opacity"] * 255 / 100)
     template = (DESKTOP / "dock.theme").read_text()
-    for field in ("FillStartColor", "FillEndColor"):
-        template = replace_setting(template, field, f"{tint};;{alpha}")
+    template = replace_setting(template, "FillStartColor", f"{highlight};;{alpha}")
+    template = replace_setting(template, "FillEndColor", f"{tint};;{alpha}")
     for field in ("TopRoundness", "BottomRoundness"):
         template = replace_setting(template, field, values["dock_roundness"])
     data = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share"))
@@ -167,11 +168,13 @@ def compositor(values):
     path = CONFIG / "picom" / "picom.conf"
     template = (DESKTOP / "picom.conf").read_text()
     if values["blur"]:
-        template = template.replace('blur-method = "none"', 'blur-method = "box"').replace("blur-background = false", "blur-background = true")
+        template = template.replace('blur-method = "none"', 'blur-method = "dual_kawase"')
+    if values["ui_scale"] == "2":
+        template = template.replace("corner-radius = 12", "corner-radius = 24")
     if not values["shadows"]:
         template = template.replace("shadow = true", "shadow = false")
     if not values["animations"]:
-        template = template.replace("fading = true", "fading = false")
+        template = re.sub(r"        animations = \(.*?\);\n", "", template, flags=re.S)
     write(path, template)
     reload_process("picom")
 
@@ -191,7 +194,7 @@ def apply(values, old=None):
         dock(values)
     if any(old.get(key) != values[key] for key in ("panel_opacity", "clock_24h", "clock_seconds", "ui_scale")):
         panel(values)
-    if any(old.get(key) != values[key] for key in ("blur", "shadows", "animations")):
+    if any(old.get(key) != values[key] for key in ("blur", "shadows", "animations", "ui_scale")):
         compositor(values)
     write(PREFS, json.dumps(values, indent=2) + "\n")
 
