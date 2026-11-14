@@ -6,12 +6,12 @@ The desktop uses XFCE/X11, Thunar, neutral light and dark GTK themes, a slim cha
 
 ## Download MineOS 1.0 Live ISO
 
-| System | Download |
-| --- | --- |
-| Apple Silicon Mac (Parallels) or ARM64 UEFI VM | [ARM64 ISO](https://github.com/roshandhiman/ai_linux-DIST/actions/runs/43559432344/artifacts/14099846829) |
-| 64-bit Intel or AMD PC (UEFI or legacy BIOS) | [x86-64 ISO](https://github.com/roshandhiman/ai_linux-DIST/actions/runs/43559432344/artifacts/14099776983) |
+Open the [MineOS 1.0 GitHub release](https://github.com/roshandhiman/ai_linux-DIST/releases/tag/v1.0.0) and choose the files for your system under **Assets**.
 
-Sign in to GitHub to download. Unzip the artifact to get the `.iso` and its SHA-256 checksum. These links expire on November 28, 2026. For newer builds, open the latest successful [Build MineOS ISOs run](https://github.com/roshandhiman/ai_linux-DIST/actions/workflows/build-iso.yml?query=branch%3Amain+is%3Asuccess) and scroll to **Artifacts**.
+- **ARM64** for Apple Silicon Macs running Parallels and other ARM64 UEFI VMs.
+- **AMD64 (x86-64)** for Intel and AMD PCs with UEFI or legacy BIOS.
+
+Download both ISO parts and the SHA-256 checksum for your architecture. Follow the release notes to join the parts and verify the ISO. For development builds, see [GitHub Actions](https://github.com/roshandhiman/ai_linux-DIST/actions/workflows/build-iso.yml).
 
 ## Update the live desktop
 
