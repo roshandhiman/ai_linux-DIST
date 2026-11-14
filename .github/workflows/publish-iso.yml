@@ -1,0 +1,72 @@
+name: Attach MineOS ISOs to a draft release
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_run:
+        description: Successful Build MineOS ISOs run ID
+        required: true
+        type: string
+      release_tag:
+        description: Existing draft release tag
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: mineos-release-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+jobs:
+  attach:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [arm64, amd64]
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BUILD_RUN: ${{ inputs.build_run }}
+      ARCH: ${{ matrix.arch }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      REPOSITORY: ${{ github.repository }}
+    steps:
+      - name: Verify the build and draft release
+        run: |
+          [[ "$BUILD_RUN" =~ ^[0-9]+$ ]]
+          [[ "$RELEASE_TAG" =~ ^v[0-9][0-9A-Za-z.-]*$ ]]
+          build=$(gh api "repos/$REPOSITORY/actions/runs/$BUILD_RUN")
+          source_sha=$(jq -er --arg repository "$REPOSITORY" '
+            select(.conclusion == "success" and .head_branch == "main" and
+              .path == ".github/workflows/build-iso.yml" and .head_repository.full_name == $repository)
+            | .head_sha' <<< "$build")
+          gh release view "$RELEASE_TAG" --repo "$REPOSITORY" --json isDraft,targetCommitish | \
+            jq -e --arg sha "$source_sha" '.isDraft and .targetCommitish == $sha'
+
+      - name: Verify and upload the ISO
+        run: |
+          directory=$(mktemp -d)
+          trap 'rm -rf -- "$directory"' EXIT
+          cd "$directory"
+          release_id=$(gh release view "$RELEASE_TAG" --repo "$REPOSITORY" --json databaseId --jq .databaseId)
+          name="MineOS-1.0-$ARCH"
+          iso="$name.iso"
+          gh run download "$BUILD_RUN" --repo "$REPOSITORY" --name "$name"
+          sha256sum --strict -c "$iso.sha256"
+          split -b 1500M --numeric-suffixes=1 -a 1 "$iso" "$iso.part"
+          test -s "$iso.part1"
+          test -s "$iso.part2"
+          test ! -e "$iso.part3"
+          cat "$iso.part1" "$iso.part2" | cmp "$iso" -
+          gh release upload "$RELEASE_TAG" --repo "$REPOSITORY" --clobber \
+            "$iso.part1" "$iso.part2" "$iso.sha256"
+          for asset in "$iso.part1" "$iso.part2" "$iso.sha256"; do
+            read -r sha _ < <(sha256sum "$asset")
+            gh api "repos/$REPOSITORY/releases/$release_id/assets" | \
+              jq -e --arg asset "$asset" --arg digest "sha256:$sha" \
+                'any(.name == $asset and .state == "uploaded" and .digest == $digest)'
+          done
