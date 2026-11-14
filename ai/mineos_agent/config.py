@@ -1,0 +1,171 @@
+"""Where the agent's settings come from, in one documented order.
+
+    built-in defaults
+      < /etc/mineos/agent.json          (what the ISO ships)
+      < ~/.config/mineos/agent.json     (what the user changed)
+      < environment variables           (MINEOS_LLM_URL, MINEOS_LLM_MODEL, MINEOS_API_KEY)
+      < command-line flags
+
+Later wins. The default talks to the local ``llama-server`` on 127.0.0.1:8080,
+so a fresh install works offline with no key. An API key is only ever used when
+the user provides one, and a hosted endpoint is only used when the user points
+``base_url`` at it -- nothing in here phones anywhere by itself.
+"""
+
+import json
+import os
+import stat
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Mapping
+
+__all__ = ["AgentConfig", "LLMConfig", "RouterConfig", "load_config", "user_paths"]
+
+SYSTEM_FILE = Path("/etc/mineos/agent.json")
+
+
+def user_paths() -> dict[str, Path]:
+    """XDG locations for this user, created lazily by whoever writes them."""
+    home = Path.home()
+    config = Path(os.environ.get("XDG_CONFIG_HOME") or home / ".config")
+    data = Path(os.environ.get("XDG_DATA_HOME") or home / ".local" / "share")
+    state = Path(os.environ.get("XDG_STATE_HOME") or home / ".local" / "state")
+    return {
+        "config": config / "mineos" / "agent.json",
+        "memory": data / "mineos" / "memory.db",
+        "runs": state / "mineos" / "runs",
+    }
+
+
+@dataclass(slots=True)
+class LLMConfig:
+    #: OpenAI-compatible base URL. llama-server serves /v1/chat/completions.
+    base_url: str = "http://127.0.0.1:8080/v1"
+    #: Model name sent in the request. llama-server answers to its --alias.
+    model: str = "qwen2.5-1.5b-instruct"
+    #: Only sent when set. Never logged, never printed, never put in a window.
+    api_key: str | None = None
+    #: Must match llama-server's -c. The window is budgeted against it.
+    context: int = 4096
+    max_tokens: int = 512
+    temperature: float = 0.2
+    #: Seconds. A 1.5B model on a VM's CPU is slow; a hung server is not.
+    timeout: float = 120.0
+
+
+@dataclass(slots=True)
+class RouterConfig:
+    #: Hugging Face id or local directory of the encoder classifier, or None
+    #: for the rule-based router only.
+    model: str | None = None
+    #: Classifier label -> agent intent (OPEN, SEARCH, VOLUME, STATUS, TIME,
+    #: REMEMBER, RECALL, CHAT, TASK). Unmapped labels mean TASK.
+    labels: dict[str, str] = field(default_factory=dict)
+    #: Below this confidence the router never takes the fast path.
+    threshold: float = 0.85
+
+
+@dataclass(slots=True)
+class AgentConfig:
+    llm: LLMConfig = field(default_factory=LLMConfig)
+    router: RouterConfig = field(default_factory=RouterConfig)
+    max_steps: int = 6
+    max_attempts: int = 3
+    code_timeout: float = 20.0
+    memory_path: Path = field(default_factory=lambda: user_paths()["memory"])
+    runs_path: Path | None = field(default_factory=lambda: user_paths()["runs"])
+    #: Where file tools may read and write. The user's home by default.
+    home: Path = field(default_factory=Path.home)
+    warnings: list[str] = field(default_factory=list)
+
+
+def _read_json(path: Path, warnings: list[str]) -> Mapping[str, Any]:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return {}
+    except OSError as exc:
+        warnings.append(f"could not read {path}: {exc.strerror}")
+        return {}
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        warnings.append(f"{path} is not valid JSON (line {exc.lineno}); ignored")
+        return {}
+    if not isinstance(data, dict):
+        warnings.append(f"{path} must hold a JSON object; ignored")
+        return {}
+    return data
+
+
+def _apply(config: AgentConfig, data: Mapping[str, Any], origin: str) -> None:
+    llm = data.get("llm", {})
+    if isinstance(llm, dict):
+        for key in ("base_url", "model", "api_key"):
+            if isinstance(llm.get(key), str) and llm[key].strip():
+                setattr(config.llm, key, llm[key].strip())
+        for key in ("context", "max_tokens"):
+            if isinstance(llm.get(key), int) and llm[key] > 0:
+                setattr(config.llm, key, llm[key])
+        for key in ("temperature", "timeout"):
+            if isinstance(llm.get(key), (int, float)):
+                setattr(config.llm, key, float(llm[key]))
+        if "api_key" in llm and origin == str(SYSTEM_FILE) and llm.get("api_key"):
+            config.warnings.append(
+                f"{SYSTEM_FILE} holds an API key that every user can read; "
+                "put it in ~/.config/mineos/agent.json instead"
+            )
+    router = data.get("router", {})
+    if isinstance(router, dict):
+        if isinstance(router.get("model"), str) and router["model"].strip():
+            config.router.model = router["model"].strip()
+        if isinstance(router.get("labels"), dict):
+            config.router.labels = {
+                str(k): str(v).upper() for k, v in router["labels"].items()
+            }
+        if isinstance(router.get("threshold"), (int, float)):
+            config.router.threshold = float(router["threshold"])
+    agent = data.get("agent", {})
+    if isinstance(agent, dict):
+        for key in ("max_steps", "max_attempts"):
+            if isinstance(agent.get(key), int) and agent[key] > 0:
+                setattr(config, key, agent[key])
+        if isinstance(agent.get("code_timeout"), (int, float)):
+            config.code_timeout = float(agent["code_timeout"])
+
+
+def _check_private(path: Path, warnings: list[str]) -> None:
+    """Warn when a file holding a key is readable by other users."""
+    if os.name != "posix":
+        return
+    try:
+        mode = path.stat().st_mode
+    except OSError:
+        return
+    if mode & (stat.S_IRGRP | stat.S_IROTH):
+        warnings.append(f"{path} holds an API key and is readable by others; run: chmod 600 {path}")
+
+
+def load_config(
+    *,
+    files: tuple[Path, ...] | None = None,
+    environ: Mapping[str, str] | None = None,
+) -> AgentConfig:
+    """Build the effective configuration. Never raises on a bad file."""
+    config = AgentConfig()
+    env = os.environ if environ is None else environ
+    sources = files if files is not None else (SYSTEM_FILE, user_paths()["config"])
+    for path in sources:
+        data = _read_json(path, config.warnings)
+        if data:
+            _apply(config, data, str(path))
+            if isinstance(data.get("llm"), dict) and data["llm"].get("api_key"):
+                _check_private(path, config.warnings)
+    if env.get("MINEOS_LLM_URL", "").strip():
+        config.llm.base_url = env["MINEOS_LLM_URL"].strip()
+    if env.get("MINEOS_LLM_MODEL", "").strip():
+        config.llm.model = env["MINEOS_LLM_MODEL"].strip()
+    if env.get("MINEOS_API_KEY", "").strip():
+        config.llm.api_key = env["MINEOS_API_KEY"].strip()
+    config.llm.base_url = config.llm.base_url.rstrip("/")
+    return config

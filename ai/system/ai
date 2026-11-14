@@ -1,0 +1,5 @@
+#!/bin/sh
+# The `ai` command: the MineOS terminal assistant (/opt/ai/mineos_agent).
+# -I keeps the user's current folder and ~/.local packages off Python's import
+# path, so a stray json.py in the folder you run `ai` from is never imported.
+exec python3 -I -c 'import sys; sys.path.insert(0, "/opt/ai"); from mineos_agent.cli import main; sys.exit(main(sys.argv[1:]))' "$@"

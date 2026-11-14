@@ -48,6 +48,9 @@ jobs:
           sudo apt-get install -y --no-install-recommends curl jq zstd
           df -h .
 
+      - name: Unit test the terminal assistant
+        run: python3 -m unittest discover -s ai/tests -t ai -v
+
       - name: Fetch verified offline model and inference engine
         run: bash ai/fetch-offline-ai.sh "$RUNNER_TEMP/mineos-ai"
 
@@ -56,7 +59,7 @@ jobs:
           mkdir -p dist
           docker run --rm --privileged \
             -v "$PWD:/src" -v "$RUNNER_TEMP/mineos-ai:/mineos-ai:ro" -w /src \
-            -e MINEOS_OLLAMA_DIR=/mineos-ai/engine -e MINEOS_OLLAMA_MODELS=/mineos-ai/models \
+            -e MINEOS_AI_DIR=/mineos-ai \
             -e MINEOS_BUILD_ID \
             debian:13 bash scripts/build-iso.sh "/src/dist/MineOS-$MINEOS_VERSION-$MINEOS_ARCH.iso"
           (

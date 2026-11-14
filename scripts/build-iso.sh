@@ -76,9 +76,16 @@ install -d "$ROOTFS/opt/ai/desktop" "$ROOTFS/usr/share/plymouth/themes/mineos" \
     "$ROOTFS/etc/xdg/autostart" "$ROOTFS/usr/share/applications" "$ROOTFS/usr/local/share/applications" \
     "$ROOTFS/etc/systemd/system" "$ROOTFS/etc/lightdm/lightdm.conf.d"
 cp -a "$SOURCE/ai/agent/." "$ROOTFS/opt/ai/"
+cp -a "$SOURCE/ai/mineos_agent" "$ROOTFS/opt/ai/"
+find "$ROOTFS/opt/ai" -name __pycache__ -prune -exec rm -rf {} +
 cp -a "$SOURCE/desktop/." "$ROOTFS/opt/ai/desktop/"
-ln -s /opt/ai/jarvis.py "$ROOTFS/usr/local/bin/ai"
+install -m 755 "$SOURCE/ai/system/ai" "$ROOTFS/usr/local/bin/ai"
 ln -s /opt/ai/jarvis_gui.py "$ROOTFS/usr/local/bin/ai-hud"
+install -d "$ROOTFS/etc/mineos"
+install -m 644 "$SOURCE/ai/system/agent.json" "$ROOTFS/etc/mineos/agent.json"
+install -m 644 "$SOURCE/ai/system/ai-shell.sh" "$ROOTFS/etc/profile.d/mineos-ai.sh"
+# The assistant must at least start and describe itself inside the image.
+chroot "$ROOTFS" /usr/local/bin/ai --version
 install -m 644 "$SOURCE/desktop/settings.desktop" "$ROOTFS/usr/share/applications/org.mineos.Settings.desktop"
 for app in xfce-settings-manager xfce-backdrop-settings xfce-ui-settings; do
     install -m 644 "$SOURCE/desktop/hidden-settings.desktop" "$ROOTFS/usr/local/share/applications/$app.desktop"
@@ -140,22 +147,21 @@ Name=Picom
 Hidden=true
 ENTRY
 
-if [[ -n "${MINEOS_OLLAMA_DIR:-}" ]]; then
-    OLLAMA="$MINEOS_OLLAMA_DIR"
-    [[ -x "$OLLAMA/bin/ollama" && -d "$OLLAMA/lib/ollama" ]]
-    install -d "$ROOTFS/usr/local/bin" "$ROOTFS/usr/local/lib"
-    install -m 755 "$OLLAMA/bin/ollama" "$ROOTFS/usr/local/bin/ollama"
-    cp -a "$OLLAMA/lib/ollama" "$ROOTFS/usr/local/lib/"
-    chroot "$ROOTFS" /usr/local/bin/ollama --version
-    chroot "$ROOTFS" useradd --system --home /usr/share/ollama --create-home --shell /usr/sbin/nologin ollama
-    install -m 644 "$SOURCE/ai/system/ai-core.service" "$ROOTFS/etc/systemd/system/ai-core.service"
-    if [[ -n "${MINEOS_OLLAMA_MODELS:-}" ]]; then
-        [[ -d "$MINEOS_OLLAMA_MODELS/blobs" && -d "$MINEOS_OLLAMA_MODELS/manifests" ]]
-        install -d "$ROOTFS/usr/share/ollama/models"
-        cp -a "$MINEOS_OLLAMA_MODELS/." "$ROOTFS/usr/share/ollama/models/"
-    fi
-    chroot "$ROOTFS" chown -R ollama:ollama /usr/share/ollama
-    chroot "$ROOTFS" systemctl enable ai-core.service
+# The offline model: llama.cpp's server plus one GGUF file, both fetched and
+# checksummed by ai/fetch-offline-ai.sh. Without MINEOS_AI_DIR the ISO still
+# boots and `ai` still does the simple things (open apps, volume, memory);
+# requests that need the language model say the server is not running.
+if [[ -n "${MINEOS_AI_DIR:-}" ]]; then
+    AI_DIR="$MINEOS_AI_DIR"
+    MODEL=qwen2.5-1.5b-instruct-q4_k_m.gguf
+    [[ -x "$AI_DIR/llama.cpp/llama-server" && -f "$AI_DIR/models/$MODEL" ]]
+    install -d "$ROOTFS/opt/llama.cpp" "$ROOTFS/usr/share/mineos/models"
+    cp -a "$AI_DIR/llama.cpp/." "$ROOTFS/opt/llama.cpp/"
+    install -m 644 "$AI_DIR/models/$MODEL" "$ROOTFS/usr/share/mineos/models/$MODEL"
+    # Fails the build if a shared library llama-server needs is missing.
+    chroot "$ROOTFS" /opt/llama.cpp/llama-server --version
+    install -m 644 "$SOURCE/ai/system/mineos-llm.service" "$ROOTFS/etc/systemd/system/mineos-llm.service"
+    chroot "$ROOTFS" systemctl enable mineos-llm.service
 fi
 
 install -m 644 "$SOURCE/branding/render_frames.py" "$ROOTFS/opt/ai/boot-render.py"

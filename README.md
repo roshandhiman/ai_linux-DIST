@@ -1,6 +1,6 @@
 # MineOS
 
-A Debian-based Linux desktop project with a local Ollama assistant, a terminal agent, and system-monitoring services. Development currently targets Debian 13 ARM64 on Parallels.
+A Debian-based Linux desktop project with an offline AI assistant (llama.cpp serving Qwen2.5 1.5B), a terminal agent that can act on the desktop safely, and system-monitoring services. Development currently targets Debian 13 ARM64 on Parallels.
 
 The desktop uses XFCE/X11, Thunar, neutral light and dark GTK themes, a slim charcoal top panel, a compact translucent Plank dock, and still or live wallpaper. The assistant opens on demand; the desktop does not display service badges, promotional text, or a custom file-manager dashboard.
 
@@ -39,6 +39,42 @@ On a system installed to disk, the update survives reboot. If you booted the old
 
 For development over SSH, `make live-desktop` uses `VM_HOST` to select a test VM. Desktop setup and dependencies are documented in [docs/desktop.md](docs/desktop.md).
 
+## The terminal assistant: `ai`
+
+Open Terminal and type `ai` for a session, or `ai "open the browser"` for one request.
+
+```text
+mine> volume 40
+Volume set to 40%.
+mine> find my pdf files in downloads and tell me the biggest
+  > code
+    | files = mine.find_files("*.pdf", "downloads")
+    | ...
+The biggest is ~/Downloads/report.pdf (2.4 MB).
+mine> remember that my sister is Priya
+Got it, I'll remember: user -sister-> priya
+```
+
+How a request is handled:
+
+1. **Router (tier 1).** Fast rules (or an optional encoder classifier) spot simple requests: open an app or site, search, volume, time, system status, remember and recall. These run straight away and never wake the language model.
+2. **Language model (tier 2).** Anything else goes to Qwen2.5 1.5B, served by `llama-server` on `127.0.0.1:8080`. The model has one tool: it writes short Python. That Python runs in a sandbox (a separate process under `bubblewrap`: no network, read-only system, no `open`/`os`/`subprocess`). It reaches the computer only through the `mine` API, for example `mine.open_app`, `mine.list_dir`, `mine.system_status` and `mine.remember`.
+3. **Two loops.** The outer loop counts steps that ran. Inside each step, the inner loop lets the model fix a broken block (syntax error, refused import, crash) and sees only its latest mistake.
+4. **Your OK for anything that changes things.** Writing or trashing files, running a command, or talking to a USB device stops and shows the exact action, then waits for `y`. File access is limited to your home folder, with `.ssh`, browser profiles and the assistant's own settings excluded.
+5. **Graph memory.** Facts you tell it are stored as `subject -relation-> object` in `~/.local/share/mineos/memory.db`. Recall follows one link, so "my sister is Priya" and "Priya lives in Pune" together answer "where does my sister live".
+
+| Command | What it does |
+| --- | --- |
+| `ai --status` | Is the model server up, which router, which sandbox, how much memory |
+| `ai --memory` / `ai --forget priya` | Show or delete what it remembers |
+| `ai -q ...` | Hide the step-by-step trace |
+| `?? show the 5 biggest files here` | Suggests one shell command for you to edit or run |
+| `sudo systemctl status mineos-llm` | The local model server |
+
+Settings live in `/etc/mineos/agent.json`; your own changes go in `~/.config/mineos/agent.json`, which takes priority. To use a hosted model instead of the local one, set `llm.base_url`, `llm.model` and `llm.api_key` there (any OpenAI-compatible API) and run `chmod 600` on the file. Without a key, nothing leaves the machine. Every request is logged to `~/.local/state/mineos/runs/` for debugging.
+
+Run the assistant's tests from the repository root with `python3 -m unittest discover -s ai/tests -t ai`. They use a scripted fake model, so they need no server.
+
 ## Repository layout
 
 ```
@@ -55,9 +91,11 @@ branding/            Startup and sign-in branding
   render_frames.py     Renders the boot animation frames
 rootfs/              Files copied into the image (GRUB menu, LightDM live session, sysctl tuning)
 ai/                  Everything AI-related, kept separate from the OS
-  agent/               jarvis.py (terminal agent), jarvis_gui.py (Assistant), sentinel.py, tools/
-  system/              Ollama and sentinel systemd units, shell hook, ESP32 udev rule and handler
-  fetch-offline-ai.sh  Downloads the verified Ollama engine and Qwen2.5 model for CI builds
+  mineos_agent/        The `ai` terminal assistant: router, sandboxed Python tool, mine API, graph memory
+  tests/               Unit tests for mineos_agent (fake model, no server needed)
+  agent/               jarvis_gui.py (graphical Assistant), sentinel.py, research.py, older jarvis.py and tools/
+  system/              llama.cpp and sentinel systemd units, `ai` launcher, agent.json, shell hook, ESP32 udev rule
+  fetch-offline-ai.sh  Downloads the pinned llama.cpp server and Qwen2.5 1.5B GGUF and verifies their checksums
   download-model.sh    Downloads a GGUF model manually (not used by the build)
 docs/                desktop.md: desktop setup, dependencies and components
 Makefile             Shortcuts for ISO builds and pushing changes to a test VM
@@ -68,12 +106,18 @@ The source layout differs from the installed layout:
 | Source | Installed path |
 | --- | --- |
 | `ai/agent/*` | `/opt/ai/` |
+| `ai/mineos_agent/` | `/opt/ai/mineos_agent/` |
+| `ai/system/ai` | `/usr/local/bin/ai` |
+| `ai/system/agent.json` | `/etc/mineos/agent.json` |
+| `ai/system/ai-shell.sh` | `/etc/profile.d/mineos-ai.sh` |
 | `desktop/` | `/opt/ai/desktop/` |
-| `ai/system/ai-core.service` | `/etc/systemd/system/` (only when the ISO embeds Ollama) |
+| llama.cpp release (fetched) | `/opt/llama.cpp/` |
+| Qwen2.5 1.5B GGUF (fetched) | `/usr/share/mineos/models/` |
+| `ai/system/mineos-llm.service` | `/etc/systemd/system/` (only when the ISO embeds the model) |
 | `rootfs/etc/lightdm/lightdm.conf.d/live.conf` | `/etc/lightdm/lightdm.conf.d/40-mineos.conf` |
 | `rootfs/boot/grub/grub.cfg` | The ISO boot menu (`/boot/grub/grub.cfg` on the image) |
 
-The sentinel service, shell hook, udev rule and sysctl tuning are not part of the ISO build. `make live-sync` installs them on a test VM.
+The sentinel service, udev rule and sysctl tuning are not part of the ISO build. `make live-sync` installs them on a test VM.
 
 ## Make targets
 
@@ -84,7 +128,8 @@ The sentinel service, shell hook, udev rule and sysctl tuning are not part of th
 | `make live-sync` | Copies the agent, shell hook, sysctl, udev and sentinel files to the test VM |
 | `make live-desktop` | Copies the desktop and Assistant to the test VM and reapplies the theme |
 | `make live-hud` | Starts the Assistant on the test VM display |
-| `make test-ai` | Runs a sample prompt through the terminal agent on the test VM |
+| `make test-ai` | Checks the assistant on the test VM (`ai --status` and one request) |
+| `make test-agent` | Runs the assistant unit tests locally |
 
 The VM targets use `VM_HOST` and `REMOTE_DIR`. Override them per run, for example `make live-desktop VM_HOST=user@10.0.0.5`.
 
@@ -106,12 +151,12 @@ Apply the MineOS sign-in theme with `sudo bash branding/install-login.sh`. Light
 
 On a native Debian 13 ARM64 or AMD64 build machine, run `sudo bash scripts/build-iso.sh /absolute/path/to/MineOS.iso` (or `make iso ISO=/absolute/path/to/MineOS.iso`). The builder creates a separate temporary Debian root and uses the XFCE desktop and MineOS splash from this repository. Building an ISO can use several gigabytes of disk space and downloads packages from Debian.
 
-Set `MINEOS_OLLAMA_DIR` to a trusted Ollama installation tree containing `bin/ollama` and `lib/ollama` to embed the local engine. Set `MINEOS_OLLAMA_MODELS` to its model store to include downloaded model weights. Without the Ollama tree the live desktop starts normally and Assistant needs a local model service.
+To embed the offline model, run `bash ai/fetch-offline-ai.sh /absolute/path/mineos-ai` first. It downloads llama.cpp release b11571 and the Qwen2.5 1.5B Instruct Q4_K_M GGUF (about 1.1 GB) and checks both against pinned SHA-256 sums. Then build with `MINEOS_AI_DIR=/absolute/path/mineos-ai`. Without it, the live desktop starts normally and `ai` still handles simple requests, but anything that needs the language model reports that the server is not running.
 
 - **ARM64** boots in an ARM64 UEFI VM, such as Parallels on Apple Silicon.
 - **AMD64** boots on 64-bit Intel or AMD PCs, including machines that normally run Windows, and in compatible x86-64 VMs. The image supports UEFI and legacy BIOS. UEFI requires firmware configuration that permits the unsigned live bootloader.
 
-These are live Linux ISOs. The included Ollama engine uses the CPU and comes with Qwen2.5 1.5B for offline chat.
+These are live Linux ISOs. The included llama.cpp server runs Qwen2.5 1.5B on the CPU, fully offline.
 
 To release a new version, change the number in `VERSION`. The ISO name, the CI artifact and `/etc/os-release` all follow it. Every CI build boots the amd64 ISO in QEMU and fails if the desktop does not start. The serial log is uploaded as the `boot-test-log-amd64` artifact.
 

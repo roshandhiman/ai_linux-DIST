@@ -12,17 +12,23 @@ import os
 import json
 import re
 
-OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
-DEFAULT_MODEL = os.environ.get("MINEOS_MODEL", "qwen2.5:1.5b")
+# The model server and its settings are shared with the `ai` terminal agent:
+# llama-server on 127.0.0.1:8080 unless /etc/mineos/agent.json or
+# ~/.config/mineos/agent.json say otherwise.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from mineos_agent.config import load_config  # noqa: E402
+from mineos_agent.llm import LLMError, OpenAIChat  # noqa: E402
 
 
 def current_model():
+    """The model name: the Settings app's choice if set, else the shared config."""
+    config = load_config()
     desktop = Path(__file__).resolve().parent / "desktop"
     if desktop.is_dir():
         sys.path.insert(0, str(desktop))
         import preferences
-        return preferences.read()["model"] or DEFAULT_MODEL
-    return DEFAULT_MODEL
+        return preferences.read()["model"] or config.llm.model
+    return config.llm.model
 
 SYSTEM_PROMPT = (
     "You are Mine AI, the helpful assistant built into MineOS, a Debian Linux desktop. "
@@ -69,34 +75,18 @@ def handle_action(text):
 
 
 def ask_ollama(history, tokens=384, on_chunk=None):
-    import requests
+    """Stream a reply from the shared model server (llama.cpp by default).
 
+    Kept under its old name so the rest of this window is unchanged.
+    """
+    config = load_config()
+    config.llm.model = current_model()
+    config.llm.timeout = 75
     chunks = []
-    finished = False
-    with requests.post(
-        OLLAMA_URL,
-        json={"model": current_model(), "messages": history, "stream": True,
-              "options": {"temperature": 0.2, "num_predict": tokens, "num_ctx": 4096}},
-        stream=True,
-        timeout=(4, 75),
-    ) as response:
-        response.raise_for_status()
-        for line in response.iter_lines():
-            if not line:
-                continue
-            part = json.loads(line)
-            if part.get("error"):
-                raise ValueError(part["error"])
-            content = part.get("message", {}).get("content", "")
-            if content:
-                chunks.append(content)
-                if on_chunk:
-                    on_chunk("".join(chunks))
-            if part.get("done"):
-                finished = True
-                break
-    if not finished:
-        raise requests.ConnectionError("Local model stream ended before completion.")
+    for piece in OpenAIChat(config.llm).stream_messages(history, max_tokens=tokens):
+        chunks.append(piece)
+        if on_chunk:
+            on_chunk("".join(chunks))
     return "".join(chunks).strip() or "The model returned an empty response."
 
 
@@ -334,6 +324,8 @@ class AssistantWindow(Gtk.ApplicationWindow):
                 reply = handle_action(text)
                 if reply is None:
                     reply = ask_ollama(history, on_chunk=lambda output: GLib.idle_add(self.progress.set_text, output.split("\n")[-1][-120:]))
+        except LLMError as error:
+            reply = f"The local model could not answer: {error}"
         except requests.Timeout:
             reply = "The request timed out. Please try again."
         except requests.RequestException:

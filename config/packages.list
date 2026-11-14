@@ -73,3 +73,12 @@ gstreamer1.0-gtk3
 gstreamer1.0-libav
 gstreamer1.0-plugins-good
 ffmpeg
+
+# ---- Terminal assistant (ai) and its local model server -----------------
+# bubblewrap: the kernel sandbox the assistant runs model-written code in.
+# libgomp1 / libssl3t64: shared libraries the bundled llama-server links to.
+# libnotify-bin: notify-send, for mine.notify().
+bubblewrap
+libgomp1
+libssl3t64
+libnotify-bin
