@@ -25,7 +25,12 @@
 .settings-hero { padding: 0 0 2px; }
 .settings-hero .settings-icon { border-radius: 16px; padding: 12px; }
 .settings-icon { border-radius: 7px; background-color: @mineos_hover; color: @mineos_text; padding: 5px; }
-.settings-group { border: 1px solid @mineos_line; border-radius: 18px; background-color: @mineos_card; }
+.settings-group {
+    border: 1px solid @mineos_line;
+    border-radius: 18px;
+    background-color: @mineos_card;
+    box-shadow: inset 0 1px alpha(#fff, .07);
+}
 .settings-row { padding: 16px 18px; color: @mineos_text; }
 .settings-group separator { background-image: none; background-color: @mineos_line; min-height: 1px; margin: 0 14px; }
 .settings-value { color: @mineos_muted; }
@@ -43,6 +48,9 @@
 .settings-value { font-size: 12px; }
 
 window.mineos-settings { background-color: @theme_bg_color; }
-window.mineos-settings.mineos-translucent { background-color: @mineos_surface; }
+window.mineos-settings.mineos-translucent {
+    background-color: @mineos_surface;
+    background-image: linear-gradient(155deg, alpha(#fff, .07), transparent 60%);
+}
 .mineos-settings .mineos-toolbar { background-color: transparent; }
 .mineos-settings scrolledwindow viewport { background-color: transparent; }

@@ -5,16 +5,12 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, Gio, GLib, Pango
 from pathlib import Path
 from urllib.parse import quote_plus
-import requests
 import subprocess
 import threading
 import sys
 import os
 import json
 import re
-
-from artifacts import materialize, requested_artifact
-from research import brief, search
 
 OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
 DEFAULT_MODEL = os.environ.get("MINEOS_MODEL", "qwen2.5:1.5b")
@@ -73,6 +69,8 @@ def handle_action(text):
 
 
 def ask_ollama(history, tokens=384, on_chunk=None):
+    import requests
+
     chunks = []
     finished = False
     with requests.post(
@@ -289,6 +287,10 @@ class AssistantWindow(Gtk.ApplicationWindow):
         threading.Thread(target=self.worker, args=(text, snapshot, mode), daemon=True).start()
 
     def worker(self, text, history, mode):
+        import requests
+
+        from artifacts import materialize, requested_artifact
+
         sources = []
         artifact = None
         try:
@@ -306,6 +308,8 @@ class AssistantWindow(Gtk.ApplicationWindow):
                 artifact = materialize(filename, folder, content)
                 reply = f"{filename} is ready to save."
             elif mode == "Web":
+                from research import brief, search
+
                 GLib.idle_add(self.progress.set_text, "Searching the web…")
                 sources = search(text)
                 if sources:

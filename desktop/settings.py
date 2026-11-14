@@ -102,8 +102,8 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
         self.nav = Gtk.ListBox(selection_mode=Gtk.SelectionMode.SINGLE)
         self.nav.get_style_context().add_class("settings-navigation")
         navigation.add(self.nav)
-        self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE, transition_duration=100,
-                               hhomogeneous=False, vhomogeneous=False)
+        self.stack = Gtk.Stack(transition_duration=120, hhomogeneous=False, vhomogeneous=False)
+        self.update_transition()
         body.pack_start(self.stack, True, True, 0)
         for title, icon, key, keywords, tone in SECTIONS:
             self.add_navigation_item(key, title, icon, tone, keywords)
@@ -337,6 +337,8 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
         try:
             old = preferences.read()
             preferences.apply(self.values, old)
+            if old["animations"] != self.values["animations"]:
+                self.update_transition()
             if old["appearance"] != self.values["appearance"]:
                 self.refresh_style()
         except (OSError, subprocess.SubprocessError, GLib.Error) as error:
@@ -344,6 +346,11 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
             dialog.run()
             dialog.destroy()
         return GLib.SOURCE_REMOVE
+
+    def update_transition(self):
+        self.stack.set_transition_type(
+            Gtk.StackTransitionType.CROSSFADE if self.values["animations"] else Gtk.StackTransitionType.NONE
+        )
 
     def refresh_style(self):
         dark = self.values["appearance"] == "dark"
@@ -381,7 +388,7 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
         effects = self.group(page)
         self.switch(effects, "Window animations", "animations")
         self.switch(effects, "Window shadows", "shadows")
-        self.switch(effects, "Background blur", "blur")
+        self.switch(effects, "Blur behind the app launcher", "blur")
 
     def wallpaper_preview(self, widget, cr):
         width, height = widget.get_allocated_width(), widget.get_allocated_height()

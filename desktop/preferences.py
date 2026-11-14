@@ -167,7 +167,7 @@ def compositor(values):
     path = CONFIG / "picom" / "picom.conf"
     template = (DESKTOP / "picom.conf").read_text()
     if values["blur"]:
-        template = template.replace('blur-method = "none"', 'blur-method = "gaussian"').replace("blur-background = false", "blur-background = true")
+        template = template.replace('blur-method = "none"', 'blur-method = "box"').replace("blur-background = false", "blur-background = true")
     if not values["shadows"]:
         template = template.replace("shadow = true", "shadow = false")
     if not values["animations"]:

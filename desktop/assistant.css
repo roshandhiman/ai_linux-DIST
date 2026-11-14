@@ -1,5 +1,8 @@
 window.mineos-assistant { font-family: Inter, sans-serif; }
-window.mineos-assistant.mineos-translucent { background-color: alpha(@theme_bg_color, .92); }
+window.mineos-assistant.mineos-translucent {
+    background-color: alpha(@theme_bg_color, .90);
+    background-image: linear-gradient(155deg, alpha(#fff, .08), transparent 62%);
+}
 .mineos-assistant .assistant-toolbar, .mineos-assistant scrolledwindow viewport { background-color: transparent; }
 .assistant-composer {
     margin: 10px 24px 24px;

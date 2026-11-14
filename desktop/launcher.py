@@ -135,7 +135,7 @@ class Launcher(Gtk.ApplicationWindow):
 
     def queue_search(self, *_):
         self.cancel_search()
-        self.search_timer = GLib.timeout_add(95, self.apply_search)
+        self.search_timer = GLib.timeout_add(55, self.apply_search)
 
     def apply_search(self):
         self.search_timer = 0
