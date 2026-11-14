@@ -147,9 +147,10 @@ Name=Picom
 Hidden=true
 ENTRY
 
-# The offline model: llama.cpp's server plus one GGUF file, both fetched and
-# checksummed by ai/fetch-offline-ai.sh. Without MINEOS_AI_DIR the ISO still
-# boots and `ai` still does the simple things (open apps, volume, memory);
+# The offline models: llama.cpp's server plus one GGUF file (tier two), and
+# the Laya router (tier one), all fetched and checksummed by
+# ai/fetch-offline-ai.sh. Without MINEOS_AI_DIR the ISO still boots and `ai`
+# still does the simple things with its rules (open apps, volume, memory);
 # requests that need the language model say the server is not running.
 if [[ -n "${MINEOS_AI_DIR:-}" ]]; then
     AI_DIR="$MINEOS_AI_DIR"
@@ -162,6 +163,26 @@ if [[ -n "${MINEOS_AI_DIR:-}" ]]; then
     chroot "$ROOTFS" /opt/llama.cpp/llama-server --version
     install -m 644 "$SOURCE/ai/system/mineos-llm.service" "$ROOTFS/etc/systemd/system/mineos-llm.service"
     chroot "$ROOTFS" systemctl enable mineos-llm.service
+
+    # Tier one: the Laya router. Its Python packages are installed from the
+    # wheels the fetch script pinned, with no index, so the build cannot pick
+    # up anything else; its weights are a plain folder read offline.
+    if [[ -d "$AI_DIR/laya-wheels" && -f "$AI_DIR/models/laya-multilingual/model.safetensors" ]]; then
+        install -d "$ROOTFS/tmp/laya-wheels"
+        cp -a "$AI_DIR/laya-wheels/." "$ROOTFS/tmp/laya-wheels/"
+        install -m 644 "$SOURCE/ai/laya-requirements.txt" "$ROOTFS/tmp/laya-wheels/requirements.txt"
+        chroot "$ROOTFS" python3 -m venv /opt/laya
+        chroot "$ROOTFS" /opt/laya/bin/pip install --no-index --no-cache-dir \
+            --find-links /tmp/laya-wheels -r /tmp/laya-wheels/requirements.txt
+        rm -rf "$ROOTFS/tmp/laya-wheels"
+        find "$ROOTFS/opt/laya" -name __pycache__ -prune -exec rm -rf {} +
+        cp -a "$AI_DIR/models/laya-multilingual" "$ROOTFS/usr/share/mineos/models/"
+        chmod -R a+rX "$ROOTFS/usr/share/mineos/models/laya-multilingual"
+        # Fails the build if torch, transformers or laya cannot import here.
+        chroot "$ROOTFS" env USE_TF=0 /opt/laya/bin/python -c 'import laya.serve, torch, transformers'
+        install -m 644 "$SOURCE/ai/system/mineos-router.service" "$ROOTFS/etc/systemd/system/mineos-router.service"
+        chroot "$ROOTFS" systemctl enable mineos-router.service
+    fi
 fi
 
 install -m 644 "$SOURCE/branding/render_frames.py" "$ROOTFS/opt/ai/boot-render.py"

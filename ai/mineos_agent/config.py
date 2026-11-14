@@ -3,7 +3,8 @@
     built-in defaults
       < /etc/mineos/agent.json          (what the ISO ships)
       < ~/.config/mineos/agent.json     (what the user changed)
-      < environment variables           (MINEOS_LLM_URL, MINEOS_LLM_MODEL, MINEOS_API_KEY)
+      < environment variables           (MINEOS_LLM_URL, MINEOS_LLM_MODEL, MINEOS_API_KEY,
+                                         MINEOS_ROUTER_URL)
       < command-line flags
 
 Later wins. The default talks to the local ``llama-server`` on 127.0.0.1:8080,
@@ -55,13 +56,16 @@ class LLMConfig:
 
 @dataclass(slots=True)
 class RouterConfig:
-    #: Hugging Face id or local directory of the encoder classifier, or None
-    #: for the rule-based router only.
-    model: str | None = None
-    #: Classifier label -> agent intent (OPEN, SEARCH, VOLUME, STATUS, TIME,
-    #: REMEMBER, RECALL, CHAT, TASK). Unmapped labels mean TASK.
-    labels: dict[str, str] = field(default_factory=dict)
-    #: Below this confidence the router never takes the fast path.
+    #: Base URL of the local laya-serve (mineos-router.service), or None for
+    #: the rule-based router only.
+    url: str | None = None
+    #: Which Laya checkpoint answers: "multilingual" (100+ languages, the
+    #: faster one) or "english".
+    checkpoint: str = "multilingual"
+    #: Seconds to wait for Laya before carrying on with the rules alone.
+    timeout: float = 3.0
+    #: Below this confidence a route is not trusted: the fast path is not
+    #: taken, and a Laya verdict is ignored in favour of the rules.
     threshold: float = 0.85
 
 
@@ -117,14 +121,14 @@ def _apply(config: AgentConfig, data: Mapping[str, Any], origin: str) -> None:
             )
     router = data.get("router", {})
     if isinstance(router, dict):
-        if isinstance(router.get("model"), str) and router["model"].strip():
-            config.router.model = router["model"].strip()
-        if isinstance(router.get("labels"), dict):
-            config.router.labels = {
-                str(k): str(v).upper() for k, v in router["labels"].items()
-            }
-        if isinstance(router.get("threshold"), (int, float)):
-            config.router.threshold = float(router["threshold"])
+        if "url" in router:
+            url = router["url"]
+            config.router.url = url.strip() if isinstance(url, str) and url.strip() else None
+        if isinstance(router.get("checkpoint"), str) and router["checkpoint"].strip():
+            config.router.checkpoint = router["checkpoint"].strip()
+        for key in ("timeout", "threshold"):
+            if isinstance(router.get(key), (int, float)) and not isinstance(router.get(key), bool):
+                setattr(config.router, key, float(router[key]))
     agent = data.get("agent", {})
     if isinstance(agent, dict):
         for key in ("max_steps", "max_attempts"):
@@ -167,5 +171,9 @@ def load_config(
         config.llm.model = env["MINEOS_LLM_MODEL"].strip()
     if env.get("MINEOS_API_KEY", "").strip():
         config.llm.api_key = env["MINEOS_API_KEY"].strip()
+    if "MINEOS_ROUTER_URL" in env:  # set but empty means "rules only"
+        config.router.url = env["MINEOS_ROUTER_URL"].strip() or None
     config.llm.base_url = config.llm.base_url.rstrip("/")
+    if config.router.url:
+        config.router.url = config.router.url.rstrip("/")
     return config

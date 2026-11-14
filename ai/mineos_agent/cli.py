@@ -22,7 +22,7 @@ from .config import AgentConfig, load_config
 from .llm import OpenAIChat, health
 from .memory import GraphMemory
 from .os_api import OsApi
-from .router import EncoderRouter, HybridRouter
+from .router import HybridRouter, LayaRouter
 from .sandbox import Sandbox
 from .text import fold_ascii
 
@@ -94,12 +94,13 @@ def _approver(action: str, detail: str) -> bool:
 
 def build_agent(config: AgentConfig, *, trace: Trace) -> Agent:
     memory = GraphMemory(config.memory_path)
-    encoder = (EncoderRouter(config.router.model, config.router.labels)
-               if config.router.model else None)
+    laya = (LayaRouter(config.router.url, checkpoint=config.router.checkpoint,
+                       timeout=config.router.timeout)
+            if config.router.url else None)
     return Agent(
         model=OpenAIChat(config.llm),
         api=OsApi(home=config.home, memory=memory, approver=_approver),
-        router=HybridRouter(encoder=encoder),
+        router=HybridRouter(laya=laya, threshold=config.router.threshold),
         memory=memory,
         config=config,
         sandbox=Sandbox(timeout=config.code_timeout),
@@ -143,6 +144,10 @@ def show_status(config: AgentConfig, agent: Agent) -> int:
     _out(f"  server    {'OK' if ok else 'NOT REACHABLE'}: {detail}")
     _out(f"  api key   {key}")
     _out(f"  router    {agent.router.describe()}")
+    laya = getattr(agent.router, "laya", None)
+    if laya is not None:
+        up, said = laya.health()
+        _out(f"  laya      {'OK' if up else 'NOT REACHABLE (rules still work)'}: {said}")
     _out(f"  sandbox   {agent.sandbox.describe()}")
     _out(f"  memory    {config.memory_path} ({stats['facts']} facts, {stats['episodes']} past requests)")
     _out(f"  context   {config.llm.context} tokens, {config.max_steps} steps x {config.max_attempts} tries")

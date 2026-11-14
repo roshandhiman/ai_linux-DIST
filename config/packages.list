@@ -63,6 +63,8 @@ plymouth-themes
 python3
 python3-tk
 python3-serial
+# python3-venv: the Laya router gets its own Python environment in /opt/laya.
+python3-venv
 python3-gi
 python3-requests
 python3-cairo

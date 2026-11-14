@@ -57,7 +57,9 @@ Got it, I'll remember: user -sister-> priya
 
 How a request is handled:
 
-1. **Router (tier 1).** Fast rules (or an optional encoder classifier) spot simple requests: open an app or site, search, volume, time, system status, remember and recall. These run straight away and never wake the language model.
+1. **Router (tier 1).** Rules spot exact requests first: open an app or site, search, volume, time, system status, remember and recall. These run straight away. When the rules are unsure, [Laya](https://huggingface.co/convaiinnovations/laya) decides. Laya is a multilingual decision encoder served locally by `laya-serve` on `127.0.0.1:8090`. It answers one multiple-choice question (chat, system status, time, memory, or an action) with a probability for each option, so it works for requests typed in Hindi too. A Laya verdict of at least 0.85 picks the route; a doubtful one sends the request to tier 2. A request that names a file, folder, app or device always goes to tier 2 without asking Laya. Laya only chooses a route, so it can never trigger an action that needs your OK. If its service is down, the rules carry on alone.
+
+   Measured on 41 English, Hindi and Hinglish requests (about 0.25 s per Laya answer on a laptop CPU): the rules alone answered 15 on the fast path; rules plus Laya answered 26, sent 14 to tier 2 (slower but still correct), and gave 1 wrong fast route ("the difference between RAM and ROM" read as a memory question). Laya is used without fine-tuning, so expect some mistakes on phrasings it has not seen.
 2. **Language model (tier 2).** Anything else goes to Qwen2.5 1.5B, served by `llama-server` on `127.0.0.1:8080`. The model has one tool: it writes short Python. That Python runs in a sandbox (a separate process under `bubblewrap`: no network, read-only system, no `open`/`os`/`subprocess`). It reaches the computer only through the `mine` API, for example `mine.open_app`, `mine.list_dir`, `mine.system_status` and `mine.remember`.
 3. **Two loops.** The outer loop counts steps that ran. Inside each step, the inner loop lets the model fix a broken block (syntax error, refused import, crash) and sees only its latest mistake.
 4. **Your OK for anything that changes things.** Writing or trashing files, running a command, or talking to a USB device stops and shows the exact action, then waits for `y`. File access is limited to your home folder, with `.ssh`, browser profiles and the assistant's own settings excluded.
@@ -70,8 +72,9 @@ How a request is handled:
 | `ai -q ...` | Hide the step-by-step trace |
 | `?? show the 5 biggest files here` | Suggests one shell command for you to edit or run |
 | `sudo systemctl status mineos-llm` | The local model server |
+| `sudo systemctl status mineos-router` | The Laya router service |
 
-Settings live in `/etc/mineos/agent.json`; your own changes go in `~/.config/mineos/agent.json`, which takes priority. To use a hosted model instead of the local one, set `llm.base_url`, `llm.model` and `llm.api_key` there (any OpenAI-compatible API) and run `chmod 600` on the file. Without a key, nothing leaves the machine. Every request is logged to `~/.local/state/mineos/runs/` for debugging.
+Settings live in `/etc/mineos/agent.json`; your own changes go in `~/.config/mineos/agent.json`, which takes priority. To use a hosted model instead of the local one, set `llm.base_url`, `llm.model` and `llm.api_key` there (any OpenAI-compatible API) and run `chmod 600` on the file. To use the rules without Laya, set `"router": {"url": null}`. Without a key, nothing leaves the machine. Every request is logged to `~/.local/state/mineos/runs/` for debugging.
 
 Run the assistant's tests from the repository root with `python3 -m unittest discover -s ai/tests -t ai`. They use a scripted fake model, so they need no server.
 
@@ -95,7 +98,8 @@ ai/                  Everything AI-related, kept separate from the OS
   tests/               Unit tests for mineos_agent (fake model, no server needed)
   agent/               jarvis_gui.py (graphical Assistant), sentinel.py, research.py, older jarvis.py and tools/
   system/              llama.cpp and sentinel systemd units, `ai` launcher, agent.json, shell hook, ESP32 udev rule
-  fetch-offline-ai.sh  Downloads the pinned llama.cpp server and Qwen2.5 1.5B GGUF and verifies their checksums
+  fetch-offline-ai.sh  Downloads the pinned llama.cpp server, Qwen2.5 1.5B GGUF and Laya router, and verifies their checksums
+  laya-requirements.txt  Exact Python package versions for the Laya router (installed into /opt/laya)
   download-model.sh    Downloads a GGUF model manually (not used by the build)
 docs/                desktop.md: desktop setup, dependencies and components
 Makefile             Shortcuts for ISO builds and pushing changes to a test VM
@@ -114,6 +118,9 @@ The source layout differs from the installed layout:
 | llama.cpp release (fetched) | `/opt/llama.cpp/` |
 | Qwen2.5 1.5B GGUF (fetched) | `/usr/share/mineos/models/` |
 | `ai/system/mineos-llm.service` | `/etc/systemd/system/` (only when the ISO embeds the model) |
+| Laya multilingual checkpoint (fetched) | `/usr/share/mineos/models/laya-multilingual/` |
+| Laya and its Python packages (fetched wheels) | `/opt/laya/` (a separate Python environment) |
+| `ai/system/mineos-router.service` | `/etc/systemd/system/` (only when the ISO embeds the models) |
 | `rootfs/etc/lightdm/lightdm.conf.d/live.conf` | `/etc/lightdm/lightdm.conf.d/40-mineos.conf` |
 | `rootfs/boot/grub/grub.cfg` | The ISO boot menu (`/boot/grub/grub.cfg` on the image) |
 
@@ -151,7 +158,7 @@ Apply the MineOS sign-in theme with `sudo bash branding/install-login.sh`. Light
 
 On a native Debian 13 ARM64 or AMD64 build machine, run `sudo bash scripts/build-iso.sh /absolute/path/to/MineOS.iso` (or `make iso ISO=/absolute/path/to/MineOS.iso`). The builder creates a separate temporary Debian root and uses the XFCE desktop and MineOS splash from this repository. Building an ISO can use several gigabytes of disk space and downloads packages from Debian.
 
-To embed the offline model, run `bash ai/fetch-offline-ai.sh /absolute/path/mineos-ai` first. It downloads llama.cpp release b11571 and the Qwen2.5 1.5B Instruct Q4_K_M GGUF (about 1.1 GB) and checks both against pinned SHA-256 sums. Then build with `MINEOS_AI_DIR=/absolute/path/mineos-ai`. Without it, the live desktop starts normally and `ai` still handles simple requests, but anything that needs the language model reports that the server is not running.
+To embed the offline model, run `bash ai/fetch-offline-ai.sh /absolute/path/mineos-ai` first. It downloads llama.cpp release b11571, the Qwen2.5 1.5B Instruct Q4_K_M GGUF (about 1.1 GB) and the Laya multilingual checkpoint (about 0.7 GB), and checks every file against pinned SHA-256 sums. It also downloads the router's Python packages (CPU-only PyTorch, transformers, laya) at the exact versions in `ai/laya-requirements.txt`. Together they add roughly 2 GB to the ISO, and the VM needs about 6 GB of RAM to run both models. Then build with `MINEOS_AI_DIR=/absolute/path/mineos-ai`. Without it, the live desktop starts normally and `ai` still handles simple requests, but anything that needs the language model reports that the server is not running.
 
 - **ARM64** boots in an ARM64 UEFI VM, such as Parallels on Apple Silicon.
 - **AMD64** boots on 64-bit Intel or AMD PCs, including machines that normally run Windows, and in compatible x86-64 VMs. The image supports UEFI and legacy BIOS. UEFI requires firmware configuration that permits the unsigned live bootloader.

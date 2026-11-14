@@ -45,7 +45,7 @@ jobs:
           echo "MINEOS_VERSION=$version" >> "$GITHUB_ENV"
           echo "MINEOS_BUILD_ID=$(date -u +%Y%m%d)-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends curl jq zstd
+          sudo apt-get install -y --no-install-recommends curl jq zstd python3-pip
           df -h .
 
       - name: Unit test the terminal assistant

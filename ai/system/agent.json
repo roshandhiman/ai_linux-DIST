@@ -8,8 +8,9 @@
     "timeout": 120
   },
   "router": {
-    "model": null,
-    "labels": {},
+    "url": "http://127.0.0.1:8090",
+    "checkpoint": "mineos",
+    "timeout": 3,
     "threshold": 0.85
   },
   "agent": {
