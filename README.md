@@ -22,7 +22,7 @@ First time downloading the source:
 ```bash
 git clone --branch main https://github.com/roshandhiman/ai_linux-DIST.git ~/mineos-source
 cd ~/mineos-source
-bash update-desktop.sh
+bash scripts/update-desktop.sh
 ```
 
 For later updates from the same checkout:
@@ -30,31 +30,41 @@ For later updates from the same checkout:
 ```bash
 cd ~/mineos-source
 git pull --ff-only
-bash update-desktop.sh
+bash scripts/update-desktop.sh
 ```
 
 The script installs any missing desktop dependencies, saves a backup, and applies the latest launcher, dock, Settings, companion and graphical Assistant. The update keeps home files, installed models, and your saved wallpaper and dock preferences. Reopen Settings or Assistant if either was already open. The script prints the backup path.
 
 On a system installed to disk, the update survives reboot. If you booted the old live ISO, the update only lasts for the current session unless you configured persistence for the system. To keep the new desktop with a live ISO, get the latest successful [Build MineOS ISOs run](https://github.com/roshandhiman/ai_linux-DIST/actions/workflows/build-iso.yml?query=branch%3Amain+is%3Asuccess), unzip the ARM64 or x86-64 artifact, and attach the new ISO to your VM.
 
-For development over SSH, `make live-desktop` uses `VM_HOST` to select a test VM. Desktop setup and dependencies are documented in [desktop/README.md](desktop/README.md).
+For development over SSH, `make live-desktop` uses `VM_HOST` to select a test VM. Desktop setup and dependencies are documented in [docs/desktop.md](docs/desktop.md).
 
-## Other components
+## Repository layout
 
-- `ai-agent/jarvis.py`: terminal agent.
-- `ai-agent/jarvis_gui.py`: native GTK3 assistant with local model requests and explicit app actions.
-- `ai-agent/sentinel.py`: kernel-message monitoring service.
-- `rootfs/`: system service and shell integration overlays.
+```
+scripts/      build-iso.sh (live ISO builder), update-desktop.sh (in-place desktop updater)
+config/       packages.list: Debian packages installed into the image
+desktop/      XFCE desktop: launcher, dock, Settings, companion, themes. Installed as-is to /opt/ai/desktop
+branding/     GRUB/Plymouth startup animation and LightDM sign-in theme
+rootfs/       Files copied into the image (GRUB menu, LightDM live session, sysctl tuning)
+ai/           Everything AI-related, kept separate from the OS
+  agent/        jarvis.py (terminal agent), jarvis_gui.py (Assistant), sentinel.py, tools/
+  system/       Ollama and sentinel systemd units, shell hooks, ESP32 udev rules
+  fetch-offline-ai.sh   Downloads the verified Ollama engine and Qwen2.5 model for CI builds
+docs/         Extra documentation
+```
+
+The source layout differs from the installed layout. In the image, `ai/agent/*` lands in `/opt/ai/` and `desktop/` lands in `/opt/ai/desktop/`.
 
 ## Startup branding
 
-Run `sudo bash boot/install.sh` on the installed Debian guest to apply the MineOS GRUB label and Plymouth theme. The installer backs up the system label and boot settings before updating the running kernel's initramfs.
+Run `sudo bash branding/install-startup.sh` on the installed Debian guest to apply the MineOS GRUB label and Plymouth theme. The installer backs up the system label and boot settings before updating the running kernel's initramfs.
 
-Apply the MineOS sign-in theme with `sudo bash boot/install-login.sh`. LightDM picks it up the next time the sign-in screen opens.
+Apply the MineOS sign-in theme with `sudo bash branding/install-login.sh`. LightDM picks it up the next time the sign-in screen opens.
 
 ## Build a live ISO
 
-On a native Debian 13 ARM64 or AMD64 build machine, run `sudo bash build-iso.sh /absolute/path/to/MineOS.iso`. The builder creates a separate temporary Debian root and uses the XFCE desktop and MineOS splash from this repository. Building an ISO can use several gigabytes of disk space and downloads packages from Debian.
+On a native Debian 13 ARM64 or AMD64 build machine, run `sudo bash scripts/build-iso.sh /absolute/path/to/MineOS.iso` (or `make iso ISO=/absolute/path/to/MineOS.iso`). The builder creates a separate temporary Debian root and uses the XFCE desktop and MineOS splash from this repository. Building an ISO can use several gigabytes of disk space and downloads packages from Debian.
 
 Set `MINEOS_OLLAMA_DIR` to a trusted Ollama installation tree containing `bin/ollama` and `lib/ollama` to embed the local engine. Set `MINEOS_OLLAMA_MODELS` to its model store to include downloaded model weights. Without the Ollama tree the live desktop starts normally and Assistant needs a local model service.
 

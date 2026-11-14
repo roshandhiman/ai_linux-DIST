@@ -21,7 +21,7 @@ if [[ -e /etc/default/grub.d/95-mineos.cfg ]]; then
 fi
 
 THEME=/usr/share/plymouth/themes/mineos
-install -m 644 "$SOURCE/mineos/mineos.plymouth" "$SOURCE/mineos/mineos.script" "$THEME/"
+install -m 644 "$SOURCE/plymouth/mineos.plymouth" "$SOURCE/plymouth/mineos.script" "$THEME/"
 python3 "$SOURCE/render_frames.py" "$THEME"
 awk '
     /^NAME=/ { print "NAME=\"MineOS\""; next }

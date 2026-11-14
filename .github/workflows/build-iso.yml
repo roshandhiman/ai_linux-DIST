@@ -6,11 +6,11 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/build-iso.yml'
-      - 'build-iso.sh'
-      - 'packages.list'
-      - 'boot/**'
+      - 'scripts/build-iso.sh'
+      - 'config/**'
+      - 'branding/**'
       - 'desktop/**'
-      - 'ai-agent/**'
+      - 'ai/**'
       - 'rootfs/**'
 
 permissions:
@@ -44,7 +44,7 @@ jobs:
           df -h .
 
       - name: Fetch verified offline model and inference engine
-        run: bash boot/fetch-offline-ai.sh "$RUNNER_TEMP/mineos-ai"
+        run: bash ai/fetch-offline-ai.sh "$RUNNER_TEMP/mineos-ai"
 
       - name: Build and validate ISO
         run: |
@@ -52,7 +52,7 @@ jobs:
           docker run --rm --privileged \
             -v "$PWD:/src" -v "$RUNNER_TEMP/mineos-ai:/mineos-ai:ro" -w /src \
             -e MINEOS_OLLAMA_DIR=/mineos-ai/engine -e MINEOS_OLLAMA_MODELS=/mineos-ai/models \
-            debian:13 bash build-iso.sh "/src/dist/MineOS-1.0-$MINEOS_ARCH.iso"
+            debian:13 bash scripts/build-iso.sh "/src/dist/MineOS-1.0-$MINEOS_ARCH.iso"
           (
             cd dist
             sha256sum "MineOS-1.0-$MINEOS_ARCH.iso" > "MineOS-1.0-$MINEOS_ARCH.iso.sha256"

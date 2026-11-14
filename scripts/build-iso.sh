@@ -6,7 +6,7 @@ if [[ $EUID != 0 ]]; then
     exit 1
 fi
 
-SOURCE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+SOURCE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 ARCH=$(dpkg --print-architecture)
 case "$ARCH" in
     arm64) grub_packages=(grub-efi-arm64-bin) ;;
@@ -60,7 +60,7 @@ while read -r package; do
         ""|grub-efi-arm64|grub-common|linux-image-arm64|linux-headers-arm64) ;;
         *) packages+=("$package") ;;
     esac
-done < "$SOURCE/packages.list"
+done < "$SOURCE/config/packages.list"
 chroot "$ROOTFS" apt-get update
 chroot "$ROOTFS" env DEBIAN_FRONTEND=noninteractive apt-get install -y "linux-image-$ARCH" "${packages[@]}" \
     live-boot live-config live-config-systemd network-manager-gnome pulseaudio-utils desktop-file-utils xdg-user-dirs ca-certificates
@@ -68,7 +68,7 @@ chroot "$ROOTFS" env DEBIAN_FRONTEND=noninteractive apt-get install -y "linux-im
 install -d "$ROOTFS/opt/ai/desktop" "$ROOTFS/usr/share/plymouth/themes/mineos" \
     "$ROOTFS/etc/xdg/autostart" "$ROOTFS/usr/share/applications" "$ROOTFS/usr/local/share/applications" \
     "$ROOTFS/etc/systemd/system" "$ROOTFS/etc/lightdm/lightdm.conf.d"
-cp -a "$SOURCE/ai-agent/." "$ROOTFS/opt/ai/"
+cp -a "$SOURCE/ai/agent/." "$ROOTFS/opt/ai/"
 cp -a "$SOURCE/desktop/." "$ROOTFS/opt/ai/desktop/"
 ln -s /opt/ai/jarvis.py "$ROOTFS/usr/local/bin/ai"
 ln -s /opt/ai/jarvis_gui.py "$ROOTFS/usr/local/bin/ai-hud"
@@ -81,9 +81,9 @@ install -m 644 "$SOURCE/desktop/ai.desktop" "$ROOTFS/usr/share/applications/org.
 SESSION_XML="$ROOTFS/etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-session.xml"
 sed -i '0,/<property name="Count" type="int" value="5"\//s//<property name="Count" type="int" value="2"\//' "$SESSION_XML"
 grep -q '<property name="Count" type="int" value="2"/>' "$SESSION_XML"
-install -m 644 "$SOURCE/boot/mineos/mineos.script" "$SOURCE/boot/mineos/mineos.plymouth" "$ROOTFS/usr/share/plymouth/themes/mineos/"
+install -m 644 "$SOURCE/branding/plymouth/mineos.script" "$SOURCE/branding/plymouth/mineos.plymouth" "$ROOTFS/usr/share/plymouth/themes/mineos/"
 install -m 644 "$SOURCE/rootfs/etc/lightdm/lightdm.conf.d/live.conf" "$ROOTFS/etc/lightdm/lightdm.conf.d/40-mineos.conf"
-bash "$SOURCE/boot/install-login.sh" "$ROOTFS"
+bash "$SOURCE/branding/install-login.sh" "$ROOTFS"
 
 awk '
     /^NAME=/ { print "NAME=\"MineOS\""; next }
@@ -117,7 +117,7 @@ if [[ -n "${MINEOS_OLLAMA_DIR:-}" ]]; then
     cp -a "$OLLAMA/lib/ollama" "$ROOTFS/usr/local/lib/"
     chroot "$ROOTFS" /usr/local/bin/ollama --version
     chroot "$ROOTFS" useradd --system --home /usr/share/ollama --create-home --shell /usr/sbin/nologin ollama
-    install -m 644 "$SOURCE/rootfs/etc/systemd/system/ai-core.service" "$ROOTFS/etc/systemd/system/ai-core.service"
+    install -m 644 "$SOURCE/ai/system/ai-core.service" "$ROOTFS/etc/systemd/system/ai-core.service"
     if [[ -n "${MINEOS_OLLAMA_MODELS:-}" ]]; then
         [[ -d "$MINEOS_OLLAMA_MODELS/blobs" && -d "$MINEOS_OLLAMA_MODELS/manifests" ]]
         install -d "$ROOTFS/usr/share/ollama/models"
@@ -127,7 +127,7 @@ if [[ -n "${MINEOS_OLLAMA_DIR:-}" ]]; then
     chroot "$ROOTFS" systemctl enable ai-core.service
 fi
 
-install -m 644 "$SOURCE/boot/render_frames.py" "$ROOTFS/opt/ai/boot-render.py"
+install -m 644 "$SOURCE/branding/render_frames.py" "$ROOTFS/opt/ai/boot-render.py"
 chroot "$ROOTFS" python3 /opt/ai/boot-render.py /usr/share/plymouth/themes/mineos
 rm "$ROOTFS/opt/ai/boot-render.py"
 chroot "$ROOTFS" plymouth-set-default-theme mineos
