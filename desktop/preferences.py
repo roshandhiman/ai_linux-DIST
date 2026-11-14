@@ -12,7 +12,7 @@ DEFAULTS = {
     "appearance": "light", "backdrop": str(DESKTOP / "assets" / "dunes.png"),
     "video": "", "live": False, "dock_size": 42, "dock_opacity": 68,
     "dock_position": "bottom", "dock_hide": True, "dock_zoom": True,
-    "dock_roundness": 14, "panel_opacity": 88, "blur": True,
+    "dock_roundness": 14, "panel_opacity": 88, "blur": False,
     "pet": True, "pet_motion": True, "pet_size": 104, "model": "",
 }
 
@@ -92,8 +92,8 @@ def panel(values):
 def compositor(values):
     path = CONFIG / "picom" / "picom.conf"
     template = (DESKTOP / "picom.conf").read_text()
-    if not values["blur"]:
-        template = template.replace('"dual_kawase"', '"none"').replace("blur-background = true", "blur-background = false")
+    if values["blur"]:
+        template = template.replace('blur-method = "none"', 'blur-method = "dual_kawase"').replace("blur-background = false", "blur-background = true")
     write(path, template)
 
 

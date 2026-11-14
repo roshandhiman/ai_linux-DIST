@@ -19,22 +19,33 @@ if [[ -e "$OUTPUT" || ! -d "$(dirname -- "$OUTPUT")" ]]; then
     exit 1
 fi
 
-apt-get update
-apt-get install -y debootstrap squashfs-tools xorriso mtools grub-common "${grub_packages[@]}"
 WORK=$(mktemp -d)
 ROOTFS="$WORK/rootfs"
 IMAGE="$WORK/image"
 PARTIAL=""
 cleanup() {
-    for mount in "$ROOTFS/proc" "$ROOTFS/sys" "$ROOTFS/dev"; do
+    for mount in "$ROOTFS/dev" "$ROOTFS/sys" "$ROOTFS/proc"; do
         if mountpoint -q "$mount"; then umount -R "$mount" || return; fi
     done
     if [[ -n "$PARTIAL" ]]; then rm -f -- "$PARTIAL"; fi
     rm -rf -- "$WORK"
 }
 trap cleanup EXIT
+. /etc/os-release
+if [[ "$ID" != debian || "$VERSION_CODENAME" != trixie ]]; then
+    printf '%s\n' 'Build from a Debian 13 host or the Debian 13 Actions container.' >&2
+    exit 1
+fi
+HOST_SOURCES="$WORK/build-debian.list"
+printf 'deb http://deb.debian.org/debian trixie main\ndeb http://deb.debian.org/debian-security trixie-security main\n' > "$HOST_SOURCES"
+APT_OPTIONS=(-o "Dir::Etc::sourcelist=$HOST_SOURCES" -o "Dir::Etc::sourceparts=-")
+apt-get "${APT_OPTIONS[@]}" update
+DEBIAN_FRONTEND=noninteractive apt-get "${APT_OPTIONS[@]}" install -y --no-install-recommends \
+    debootstrap debian-archive-keyring ca-certificates wget squashfs-tools xorriso mtools grub-common "${grub_packages[@]}"
+
 mkdir -p "$IMAGE/live" "$IMAGE/boot/grub"
-debootstrap --arch="$ARCH" --variant=minbase trixie "$ROOTFS" http://deb.debian.org/debian
+debootstrap --arch="$ARCH" --variant=minbase --include=ca-certificates --components=main,non-free-firmware trixie "$ROOTFS" http://deb.debian.org/debian
+printf 'deb https://deb.debian.org/debian trixie main non-free-firmware\ndeb https://deb.debian.org/debian-security trixie-security main non-free-firmware\ndeb https://deb.debian.org/debian trixie-updates main non-free-firmware\n' > "$ROOTFS/etc/apt/sources.list"
 mount -t proc proc "$ROOTFS/proc"
 mount --rbind /sys "$ROOTFS/sys"
 mount --make-rslave "$ROOTFS/sys"
@@ -52,7 +63,7 @@ while read -r package; do
 done < "$SOURCE/packages.list"
 chroot "$ROOTFS" apt-get update
 chroot "$ROOTFS" env DEBIAN_FRONTEND=noninteractive apt-get install -y "linux-image-$ARCH" "${packages[@]}" \
-    live-boot live-config live-config-systemd network-manager-gnome pulseaudio-utils desktop-file-utils xdg-user-dirs
+    live-boot live-config live-config-systemd network-manager-gnome pulseaudio-utils desktop-file-utils xdg-user-dirs ca-certificates
 
 install -d "$ROOTFS/opt/ai/desktop" "$ROOTFS/usr/share/plymouth/themes/mineos" \
     "$ROOTFS/etc/xdg/autostart" "$ROOTFS/usr/share/applications" \
@@ -127,10 +138,16 @@ cp "$ROOTFS/boot/$kernel" "$IMAGE/live/vmlinuz"
 cp "$ROOTFS/boot/initrd.img-${kernel#vmlinuz-}" "$IMAGE/live/initrd.img"
 install -m 644 "$SOURCE/rootfs/boot/grub/grub.cfg" "$IMAGE/boot/grub/grub.cfg"
 grub-script-check "$IMAGE/boot/grub/grub.cfg"
-mksquashfs "$ROOTFS" "$IMAGE/live/filesystem.squashfs" -noappend -comp xz -e boot
+mksquashfs "$ROOTFS" "$IMAGE/live/filesystem.squashfs" -noappend -comp zstd -Xcompression-level 6 -processors "$(nproc)" -e boot
 PARTIAL=$(mktemp "$(dirname -- "$OUTPUT")/.mineos-XXXXXXXX.iso")
-grub-mkrescue -o "$PARTIAL" "$IMAGE"
-xorriso -indev "$PARTIAL" -report_el_torito plain
+grub-mkrescue -o "$PARTIAL" "$IMAGE" -- -volid MINEOS
+boot_report=$(xorriso -indev "$PARTIAL" -report_el_torito plain)
+printf '%s\n' "$boot_report"
+grep -Eq '^El Torito boot img[[:space:]]*:[[:space:]]+[0-9]+[[:space:]]+UEFI([[:space:]]|$)' <<< "$boot_report"
+if [[ "$ARCH" == amd64 ]]; then
+    grep -Eq '^El Torito boot img[[:space:]]*:[[:space:]]+[0-9]+[[:space:]]+BIOS([[:space:]]|$)' <<< "$boot_report"
+fi
+xorriso -indev "$PARTIAL" -ls /live/filesystem.squashfs /live/vmlinuz /live/initrd.img
 chmod 644 "$PARTIAL"
 mv -T --no-clobber "$PARTIAL" "$OUTPUT"
 if [[ -e "$PARTIAL" ]]; then

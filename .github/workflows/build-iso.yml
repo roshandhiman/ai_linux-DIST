@@ -1,0 +1,69 @@
+name: Build MineOS ISOs
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-iso.yml'
+      - 'build-iso.sh'
+      - 'packages.list'
+      - 'boot/**'
+      - 'desktop/**'
+      - 'ai-agent/**'
+      - 'rootfs/**'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: MineOS ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    env:
+      MINEOS_ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Prepare native build tools
+        run: |
+          test "$(dpkg --print-architecture)" = "$MINEOS_ARCH"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends curl jq zstd
+          df -h .
+
+      - name: Fetch verified offline model and inference engine
+        run: bash boot/fetch-offline-ai.sh "$RUNNER_TEMP/mineos-ai"
+
+      - name: Build and validate ISO
+        run: |
+          mkdir -p dist
+          docker run --rm --privileged \
+            -v "$PWD:/src" -v "$RUNNER_TEMP/mineos-ai:/mineos-ai:ro" -w /src \
+            -e MINEOS_OLLAMA_DIR=/mineos-ai/engine -e MINEOS_OLLAMA_MODELS=/mineos-ai/models \
+            debian:13 bash build-iso.sh "/src/dist/MineOS-1.0-$MINEOS_ARCH.iso"
+          (
+            cd dist
+            sha256sum "MineOS-1.0-$MINEOS_ARCH.iso" > "MineOS-1.0-$MINEOS_ARCH.iso.sha256"
+            sha256sum -c "MineOS-1.0-$MINEOS_ARCH.iso.sha256"
+          )
+
+      - name: Upload ISO and checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: MineOS-1.0-${{ matrix.arch }}
+          path: dist/MineOS-1.0-${{ matrix.arch }}.iso*
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 14

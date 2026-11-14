@@ -31,9 +31,6 @@ sudo
 python3
 python3-tk
 python3-serial
-python3-pip
-build-essential
-cmake
 
 picom
 plank
@@ -59,3 +56,4 @@ python3-cairo
 python3-gi-cairo
 plymouth
 plymouth-themes
+ffmpeg

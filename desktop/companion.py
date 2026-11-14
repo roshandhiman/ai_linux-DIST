@@ -1,5 +1,6 @@
 import math
 import subprocess
+import threading
 import time
 from pathlib import Path
 
@@ -11,6 +12,7 @@ gi.require_version("Gst", "1.0")
 from gi.repository import Gdk, GdkPixbuf, Gio, GLib, Gst, Gtk
 
 import preferences
+from wallpaper_cache import playback_copy
 
 
 def surface(window):
@@ -65,7 +67,8 @@ class Pet(Gtk.Window):
         self.moved = False
         self.motion = True
         self.size = 104
-        GLib.timeout_add(40, self.animate)
+        self.position = None
+        GLib.timeout_add(66, self.animate)
 
     def area(self):
         display = Gdk.Display.get_default()
@@ -73,14 +76,17 @@ class Pet(Gtk.Window):
         return monitor.get_workarea()
 
     def animate(self):
-        if self.get_visible():
+        if self.get_visible() and self.motion:
             area = self.area()
-            offset = math.sin(time.monotonic() * 0.27) * 18 if self.motion else 0
+            offset = math.sin(time.monotonic() * 0.27) * 18
             x, y = self.origin or (area.x + area.width - self.size - 34, area.y + area.height - self.size - 96)
             if not self.held:
                 x = max(area.x, min(x + offset, area.x + area.width - self.size))
                 y = max(area.y, min(y, area.y + area.height - self.size))
-                self.move(int(x), int(y))
+                position = (int(x), int(y))
+                if position != self.position:
+                    self.move(*position)
+                    self.position = position
             self.queue_draw()
         return True
 
@@ -158,8 +164,8 @@ class LiveWallpaper(Gtk.Window):
         bounds = (display.get_primary_monitor() or display.get_monitor(0)).get_geometry()
         self.move(bounds.x, bounds.y)
         self.set_default_size(bounds.width, bounds.height)
-        self.picture = GdkPixbuf.Pixbuf.new_from_file(str(image))
         self.connect("destroy", self.stop)
+        self.paused = False
         if video:
             Gst.init(None)
             self.player = Gst.ElementFactory.make("playbin")
@@ -178,8 +184,9 @@ class LiveWallpaper(Gtk.Window):
             self.bus.connect("message", self.message)
             self.player.set_state(Gst.State.PLAYING)
         else:
+            self.picture = GdkPixbuf.Pixbuf.new_from_file_at_scale(str(image), 1280, 900, True)
             self.connect("draw", self.paint)
-            self.frame = GLib.timeout_add(83, self.tick)
+            GLib.timeout_add(120, self.tick)
         self.connect("map-event", self.place_window)
 
     def place_window(self, *_):
@@ -189,7 +196,8 @@ class LiveWallpaper(Gtk.Window):
     def tick(self):
         if not self.get_visible():
             return GLib.SOURCE_REMOVE
-        self.queue_draw()
+        if not self.paused:
+            self.queue_draw()
         return GLib.SOURCE_CONTINUE
 
     def paint(self, _, cr):
@@ -202,6 +210,12 @@ class LiveWallpaper(Gtk.Window):
         Gdk.cairo_set_source_pixbuf(cr, self.picture, 0, 0)
         cr.paint()
         return True
+
+    def pause(self, paused):
+        if self.paused != paused:
+            self.paused = paused
+            if self.player:
+                self.player.set_state(Gst.State.PAUSED if paused else Gst.State.PLAYING)
 
     def message(self, _, message):
         if message.type == Gst.MessageType.EOS:
@@ -226,33 +240,106 @@ class DesktopCompanion(Gtk.Application):
         self.last_wallpaper = None
 
     def do_activate(self):
-        if self.pet is None:
-            self.hold()
-            self.pet = Pet()
-            self.refresh()
-            GLib.timeout_add(500, self.refresh)
+        if self.pet is not None:
+            return
+        self.hold()
+        self.pet = Pet()
+        self.prepare_timer = 0
+        self.preparing = False
+        self.values = None
+        preferences.PREFS.parent.mkdir(parents=True, exist_ok=True)
+        self.monitor = Gio.File.new_for_path(str(preferences.PREFS.parent)).monitor_directory(Gio.FileMonitorFlags.WATCH_MOVES, None)
+        self.monitor.connect("changed", self.preferences_changed)
+        self.pref_timer = 0
+        self.refresh()
+        GLib.timeout_add(750, self.update_visibility)
+
+    def preferences_changed(self, _, changed, other, event):
+        if all(file is None or file.get_basename() != preferences.PREFS.name for file in (changed, other)):
+            return
+        if self.pref_timer:
+            GLib.source_remove(self.pref_timer)
+        self.pref_timer = GLib.timeout_add(160, self.refresh)
 
     def refresh(self):
+        self.pref_timer = 0
         values = preferences.read()
-        self.pet.size = values["pet_size"]
-        self.pet.resize(self.pet.size, self.pet.size)
+        previous = self.values or {}
+        self.values = values
+        if self.pet.size != values["pet_size"] or not previous:
+            self.pet.size = values["pet_size"]
+            self.pet.resize(self.pet.size, self.pet.size)
         self.pet.motion = values["pet_motion"]
         self.pet.set_visible(values["pet"])
+        if not previous and values["pet"]:
+            area = self.pet.area()
+            self.pet.move(area.x + area.width - self.pet.size - 34, area.y + area.height - self.pet.size - 96)
+        self.pet.queue_draw()
         current = (values["live"], values["video"], values["backdrop"])
         if current != self.last_wallpaper:
             self.last_wallpaper = current
+            if self.prepare_timer:
+                GLib.source_remove(self.prepare_timer)
+                self.prepare_timer = 0
             if self.live:
                 self.live.destroy()
                 self.live = None
             if current[0]:
-                try:
-                    image = Path(current[2])
-                    if not image.is_file():
-                        image = Path(preferences.DEFAULTS["backdrop"])
-                    self.live = LiveWallpaper(current[1], image)
-                    self.live.show_all()
-                except (OSError, GLib.Error, RuntimeError) as error:
-                    print(error, flush=True)
+                self.prepare_timer = GLib.timeout_add_seconds(3 if not previous else 1, self.prepare, current)
+        return GLib.SOURCE_REMOVE
+
+    def prepare(self, current):
+        self.prepare_timer = 0
+        if self.preparing:
+            self.prepare_timer = GLib.timeout_add_seconds(1, self.prepare, current)
+        elif current[1]:
+            self.preparing = True
+            threading.Thread(target=self.prepare_video, args=(current,), daemon=True).start()
+        else:
+            self.show_wallpaper(current, None)
+        return GLib.SOURCE_REMOVE
+
+    def prepare_video(self, current):
+        try:
+            path = playback_copy(current[1])
+        except (OSError, subprocess.SubprocessError) as error:
+            print(f"Could not prepare wallpaper: {error}", flush=True)
+            path = None
+        GLib.idle_add(self.video_ready, current, path)
+
+    def video_ready(self, current, path):
+        self.preparing = False
+        if path:
+            self.show_wallpaper(current, path)
+        return GLib.SOURCE_REMOVE
+
+    def show_wallpaper(self, current, video):
+        if current != self.last_wallpaper:
+            return
+        try:
+            image = Path(current[2])
+            if not image.is_file():
+                image = Path(preferences.DEFAULTS["backdrop"])
+            self.live = LiveWallpaper(video, image)
+            self.live.connect("destroy", self.wallpaper_closed)
+            self.live.show_all()
+            self.update_visibility()
+        except (OSError, GLib.Error, RuntimeError) as error:
+            print(error, flush=True)
+
+    def wallpaper_closed(self, wallpaper):
+        if self.live is wallpaper:
+            self.live = None
+
+    def update_visibility(self):
+        if self.live:
+            active = Gdk.Screen.get_default().get_active_window()
+            monitor = self.pet.area()
+            covered = False
+            if active and active.get_window_type() == Gdk.WindowType.FOREIGN:
+                _, _, width, height = active.get_geometry()
+                covered = width >= monitor.width * 0.96 and height >= monitor.height * 0.96
+            self.live.pause(covered)
         return GLib.SOURCE_CONTINUE
 
 
