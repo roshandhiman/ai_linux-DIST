@@ -20,22 +20,29 @@
 .settings-navigation row:selected { background-color: @mineos_selected; color: @mineos_text; }
 .settings-account { padding: 4px 14px 12px; }
 .settings-account-name { font-weight: 700; font-size: 14px; }
-.settings-search { margin: 13px 12px 10px; border-radius: 9px; min-height: 34px; }
-.settings-section { font-size: 24px; font-weight: 700; }
-.settings-hero { padding: 20px 18px; border-radius: 16px; background-color: @mineos_card; border: 1px solid @mineos_line; }
+.settings-search { margin: 13px 12px 10px; border-radius: 22px; min-height: 36px; }
+.settings-section { font-size: 28px; font-weight: 700; }
+.settings-hero { padding: 0 0 2px; }
 .settings-hero .settings-icon { border-radius: 16px; padding: 12px; }
 .settings-icon { border-radius: 7px; background-color: @mineos_hover; color: @mineos_text; padding: 5px; }
-.settings-icon.connect { background-color: alpha(#3892ff, .19); color: #589bff; }
-.settings-icon.hardware { background-color: alpha(#34b5ac, .16); color: #41b8ab; }
-.settings-icon.personal { background-color: alpha(#aa73ee, .17); color: #ab83ee; }
-.settings-icon.audio { background-color: alpha(#ed7e96, .16); color: #ec89a0; }
-.settings-group { border: 1px solid @mineos_line; border-radius: 13px; background-color: @mineos_card; }
-.settings-row { padding: 11px 14px; color: @mineos_text; }
+.settings-group { border: 1px solid @mineos_line; border-radius: 18px; background-color: @mineos_card; }
+.settings-row { padding: 16px 18px; color: @mineos_text; }
 .settings-group separator { background-image: none; background-color: @mineos_line; min-height: 1px; margin: 0 14px; }
 .settings-value { color: @mineos_muted; }
 .settings-link { border: 0; border-radius: 12px; background-image: none; background-color: transparent; box-shadow: none; padding: 0; }
 .settings-link:hover { background-color: @mineos_hover; }
-.settings-preview { border: 1px solid @mineos_line; border-radius: 13px; padding: 8px; background-color: @mineos_card; }
+.settings-preview { border: 1px solid @mineos_line; border-radius: 18px; padding: 8px; background-color: @mineos_card; }
 .settings-swatch { padding: 9px; border-radius: 11px; }
-.settings-swatch.selected { border-color: #518aff; }
+.settings-swatch.selected { border-color: @mineos_muted; }
 .settings-note { padding: 12px 2px; }
+
+.mineos-settings { font-family: Inter, sans-serif; font-size: 13px; }
+.settings-navigation row { padding: 3px 5px; }
+.settings-navigation row:selected { box-shadow: inset 0 0 0 1px @mineos_line; }
+.settings-section { letter-spacing: -0.6px; }
+.settings-value { font-size: 12px; }
+
+window.mineos-settings { background-color: @theme_bg_color; }
+window.mineos-settings.mineos-translucent { background-color: @mineos_surface; }
+.mineos-settings .mineos-toolbar { background-color: transparent; }
+.mineos-settings scrolledwindow viewport { background-color: transparent; }

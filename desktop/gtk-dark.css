@@ -1,25 +1,39 @@
-@define-color theme_bg_color #242426;
-@define-color theme_fg_color #eeeeef;
-@define-color theme_base_color #1c1c1e;
-@define-color theme_text_color #eeeeef;
-@define-color theme_selected_bg_color #454548;
+@define-color theme_bg_color #222222;
+@define-color theme_fg_color #f1f1f1;
+@define-color theme_base_color #161616;
+@define-color theme_text_color #f1f1f1;
+@define-color theme_selected_bg_color #656565;
 @define-color theme_selected_fg_color #ffffff;
-@define-color selected_bg_color #454548;
+@define-color selected_bg_color #656565;
 @define-color selected_fg_color #ffffff;
-window, .background { background-color: #242426; color: #eeeeef; }
-headerbar, .titlebar { background-image: none; background-color: #2d2d30; border-color: #404042; color: #eeeeef; box-shadow: none; }
-.view, iconview, treeview { background-color: #1c1c1e; color: #eeeeef; }
-.view:selected, iconview:selected, treeview:selected { background-color: #454548; color: #ffffff; }
-.sidebar, .sidebar .view, placessidebar, placessidebar .view { background-color: #2a2a2c; color: #eeeeef; }
-entry { background-image: none; background-color: #252527; border-color: #454548; color: #eeeeef; box-shadow: none; }
+window, .background { background-color: #222222; color: #f1f1f1; }
+headerbar, .titlebar { background-image: none; background-color: #222222; border-color: #3b3b3b; color: #f1f1f1; box-shadow: none; min-height: 44px; padding: 6px 12px; }
+headerbar .title { font-weight: 600; }
+.view, iconview, treeview { background-color: #161616; color: #f1f1f1; }
+.view:selected, iconview:selected, treeview:selected { background-color: #656565; color: #fff; }
+.sidebar, .sidebar .view, placessidebar, placessidebar .view { background-color: #222222; color: #f1f1f1; }
+entry { min-height: 32px; padding: 2px 10px; border-radius: 9px; background-image: none; background-color: #161616; border: 1px solid #3b3b3b; color: #f1f1f1; box-shadow: none; }
+entry:focus { border-color: #656565; box-shadow: 0 0 0 2px alpha(#656565, .16); }
 button, menu, .menu, popover { background-image: none; }
-button { background-color: #343437; color: #f1f1f2; border: 1px solid #47474a; box-shadow: none; text-shadow: none; }
-button:hover { background-color: #434346; border-color: #535357; }
-button:active, button:checked { background-color: #4a4a4e; }
+button { border-radius: 8px; padding: 6px 12px; background-color: #2c2c2c; color: #f1f1f1; border: 1px solid #3b3b3b; box-shadow: none; text-shadow: none; }
+button:hover { background-color: mix(#2c2c2c, #656565, .15); border-color: alpha(#656565, .55); }
+button:active, button:checked, button.suggested-action { background-color: #656565; color: #fff; }
+button:disabled { color: alpha(#f1f1f1, .4); }
 button.flat, toolbar button, headerbar button.titlebutton { background-color: transparent; border-color: transparent; }
-button.flat:hover, toolbar button:hover, headerbar button.titlebutton:hover { background-color: #404043; }
-menu, .menu, popover { background-color: #2d2d30; color: #eeeeef; border-color: #454548; }
-menuitem:hover { background-color: #454548; }
-toolbar, menubar { background-color: #2d2d30; color: #eeeeef; border-color: #404042; }
-separator { background-color: #3b3b3e; }
-selection { background-color: #454548; color: #ffffff; }
+button.flat:hover, toolbar button:hover, headerbar button.titlebutton:hover { background-color: #2c2c2c; }
+menu, .menu, popover { background-color: #2c2c2c; color: #f1f1f1; border: 1px solid #3b3b3b; border-radius: 10px; }
+menuitem { padding: 7px 12px; }
+menuitem:hover { background-color: alpha(#656565, .25); }
+toolbar, menubar { background-color: #222222; color: #f1f1f1; border-color: #3b3b3b; }
+separator { background-color: #3b3b3b; }
+selection { background-color: #656565; color: #fff; }
+switch { border-radius: 20px; background-color: #3b3b3b; }
+switch:checked { background-color: #656565; }
+switch slider { border-radius: 20px; background-color: #fff; }
+scale highlight, progressbar progress { background-color: #656565; border-color: #656565; border-radius: 8px; }
+scrollbar slider { min-width: 5px; min-height: 5px; border-radius: 8px; background-color: alpha(#b4b4b4, .45); }
+tooltip { border-radius: 8px; background-color: #2c2c2c; color: #f1f1f1; }
+
+entry.search, searchentry { border-radius: 22px; }
+button.link, link, label link { color: @theme_fg_color; }
+button.link:hover, label link:hover { text-decoration: underline; }

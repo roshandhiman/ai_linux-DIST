@@ -13,12 +13,12 @@ from pixel_pet import draw as draw_pet
 
 PALETTES = {
     "dark": {
-        "surface": "#1e1f22", "nav": "#191b20", "card": "#27292d", "line": "#373a41",
-        "text": "#f3f4f7", "muted": "#b1b5c0", "hover": "#30343a", "selected": "#424954",
+        "surface": "rgba(29,29,29,.90)", "nav": "alpha(#000,.16)", "card": "alpha(#fff,.07)", "line": "alpha(#fff,.17)",
+        "text": "#f2f2f2", "muted": "#bdbdbd", "hover": "#393939", "selected": "#474747",
     },
     "light": {
-        "surface": "#f4f5f8", "nav": "#e8ebf1", "card": "#ffffff", "line": "#dbdfe8",
-        "text": "#21252e", "muted": "#596373", "hover": "#e6eaf1", "selected": "#d7e2f6",
+        "surface": "rgba(245,245,245,.95)", "nav": "alpha(#000,.04)", "card": "alpha(#fff,.65)", "line": "alpha(#000,.16)",
+        "text": "#222222", "muted": "#575757", "hover": "#e9e9e9", "selected": "#dcdcdc",
     },
 }
 
@@ -29,7 +29,7 @@ SECTIONS = [
     ("Power", "battery-symbolic", "power", "battery sleep screen dpms", "hardware"),
     ("General", "preferences-system-symbolic", "general", "about storage update time language startup", ""),
     ("Accessibility", "preferences-desktop-accessibility-symbolic", "accessibility", "sticky slow bounce keys high contrast", ""),
-    ("Appearance", "preferences-desktop-theme-symbolic", "appearance", "dark light effects shadows blur animations", "personal"),
+    ("Appearance", "weather-clear-night-symbolic", "appearance", "dark light effects shadows blur animations", "personal"),
     ("Assistant", "face-smile-symbolic", "assistant", "ollama local model pixel pet companion", "personal"),
     ("Desktop & Dock", "user-desktop-symbolic", "dock", "opacity position icons corner radius magnification", ""),
     ("Displays", "video-display-symbolic", "display", "resolution scale monitors refresh color profiles", "hardware"),
@@ -52,8 +52,14 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
     def __init__(self, app):
         super().__init__(application=app, title="Settings")
         self.set_wmclass("mineos-settings", "MineOSSettings")
-        self.set_default_size(910, 650)
+        bounds = self.get_display().get_monitor_at_point(0, 0).get_workarea()
+        self.set_default_size(min(1060, bounds.width - 48), min(760, bounds.height - 72))
         self.set_position(Gtk.WindowPosition.CENTER)
+        screen = self.get_screen()
+        visual = screen.get_rgba_visual()
+        if visual and screen.is_composited():
+            self.set_visual(visual)
+            self.get_style_context().add_class("mineos-translucent")
         self.get_style_context().add_class("mineos-settings")
         self.values = preferences.read()
         self.timer = 0
@@ -76,7 +82,7 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
         body = Gtk.Box()
         self.add(body)
         sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        sidebar.set_size_request(233, -1)
+        sidebar.set_size_request(246, -1)
         sidebar.get_style_context().add_class("mineos-sidebar")
         body.pack_start(sidebar, False, False, 0)
         self.search = Gtk.SearchEntry(placeholder_text="Search settings")
@@ -122,7 +128,7 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
         row.terms = f"{title} {keywords}".casefold()
         row.search_only = search_only
         item = Gtk.Box(spacing=9, margin=4)
-        item.pack_start(self.badge(icon, tone, 16), False, False, 0)
+        item.pack_start(self.badge(icon, tone, 18), False, False, 0)
         item.pack_start(Gtk.Label(label=title, xalign=0), True, True, 0)
         row.add(item)
         self.nav.add(row)
@@ -195,7 +201,6 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
         if not self.stack.get_child_by_name(key):
             self.build_page(key, title, icon, tone, populate)
         self.stack.set_visible_child_name(key)
-        self.toolbar.set_title(title)
         self.back.set_sensitive(bool(self.back_stack))
         self.forward.set_sensitive(bool(self.forward_stack))
 
@@ -206,11 +211,11 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
 
     def build_page(self, key, title, icon, tone, populate):
         scroll = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
-        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=15, margin=23)
-        hero = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=22, margin=28)
+        hero = Gtk.Box(spacing=16)
         hero.get_style_context().add_class("settings-hero")
         hero.pack_start(self.badge(icon, tone, 34), False, False, 0)
-        heading = Gtk.Label(label=title)
+        heading = Gtk.Label(label=title, xalign=0)
         heading.get_style_context().add_class("settings-section")
         hero.pack_start(heading, False, False, 0)
         page.pack_start(hero, False, False, 0)

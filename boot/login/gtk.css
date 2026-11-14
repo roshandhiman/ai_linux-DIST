@@ -1,12 +1,12 @@
 @import url("resource:///org/gtk/libgtk/theme/Adwaita/gtk-contained-dark.css");
 
 #login_window, #power_window {
-    color: #f7f4ee;
-    background-color: rgba(24, 21, 19, 0.81);
+    color: #f4f4f4;
+    background-color: rgba(18, 18, 18, 0.81);
     background-image: none;
-    border: 1px solid rgba(255, 242, 219, 0.33);
+    border: 1px solid rgba(172, 172, 172, 0.33);
     border-radius: 22px;
-    box-shadow: 0 16px 46px rgba(0, 0, 0, 0.32), inset 0 1px rgba(255, 248, 230, 0.12);
+    box-shadow: 0 16px 46px rgba(0, 0, 0, 0.32), inset 0 1px rgba(222, 222, 222, 0.12);
 }
 
 #login_box {
@@ -36,28 +36,28 @@
     min-height: 37px;
     margin-bottom: 5px;
     padding: 2px 11px;
-    color: #fbf7ef;
-    caret-color: #fbf7ef;
-    background-color: rgba(255, 243, 220, 0.095);
+    color: #f4f4f4;
+    caret-color: #f4f4f4;
+    background-color: rgba(185, 185, 185, 0.095);
     background-image: none;
-    border: 1px solid rgba(255, 243, 220, 0.23);
+    border: 1px solid rgba(185, 185, 185, 0.23);
     border-radius: 9px;
     box-shadow: none;
 }
 
 #prompt_entry:focus, #user_combobox button:focus {
-    border-color: #edc694;
-    box-shadow: 0 0 0 2px rgba(237, 198, 148, 0.22);
+    border-color: #a3a3a3;
+    box-shadow: 0 0 0 2px rgba(135, 135, 135, 0.22);
 }
 
 #prompt_entry placeholder {
-    color: #ded4c5;
+    color: #b0b0b0;
 }
 
 #login_button, #cancel_button {
     min-height: 33px;
     padding: 3px 15px;
-    border: 1px solid rgba(255, 243, 220, 0.22);
+    border: 1px solid rgba(185, 185, 185, 0.22);
     border-radius: 9px;
     box-shadow: none;
     text-shadow: none;
@@ -65,33 +65,33 @@
 }
 
 #login_button {
-    color: #211911;
-    background-color: #edcda5;
+    color: #ffffff;
+    background-color: #777777;
     font-weight: 700;
 }
 
 #login_button:hover, #login_button:focus {
-    background-color: #ffe0b5;
-    border-color: #fff2db;
+    background-color: #929292;
+    border-color: #c9c9c9;
 }
 
 #login_button:disabled {
-    color: #d8cab9;
-    background-color: rgba(255, 243, 220, 0.16);
+    color: #b0b0b0;
+    background-color: rgba(185, 185, 185, 0.16);
 }
 
 #cancel_button {
-    color: #eee4d7;
-    background-color: rgba(255, 243, 220, 0.07);
+    color: #eaeaea;
+    background-color: rgba(185, 185, 185, 0.07);
 }
 
 #cancel_button:hover, #cancel_button:focus {
-    background-color: rgba(255, 243, 220, 0.16);
+    background-color: rgba(185, 185, 185, 0.16);
 }
 
 #panel_window, #menubar {
-    color: #f7f0e6;
-    background-color: rgba(21, 19, 18, 0.78);
+    color: #f4f4f4;
+    background-color: rgba(16, 16, 16, 0.78);
     background-image: none;
     border: none;
     box-shadow: none;
@@ -111,11 +111,11 @@
 
 #menubar > menuitem:hover {
     border-radius: 6px;
-    background-color: rgba(255, 243, 220, 0.13);
+    background-color: rgba(185, 185, 185, 0.13);
 }
 
 #greeter_infobar {
     background: transparent;
-    color: #ffe0c4;
+    color: #e5e5e5;
     border: none;
 }

@@ -16,6 +16,7 @@ DOCK_SHORTCUT = "mineos-apps.dockitem"
 
 CUSTOM_APPS = {
     "thunar.desktop": ("Files", "files"),
+    "firefox-esr.desktop": ("Firefox", "browser"),
     "xfce4-terminal.desktop": ("Terminal", "terminal"),
     "org.xfce.mousepad.desktop": ("Text Editor", "editor"),
     "xfce4-taskmanager.desktop": ("Task Manager", "monitor"),
@@ -92,7 +93,11 @@ def pinned(settings, apps):
 def set_up_dock(defaults=False):
     settings = Gio.Settings.new_with_path("net.launchpad.plank.dock.settings", "/net/launchpad/plank/docks/dock1/")
     for app_id, (name, icon) in CUSTOM_APPS.items():
-        app = Gio.DesktopAppInfo.new(app_id)
+        try:
+            app = Gio.DesktopAppInfo.new(app_id)
+        except TypeError:
+            # Missing optional desktop entries raise in PyGObject.
+            continue
         if not app:
             continue
         desktop_file = APPS / app_id
@@ -111,7 +116,7 @@ def set_up_dock(defaults=False):
         entry.set_string("Desktop Entry", "Icon", str(ASSETS / f"{icon}.svg"))
         entry.set_boolean("Desktop Entry", "X-MineOS-Icon", True)
         preferences.write(desktop_file, entry.to_data()[0])
-        if app_id in ("thunar.desktop", "xfce4-terminal.desktop", "org.xfce.mousepad.desktop"):
+        if app_id in ("thunar.desktop", "firefox-esr.desktop", "xfce4-terminal.desktop", "org.xfce.mousepad.desktop"):
             write_dockitem(app_id[:-8] + ".dockitem", desktop_file)
     write_dockitem(DOCK_SHORTCUT, APPS / "org.mineos.Apps.desktop")
     if defaults:

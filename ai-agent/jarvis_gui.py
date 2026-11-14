@@ -2,7 +2,7 @@
 import gi
 
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gio, GLib, Pango
+from gi.repository import Gtk, Gdk, Gio, GLib, Pango
 from pathlib import Path
 from urllib.parse import quote_plus
 import requests
@@ -110,11 +110,26 @@ class AssistantWindow(Gtk.ApplicationWindow):
     def __init__(self, app):
         super().__init__(application=app, title="Assistant")
         self.set_wmclass("mine-ai", "MineAI")
-        self.set_default_size(640, 535)
+        screen = self.get_screen()
+        visual = screen.get_rgba_visual()
+        if visual and screen.is_composited():
+            self.set_visual(visual)
+            self.get_style_context().add_class("mineos-translucent")
+        self.get_style_context().add_class("mineos-assistant")
+        bounds = self.get_display().get_monitor_at_point(0, 0).get_workarea()
+        self.set_default_size(min(760, bounds.width - 48), min(610, bounds.height - 72))
+        css_path = Path(__file__).resolve().parent / "desktop" / "assistant.css"
+        if css_path.is_file():
+            provider = Gtk.CssProvider()
+            provider.load_from_path(str(css_path))
+            screen = self.get_screen()
+            Gtk.StyleContext.add_provider_for_screen(screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_USER + 1)
+            self.connect("destroy", lambda *_: Gtk.StyleContext.remove_provider_for_screen(screen, provider))
         self.set_position(Gtk.WindowPosition.CENTER)
         self.history = [{"role": "system", "content": SYSTEM_PROMPT}]
         self.busy = False
         header = Gtk.HeaderBar(title="Assistant", show_close_button=True)
+        header.get_style_context().add_class("assistant-toolbar")
         header.set_decoration_layout(":minimize,maximize,close")
         self.set_titlebar(header)
         self.spinner = Gtk.Spinner()
@@ -130,7 +145,7 @@ class AssistantWindow(Gtk.ApplicationWindow):
             self.mode.append_text(name)
         self.mode.set_active(0)
         self.mode.set_tooltip_text("Chat is local. Web sends the current query to a search provider. Team plans, drafts and reviews.")
-        header.set_custom_title(self.mode)
+        header.pack_end(self.mode)
         self.progress = Gtk.Label(label="", xalign=0, margin_start=14, margin_end=14)
         self.progress.set_ellipsize(Pango.EllipsizeMode.END)
         layout = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -139,15 +154,14 @@ class AssistantWindow(Gtk.ApplicationWindow):
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scroll.set_vexpand(True)
         self.messages = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
-        self.messages.set_border_width(18)
-        self.messages.set_valign(Gtk.Align.END)
+        self.messages.set_border_width(24)
+        self.messages.set_valign(Gtk.Align.START)
         scroll.add(self.messages)
         layout.pack_start(scroll, True, True, 0)
         self.scroll = scroll
         layout.pack_start(self.progress, False, False, 4)
-        layout.pack_start(Gtk.Separator(), False, False, 0)
         row = Gtk.Box(spacing=8)
-        row.set_border_width(12)
+        row.get_style_context().add_class("assistant-composer")
         self.entry = Gtk.Entry()
         self.entry.set_placeholder_text("Message")
         self.entry.set_hexpand(True)
@@ -155,6 +169,7 @@ class AssistantWindow(Gtk.ApplicationWindow):
         row.pack_start(self.entry, True, True, 0)
         self.send = Gtk.Button.new_from_icon_name("mail-send-symbolic", Gtk.IconSize.BUTTON)
         self.send.set_tooltip_text("Send")
+        self.send.get_style_context().add_class("suggested-action")
         self.send.connect("clicked", self.send_message)
         row.pack_end(self.send, False, False, 0)
         layout.pack_end(row, False, False, 0)
@@ -174,14 +189,19 @@ class AssistantWindow(Gtk.ApplicationWindow):
 
     def add_message(self, role, text, sources=()):
         row = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        row.get_style_context().add_class("assistant-message")
+        if role == "user":
+            row.get_style_context().add_class("user-message")
         role_label = Gtk.Label(label="You" if role == "user" else "Assistant")
         role_label.set_xalign(0)
+        role_label.get_style_context().add_class("assistant-role")
         attributes = Pango.AttrList()
         attributes.insert(Pango.attr_weight_new(Pango.Weight.SEMIBOLD))
         role_label.set_attributes(attributes)
         row.pack_start(role_label, False, False, 0)
         message = Gtk.Label(label=text)
         message.set_xalign(0)
+        message.get_style_context().add_class("assistant-body")
         message.set_line_wrap(True)
         message.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
         message.set_max_width_chars(70)

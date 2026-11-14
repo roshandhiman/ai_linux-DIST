@@ -34,7 +34,7 @@ packages=(
     gir1.2-nm-1.0 packagekit-tools bluez xfce4-notifyd xfce4-power-manager
     ffmpeg gir1.2-gtk-3.0 gir1.2-gstreamer-1.0 gstreamer1.0-gtk3
     gstreamer1.0-libav python3-cairo python3-gi-cairo python3-requests
-    desktop-file-utils x11-xserver-utils dconf-cli
+    desktop-file-utils x11-xserver-utils dconf-cli fonts-inter arc-theme papirus-icon-theme
 )
 missing=()
 for package in "${packages[@]}"; do
@@ -47,6 +47,20 @@ if (( ${#missing[@]} > 0 )); then
     sudo apt-get update
     sudo apt-get install -y "${missing[@]}"
 fi
+
+python3 - "$source_dir" <<'PYTHON'
+import ast
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+for directory in ("desktop", "ai-agent"):
+    for source in (root / directory).glob("*.py"):
+        ast.parse(source.read_text(), filename=str(source))
+PYTHON
+for script in "$source_dir/desktop/"*.sh "$source_dir/boot/install-login.sh"; do
+    bash -n "$script"
+done
 
 backup="$(mktemp -d "$state_dir/desktop-backup.XXXXXXXX")"
 sudo cp -a /opt/ai/desktop "$backup/desktop"
@@ -86,6 +100,15 @@ fi
 if ! bash /opt/ai/desktop/apply-theme.sh; then
     sudo mv -- /opt/ai/desktop "$stage"
     sudo mv -- "$stage.old" /opt/ai/desktop
+    for file in "$backup/assistant/"*; do
+        [[ -f "$file" ]] && sudo cp -a "$file" /opt/ai/
+    done
+    cp -a "$backup/config/." "$config_dir/"
+    if [[ -d "$backup/applications" ]]; then
+        cp -a "$backup/applications/." "$data_dir/applications/"
+    fi
+    dconf load /net/launchpad/plank/ < "$backup/plank.dconf"
+    bash /opt/ai/desktop/apply-theme.sh || true
     printf 'Desktop setup failed. The previous desktop code was restored. Configuration backup: %s\n' "$backup" >&2
     exit 1
 fi

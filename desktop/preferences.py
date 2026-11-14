@@ -11,12 +11,13 @@ CONFIG = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
 PREFS = CONFIG / "mineos" / "appearance.json"
 DOCK = "net.launchpad.plank.dock.settings:/net/launchpad/plank/docks/dock1/"
 DEFAULTS = {
-    "appearance": "dark", "backdrop": "", "background_color": "#14161b",
+    "appearance": "dark", "backdrop": str(DESKTOP / "assets" / "graphite.svg"), "background_color": "#171717",
+    "ui_scale": "1",
     "wallpaper_fit": "5", "video": "", "live": False,
-    "dock_size": 46, "dock_opacity": 83, "dock_position": "bottom",
+    "dock_size": 52, "dock_opacity": 92, "dock_position": "bottom",
     "dock_hide": True, "dock_zoom": True, "dock_roundness": 19,
-    "panel_opacity": 78, "clock_24h": True, "clock_seconds": False, "blur": False, "shadows": True, "animations": True,
-    "pet": True, "pet_motion": True, "pet_size": 80, "model": "",
+    "panel_opacity": 92, "clock_24h": True, "clock_seconds": False, "blur": False, "shadows": True, "animations": True,
+    "pet": True, "pet_motion": False, "pet_size": 80, "model": "",
 }
 
 
@@ -28,6 +29,15 @@ def read():
     except (OSError, ValueError):
         return DEFAULTS.copy()
     values = {**DEFAULTS, **{key: data[key] for key in DEFAULTS if key in data and type(data[key]) is type(DEFAULTS[key])}}
+    if "ui_scale" not in data:
+        try:
+            scale = run("xfconf-query", "-c", "xsettings", "-p", "/Gdk/WindowScalingFactor").strip()
+            if scale in ("1", "2"):
+                values["ui_scale"] = scale
+        except (OSError, subprocess.SubprocessError):
+            pass
+    if values["backdrop"] == str(DESKTOP / "assets" / "wallpaper.jpg"):
+        values["backdrop"] = DEFAULTS["backdrop"]
     if values["backdrop"] == str(DESKTOP / "assets" / "dunes.png"):
         values["backdrop"] = ""
     return values
@@ -91,7 +101,7 @@ def replace_setting(text, key, value):
 
 def dock(values):
     dark = values["appearance"] == "dark"
-    tint = "24;;27;;34" if dark else "46;;49;;58"
+    tint = "29;;29;;29" if dark else "228;;228;;228"
     alpha = round(values["dock_opacity"] * 255 / 100)
     template = (DESKTOP / "dock.theme").read_text()
     for field in ("FillStartColor", "FillEndColor"):
@@ -133,6 +143,22 @@ def panel(values):
         time += ":%S"
     if not values["clock_24h"]:
         time += " %p"
+    # tint2 uses physical pixels, unlike GTK's logical pixel coordinates.
+    scale = int(values["ui_scale"]) if values["ui_scale"] in ("1", "2") else 1
+    dimensions = {"panel_size", "panel_margin", "panel_padding", "button_max_icon_size",
+                  "button_padding", "taskbar_padding", "task_maximum_size", "task_padding",
+                  "systray_padding", "systray_icon_size", "clock_padding", "rounded"}
+    lines = []
+    for line in template.splitlines():
+        key, separator, value = line.partition(" = ")
+        if key in dimensions:
+            value = " ".join(str(int(part) * scale) if part.isdigit() else part for part in value.split())
+            line = key + separator + value
+        elif scale > 1 and key in {"task_font", "time1_font"}:
+            family, size = value.rsplit(" ", 1)
+            line = key + separator + family + " " + str(int(size) * scale)
+        lines.append(line)
+    template = "\n".join(lines) + "\n"
     write(path, template.replace("time1_format = %a %d %b  %H:%M", f"time1_format = %a %d %b  {time}"))
     reload_process("tint2")
 
@@ -152,13 +178,18 @@ def compositor(values):
 
 def apply(values, old=None):
     old = old or {}
+    if old.get("ui_scale") != values["ui_scale"]:
+        scale = int(values["ui_scale"]) if values["ui_scale"] in ("1", "2") else 1
+        xfce("xsettings", "/Gdk/WindowScalingFactor", "int", scale)
+        xfce("xsettings", "/Xft/DPI", "int", 96)
+        xfce("xsettings", "/Gtk/CursorThemeSize", "int", 24 * scale)
     if old.get("appearance") != values["appearance"]:
         theme(values)
     if any(old.get(key) != values[key] for key in ("backdrop", "background_color", "wallpaper_fit")):
         wallpaper(values)
     if any(old.get(key) != value for key, value in values.items() if key.startswith("dock_") or key == "appearance"):
         dock(values)
-    if any(old.get(key) != values[key] for key in ("panel_opacity", "clock_24h", "clock_seconds")):
+    if any(old.get(key) != values[key] for key in ("panel_opacity", "clock_24h", "clock_seconds", "ui_scale")):
         panel(values)
     if any(old.get(key) != values[key] for key in ("blur", "shadows", "animations")):
         compositor(values)

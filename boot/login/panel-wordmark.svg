@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="79" height="20" viewBox="0 0 79 20">
-  <rect x="1" y="2" width="16" height="16" rx="4" fill="#efd0a7"/>
-  <path d="M5 14V6l4 4 4-4v8" fill="none" stroke="#2b2017" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="23" y="15" fill="#fff4e4" font-family="Inter, sans-serif" font-size="13" font-weight="700">MineOS</text>
+  <rect x="1" y="2" width="16" height="16" rx="4" fill="#d4d4d4"/>
+  <path d="M5 14V6l4 4 4-4v8" fill="none" stroke="#222222" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="23" y="15" fill="#f5f5f5" font-family="Inter, sans-serif" font-size="13" font-weight="700">MineOS</text>
 </svg>

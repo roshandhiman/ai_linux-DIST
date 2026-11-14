@@ -57,7 +57,11 @@ done
 set_string() { xfconf-query -c "$1" -p "$2" --create -t string -s "$3"; }
 set_bool() { xfconf-query -c "$1" -p "$2" --create -t bool -s "$3"; }
 set_int() { xfconf-query -c "$1" -p "$2" --create -t int -s "$3"; }
-set_string xsettings /Gtk/FontName 'Inter 9'
+set_string xsettings /Gtk/FontName 'Inter 10'
+set_int xsettings /Xft/Antialias 1
+set_int xsettings /Xft/Hinting 1
+set_string xsettings /Xft/HintStyle hintslight
+set_string xsettings /Xft/RGBA none
 set_string xsettings /Gtk/MonospaceFontName 'DejaVu Sans Mono 10'
 set_string xsettings /Gtk/CursorThemeName Adwaita
 set_string xsettings /Gtk/DecorationLayout 'menu:minimize,maximize,close'

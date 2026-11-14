@@ -9,14 +9,14 @@ import app_catalog as catalog
 import preferences
 
 DARK = {
-    "surface": "rgba(24,26,32,.97)", "text": "#f2f4f8", "muted": "#aab2c0",
-    "border": "rgba(158,171,193,.25)", "control": "#292d36", "hover": "#353c49",
-    "selected": "#344c70", "selected_border": "#5278aa",
+    "surface": "rgba(29,29,29,.90)", "text": "#f2f2f2", "muted": "#bdbdbd",
+    "border": "alpha(#fff,.17)", "control": "alpha(#fff,.08)", "hover": "alpha(#fff,.14)",
+    "selected": "#4a4a4a", "selected_border": "#717171",
 }
 LIGHT = {
-    "surface": "rgba(245,247,251,.98)", "text": "#242a35", "muted": "#596579",
-    "border": "rgba(63,76,97,.24)", "control": "#e7ebf2", "hover": "#dee5ef",
-    "selected": "#d2e3fd", "selected_border": "#a6c5ef",
+    "surface": "rgba(245,245,245,.95)", "text": "#222222", "muted": "#575757",
+    "border": "alpha(#000,.16)", "control": "#e8e8e8", "hover": "#e1e1e1",
+    "selected": "#d6d6d6", "selected_border": "#a9a9a9",
 }
 
 
@@ -42,6 +42,8 @@ class Launcher(Gtk.ApplicationWindow):
             self.set_visual(visual)
         styled(self, "mineos-launcher")
         palette = DARK if preferences.read()["appearance"] == "dark" else LIGHT
+        if not visual or not screen.is_composited():
+            palette = {**palette, "surface": "#222222" if palette is DARK else "#f2f2f2"}
         css = "".join(f"@define-color apps_{key} {color};\n" for key, color in palette.items())
         provider = Gtk.CssProvider()
         provider.load_from_data((css + (catalog.ASSETS.parent.parent / "launcher.css").read_text()).encode())
@@ -53,11 +55,11 @@ class Launcher(Gtk.ApplicationWindow):
         _, x, y = pointer.get_position()
         monitor = display.get_monitor_at_point(x, y) or display.get_monitor(0)
         bounds = monitor.get_workarea()
-        self.width = min(820, max(320, bounds.width - 72))
-        self.height = min(540, max(280, bounds.height - 66))
+        self.width = min(960, max(320, bounds.width - 72))
+        self.height = min(660, max(280, bounds.height - 66))
         self.set_default_size(self.width, self.height)
         self.move(bounds.x + max(0, (bounds.width - self.width) // 2), bounds.y + max(0, (bounds.height - self.height) // 2))
-        self.columns = max(2, min(7, (self.width - 42) // 105))
+        self.columns = max(2, min(7, (self.width - 56) // 120))
         self.catalog = catalog.installed_apps()
         self.active_group = "All Apps"
         self.switching_group = False
@@ -181,12 +183,12 @@ class Launcher(Gtk.ApplicationWindow):
             cell.set_size_request(87, -1)
             icon = app.info.get_icon() or Gio.ThemedIcon.new("application-x-executable")
             image = Gtk.Image.new_from_gicon(icon, Gtk.IconSize.DIALOG)
-            image.set_pixel_size(42)
+            image.set_pixel_size(48)
             well = Gtk.Box()
-            well.set_size_request(59, 59)
+            well.set_size_request(64, 64)
             well.set_halign(Gtk.Align.CENTER)
             if isinstance(icon, Gio.FileIcon) and icon.get_file().get_parent().get_path() == str(catalog.ASSETS):
-                image.set_pixel_size(59)
+                image.set_pixel_size(64)
             else:
                 styled(well, "launcher-icon-well")
             well.pack_start(image, True, False, 0)

@@ -1,31 +1,39 @@
 @define-color theme_bg_color #f2f2f2;
-@define-color theme_fg_color #242424;
+@define-color theme_fg_color #222222;
 @define-color theme_base_color #ffffff;
-@define-color theme_text_color #242424;
-@define-color theme_selected_bg_color #d6d6d6;
-@define-color theme_selected_fg_color #171717;
-@define-color insensitive_fg_color #929292;
-@define-color borders #d1d1d1;
-@define-color selected_bg_color #d6d6d6;
-@define-color selected_fg_color #171717;
-window, .background { background-color: #f5f5f5; color: #242424; }
-headerbar, .titlebar { background-image: none; background-color: #ededed; border-color: #d1d1d1; color: #303030; box-shadow: none; min-height: 35px; }
-button { background-image: none; background-color: #f6f6f6; color: #333333; border: 1px solid #cfcfcf; border-radius: 4px; box-shadow: none; text-shadow: none; padding: 5px 8px; }
-button:hover { background-color: #e8e8e8; border-color: #b5b5b5; }
-button:active, button:checked { background-color: #d9d9d9; color: #222222; }
-button.flat, toolbar button { background-color: transparent; border-color: transparent; }
-button.flat:hover, toolbar button:hover { background-color: #dddddd; }
-entry { background-image: none; background-color: #ffffff; color: #282828; border: 1px solid #c8c8c8; border-radius: 4px; box-shadow: none; padding: 6px 9px; caret-color: #333333; }
-entry:focus { border-color: #777777; }
-menu, .menu, popover { background-color: #f6f6f6; color: #252525; border-color: #cccccc; border-radius: 5px; }
-menuitem { padding: 5px 9px; }
-menuitem:hover { background-color: #dddddd; color: #111111; }
-toolbar, menubar { background-color: #ededed; border-color: #d4d4d4; color: #333333; }
-.view, iconview, treeview { background-color: #ffffff; color: #292929; }
-.view:selected, iconview:selected, treeview:selected { background-color: #d9d9d9; color: #111111; }
-.sidebar, .sidebar .view, placessidebar, placessidebar .view { background-color: #eeeeee; color: #393939; }
-separator { background-color: #d5d5d5; min-height: 1px; min-width: 1px; }
-scrollbar { background-color: transparent; }
-scrollbar slider { background-color: #b6b6b6; border-radius: 5px; min-width: 5px; min-height: 5px; }
-tooltip { background-color: #333333; color: #ffffff; border: none; border-radius: 4px; }
-selection { background-color: #d9d9d9; color: #111111; }
+@define-color theme_text_color #222222;
+@define-color theme_selected_bg_color #555555;
+@define-color theme_selected_fg_color #ffffff;
+@define-color selected_bg_color #555555;
+@define-color selected_fg_color #ffffff;
+window, .background { background-color: #f2f2f2; color: #222222; }
+headerbar, .titlebar { background-image: none; background-color: #f2f2f2; border-color: #cecece; color: #222222; box-shadow: none; min-height: 44px; padding: 6px 12px; }
+headerbar .title { font-weight: 600; }
+.view, iconview, treeview { background-color: #ffffff; color: #222222; }
+.view:selected, iconview:selected, treeview:selected { background-color: #555555; color: #fff; }
+.sidebar, .sidebar .view, placessidebar, placessidebar .view { background-color: #f2f2f2; color: #222222; }
+entry { min-height: 32px; padding: 2px 10px; border-radius: 9px; background-image: none; background-color: #ffffff; border: 1px solid #cecece; color: #222222; box-shadow: none; }
+entry:focus { border-color: #555555; box-shadow: 0 0 0 2px alpha(#555555, .16); }
+button, menu, .menu, popover { background-image: none; }
+button { border-radius: 8px; padding: 6px 12px; background-color: #e7e7e7; color: #222222; border: 1px solid #cecece; box-shadow: none; text-shadow: none; }
+button:hover { background-color: mix(#e7e7e7, #555555, .15); border-color: alpha(#555555, .55); }
+button:active, button:checked, button.suggested-action { background-color: #555555; color: #fff; }
+button:disabled { color: alpha(#222222, .4); }
+button.flat, toolbar button, headerbar button.titlebutton { background-color: transparent; border-color: transparent; }
+button.flat:hover, toolbar button:hover, headerbar button.titlebutton:hover { background-color: #e7e7e7; }
+menu, .menu, popover { background-color: #e7e7e7; color: #222222; border: 1px solid #cecece; border-radius: 10px; }
+menuitem { padding: 7px 12px; }
+menuitem:hover { background-color: alpha(#555555, .25); }
+toolbar, menubar { background-color: #f2f2f2; color: #222222; border-color: #cecece; }
+separator { background-color: #cecece; }
+selection { background-color: #555555; color: #fff; }
+switch { border-radius: 20px; background-color: #cecece; }
+switch:checked { background-color: #555555; }
+switch slider { border-radius: 20px; background-color: #fff; }
+scale highlight, progressbar progress { background-color: #555555; border-color: #555555; border-radius: 8px; }
+scrollbar slider { min-width: 5px; min-height: 5px; border-radius: 8px; background-color: alpha(#646464, .45); }
+tooltip { border-radius: 8px; background-color: #e7e7e7; color: #222222; }
+
+entry.search, searchentry { border-radius: 22px; }
+button.link, link, label link { color: @theme_fg_color; }
+button.link:hover, label link:hover { text-decoration: underline; }

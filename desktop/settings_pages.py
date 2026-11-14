@@ -281,6 +281,9 @@ class SystemPages:
         self.embed(page, "xfce4-color-settings")
 
     def display(self, page):
+        scale = self.group(page)
+        self.choices(scale, "Interface scale", "ui_scale", [("1", "100%"), ("2", "200% · HiDPI")])
+        self.note(scale, "Reopen applications after changing scale. Choose the display resolution below.")
         self.route(self.group(page), "Color Profiles", "color_profiles")
         self.embed(page, "xfce4-display-settings")
 
