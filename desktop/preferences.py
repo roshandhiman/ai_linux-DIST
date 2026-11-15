@@ -17,7 +17,7 @@ DEFAULTS = {
     "dock_size": 52, "dock_opacity": 92, "dock_position": "bottom",
     "dock_hide": True, "dock_zoom": True, "dock_roundness": 19,
     "panel_opacity": 92, "clock_24h": True, "clock_seconds": False, "blur": True, "shadows": True, "animations": True,
-    "pet": True, "pet_motion": False, "pet_size": 80, "model": "",
+    "pet": True, "pet_motion": True, "pet_size": 80, "model": "",
 }
 
 

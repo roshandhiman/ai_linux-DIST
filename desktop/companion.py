@@ -12,7 +12,7 @@ gi.require_version("Gst", "1.0")
 from gi.repository import Gdk, GdkPixbuf, Gio, GLib, Gst, Gtk
 
 import preferences
-from pixel_pet import draw as draw_pet
+import rabbit_pet
 from wallpaper_cache import playback_copy
 
 
@@ -56,9 +56,10 @@ class Pet(Gtk.Window):
         self.hovered = False
         self.direction = 1
         self.walking = False
-        self.frame = None
+        self.frame = ("idle", 0, False)
+        self.reaction = None
         self.started = time.monotonic()
-        GLib.timeout_add(100, self.animate)
+        GLib.timeout_add(1000 // rabbit_pet.FPS, self.animate)
 
     def area(self):
         display = Gdk.Display.get_default()
@@ -71,45 +72,67 @@ class Pet(Gtk.Window):
         if window:
             cursor = Gdk.Cursor.new_from_name(window.get_display(), "pointer")
             window.set_cursor(cursor)
+            self.shape(self, self.get_allocation())
         return False
 
-    def shape(self, _, size):
+    def shape(self, *_):
         if self.get_window():
-            side = min(size.width, size.height)
-            pixel = max(1, side // 26)
-            inset = (side - 20 * pixel) // 2
-            top = (side - 25 * pixel) // 2
-            self.input_shape_combine_region(cairo.Region(cairo.RectangleInt(inset, top, 20 * pixel, 24 * pixel)))
+            rect = cairo.RectangleInt(*rabbit_pet.pointer_rect(self.size))
+            self.input_shape_combine_region(cairo.Region(rect))
 
     def hover(self, _, __, hovered):
         self.hovered = hovered
-        self.queue_draw()
+        self.animate()
         return False
 
     def reposition(self, offset):
         area = self.area()
+        width, height, left, top = rabbit_pet.viewport(self.size)
         x, y = self.origin or (area.x + area.width - self.size - 34, area.y + area.height - self.size - 82)
-        x = max(area.x, min(x + offset, area.x + area.width - self.size))
-        y = max(area.y, min(y, area.y + area.height - self.size))
+        x = max(area.x, min(x + offset - left, area.x + area.width - width))
+        y = max(area.y, min(y - top, area.y + area.height - height))
         position = (int(x), int(y))
         if position != self.position:
             self.move(*position)
             self.position = position
 
+    def play(self, name):
+        duration = rabbit_pet.CLIPS[name] / rabbit_pet.FPS
+        self.reaction = (name, time.monotonic(), duration)
+        self.animate()
+
     def animate(self):
-        if not self.get_visible() or not self.motion:
+        if not self.get_visible():
             return GLib.SOURCE_CONTINUE
-        elapsed = time.monotonic() - self.started
+        now = time.monotonic()
+        elapsed = now - self.started
         phase = elapsed % 16
-        self.walking = not self.hovered and not self.held and phase < 9
+        if self.reaction:
+            name, started, duration = self.reaction
+            if now - started >= duration:
+                self.reaction = None
+        self.walking = self.motion and not (self.hovered or self.held or self.reaction) and phase < 9
         if self.walking:
             self.direction = -1 if phase < 4.5 else 1
             travel = phase if phase < 4.5 else 9 - phase
             self.reposition(-travel * 11)
-        elif not self.hovered and not self.held:
+        elif not (self.hovered or self.held or self.reaction):
             self.reposition(0)
-        frame = (self.direction, self.walking, elapsed % 4.9 > 4.72,
-                 (int(elapsed * 7) % 2, int(elapsed * 5) % 2) if self.walking else None)
+
+        name = "idle"
+        animation_time = elapsed if self.motion else 0
+        if self.held and self.moved and self.motion:
+            name = "carried"
+        elif self.reaction:
+            name, started, _ = self.reaction
+            animation_time = now - started
+        elif self.motion:
+            if self.hovered:
+                name = "hover"
+            elif self.walking:
+                name = "walk"
+        frame = (name, int(animation_time * rabbit_pet.FPS) % rabbit_pet.CLIPS[name],
+                 name == "walk" and self.direction < 0)
         if self.frame != frame:
             self.frame = frame
             self.queue_draw()
@@ -122,6 +145,15 @@ class Pet(Gtk.Window):
                 item = Gtk.MenuItem(label=title)
                 item.connect("activate", lambda _, target=path: subprocess.Popen(["python3", target]))
                 menu.append(item)
+            animations = Gtk.Menu()
+            for name in rabbit_pet.CLIPS:
+                label = {"walk": "Hop", "boot": "Greeting", "pet": "Happy hops", "oops": "Oops"}.get(name, name.title())
+                item = Gtk.MenuItem(label=label)
+                item.connect("activate", lambda _, clip=name: self.play(clip))
+                animations.append(item)
+            item = Gtk.MenuItem(label="Animations")
+            item.set_submenu(animations)
+            menu.append(item)
             menu.show_all()
             menu.popup_at_pointer(event)
             return True
@@ -134,14 +166,22 @@ class Pet(Gtk.Window):
     def drag(self, _, event):
         if self.held and (abs(event.x - self.held[0]) > 5 or abs(event.y - self.held[1]) > 5):
             self.moved = True
-            self.origin = (int(event.x_root - self.held[0]), int(event.y_root - self.held[1]))
+            _, _, left, top = rabbit_pet.viewport(self.size)
+            self.origin = (int(event.x_root - self.held[0] + left), int(event.y_root - self.held[1] + top))
             self.reposition(0)
         return True
 
     def release(self, _, event):
-        if event.button == 1 and self.held and not self.moved:
-            subprocess.Popen(["python3", "/opt/ai/jarvis_gui.py"])
+        if event.button != 1 or not self.held:
+            return False
         self.held = None
+        if self.moved:
+            if self.motion:
+                self.play("settle")
+        else:
+            if self.motion:
+                self.play("pet")
+            subprocess.Popen(["python3", "/opt/ai/jarvis_gui.py"])
         return True
 
     def paint(self, _, cr):
@@ -149,9 +189,7 @@ class Pet(Gtk.Window):
         cr.set_source_rgba(0, 0, 0, 0)
         cr.paint()
         cr.set_operator(cairo.OPERATOR_OVER)
-        elapsed = time.monotonic() - self.started if self.motion else 0
-        draw_pet(cr, min(self.get_allocated_width(), self.get_allocated_height()), elapsed,
-                 self.direction, self.walking and self.motion, self.hovered)
+        rabbit_pet.draw(cr, self.size, *self.frame)
         return True
 
 
@@ -273,7 +311,7 @@ class DesktopCompanion(Gtk.Application):
         self.values = values
         if self.pet.size != values["pet_size"] or not previous:
             self.pet.size = values["pet_size"]
-            self.pet.resize(self.pet.size, self.pet.size)
+            self.pet.resize(*rabbit_pet.viewport(self.pet.size)[:2])
         self.pet.motion = values["pet_motion"]
         self.pet.set_visible(values["pet"])
         if values["pet"] and (not previous or not self.pet.motion or values["pet_size"] != previous["pet_size"]):
