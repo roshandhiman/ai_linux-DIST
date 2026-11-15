@@ -6,7 +6,7 @@ MineOS IDE uses the Code - OSS workbench through a checksum-pinned VSCodium rele
 
 ## Install in MineOS
 
-Run from the repository root in a Linux desktop session as your normal user.
+The live ISO includes MineOS IDE in the Applications menu. On an existing installation, run from the repository root in a Linux desktop session as your normal user.
 
     bash ide/install.sh
     ~/.local/bin/mineos-ide /path/to/project

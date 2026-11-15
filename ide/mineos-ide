@@ -5,6 +5,9 @@ data="${XDG_DATA_HOME:-$HOME/.local/share}"
 config="${XDG_CONFIG_HOME:-$HOME/.config}"
 install_root="$data/mineos-ide"
 runtime="$install_root/current/bin/codium"
+if [[ ! -x "$runtime" ]]; then
+    runtime=/opt/mineos-ide/current/bin/codium
+fi
 extras=()
 if [[ "${MINEOS_IDE_DISABLE_GPU:-0}" == 1 ]]; then
     extras+=(--disable-gpu)

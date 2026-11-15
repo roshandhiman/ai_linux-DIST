@@ -60,14 +60,12 @@ jobs:
           iso="$name.iso"
           gh run download "$BUILD_RUN" --repo "$REPOSITORY" --name "$name"
           sha256sum --strict -c "$iso.sha256"
-          split -b 1500M --numeric-suffixes=1 -a 1 "$iso" "$iso.part"
-          test -s "$iso.part1"
-          test -s "$iso.part2"
-          test ! -e "$iso.part3"
-          cat "$iso.part1" "$iso.part2" | cmp "$iso" -
+          split -b 1900M --numeric-suffixes=1 -a 2 "$iso" "$iso.part"
+          parts=("$iso".part[0-9][0-9])
+          cat "${parts[@]}" | cmp "$iso" -
           gh release upload "$RELEASE_TAG" --repo "$REPOSITORY" --clobber \
-            "$iso.part1" "$iso.part2" "$iso.sha256"
-          for asset in "$iso.part1" "$iso.part2" "$iso.sha256"; do
+            "${parts[@]}" "$iso.sha256"
+          for asset in "${parts[@]}" "$iso.sha256"; do
             read -r sha _ < <(sha256sum "$asset")
             gh api "repos/$REPOSITORY/releases/$release_id/assets" | \
               jq -e --arg asset "$asset" --arg digest "sha256:$sha" \

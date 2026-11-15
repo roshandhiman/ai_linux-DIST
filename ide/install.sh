@@ -8,8 +8,15 @@ case "$(uname -m)" in
     x86_64|amd64) arch=x64; checksum=ca1895aa040bd91a09c709d79eac7862d8c1aa0237fdc25b503deeb8bcd87efd ;;
     *) printf 'MineOS IDE supports Linux ARM64 and x86-64.\n' >&2; exit 1 ;;
 esac
-if [[ "$(uname -s)" != Linux || $EUID == 0 ]]; then
-    printf 'Run this installer as your normal MineOS Linux user.\n' >&2
+if [[ "$(uname -s)" != Linux ]]; then
+    printf 'MineOS IDE requires Linux.\n' >&2
+    exit 1
+fi
+system_install=0
+if [[ "${1:-}" == --system && $# == 1 && $EUID == 0 ]]; then
+    system_install=1
+elif [[ $# != 0 || $EUID == 0 ]]; then
+    printf 'Run as your normal user, or use --system as root.\n' >&2
     exit 1
 fi
 
@@ -18,18 +25,25 @@ cache="${XDG_CACHE_HOME:-$HOME/.cache}/mineos-ide"
 bin="$HOME/.local/bin"
 data="${XDG_DATA_HOME:-$HOME/.local/share}"
 install_root="$data/mineos-ide"
+if (( system_install )); then
+    bin=/usr/local/bin
+    data=/usr/local/share
+    install_root=/opt/mineos-ide
+fi
 destination="$install_root/$version"
-mkdir -p "$cache" "$bin" "$install_root" "$data/applications"
+mkdir -p "$bin" "$install_root" "$data/applications"
 exec 9>"$install_root/install.lock"
 flock 9
 
 stage="$(mktemp -d "$install_root/.build.XXXXXXXX")"
 partial=""
+if (( system_install )); then cache="$stage/cache"; fi
 cleanup() {
     rm -rf -- "$stage"
     [[ -z "$partial" ]] || rm -f -- "$partial"
 }
 trap cleanup EXIT
+mkdir -p "$cache"
 
 verify() {
     printf '%s  %s\n' "$checksum" "$1" | sha256sum --strict -c -
@@ -103,6 +117,9 @@ fi
 
 ln -s -- "$destination" "$stage/current"
 mv -Tf -- "$stage/current" "$install_root/current"
+if (( system_install )); then
+    chmod 755 "$destination"
+fi
 install -m 755 "$source_dir/mineos-ide" "$bin/mineos-ide"
 install -m 644 "$source_dir/extension/media/mineos-ide.svg" "$install_root/mineos-ide.svg"
 cat > "$stage/org.mineos.IDE.desktop" <<ENTRY

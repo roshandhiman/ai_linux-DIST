@@ -70,7 +70,15 @@ while read -r package _; do
 done < "$SOURCE/config/packages.list"
 chroot "$ROOTFS" apt-get update
 chroot "$ROOTFS" env DEBIAN_FRONTEND=noninteractive apt-get install -y "linux-image-$ARCH" "${packages[@]}" \
-    live-boot live-config live-config-systemd network-manager-gnome pulseaudio-utils desktop-file-utils xdg-user-dirs ca-certificates
+    live-boot live-config live-config-systemd network-manager-gnome pulseaudio-utils desktop-file-utils xdg-user-dirs ca-certificates \
+    libasound2t64 libatk-bridge2.0-0t64 libatspi2.0-0t64 libgbm1 libgtk-3-0t64 libnss3 libsecret-1-0 libx11-xcb1 libxss1
+
+install -d "$ROOTFS/tmp/mineos-ide"
+cp -a "$SOURCE/ide/." "$ROOTFS/tmp/mineos-ide/"
+chroot "$ROOTFS" bash /tmp/mineos-ide/install.sh --system
+chroot "$ROOTFS" runuser -u nobody -- /opt/mineos-ide/current/bin/codium --version
+test -s "$ROOTFS/opt/mineos-ide/current/resources/app/extensions/mineos-assistant/package.json"
+rm -rf -- "$ROOTFS/tmp/mineos-ide"
 
 install -d "$ROOTFS/opt/ai/desktop" "$ROOTFS/usr/share/plymouth/themes/mineos" \
     "$ROOTFS/etc/xdg/autostart" "$ROOTFS/usr/share/applications" "$ROOTFS/usr/local/share/applications" \

@@ -4,14 +4,14 @@ A Debian-based Linux desktop project with an offline AI assistant (llama.cpp ser
 
 The desktop uses XFCE/X11, Thunar, neutral light and dark GTK themes, a slim charcoal top panel, a compact translucent Plank dock, and still or live wallpaper. The assistant opens on demand; the desktop does not display service badges, promotional text, or a custom file-manager dashboard.
 
-## Download MineOS 1.0 Live ISO
+## Download the latest MineOS Live ISO
 
-Open the [MineOS 1.0 GitHub release](https://github.com/roshandhiman/ai_linux-DIST/releases/tag/v1.0.0) and choose the files for your system under **Assets**.
+Open the [latest MineOS GitHub release](https://github.com/roshandhiman/ai_linux-DIST/releases/latest) and choose the files for your system under **Assets**.
 
 - **ARM64** for Apple Silicon Macs running Parallels and other ARM64 UEFI VMs.
 - **AMD64 (x86-64)** for Intel and AMD PCs with UEFI or legacy BIOS.
 
-Download both ISO parts and the SHA-256 checksum for your architecture. Follow the release notes to join the parts and verify the ISO. For development builds, see [GitHub Actions](https://github.com/roshandhiman/ai_linux-DIST/actions/workflows/build-iso.yml).
+Download all ISO parts and the SHA-256 checksum for your architecture. Follow the release notes to join the parts and verify the ISO. For development builds, see [GitHub Actions](https://github.com/roshandhiman/ai_linux-DIST/actions/workflows/build-iso.yml).
 
 ## Update an existing MineOS desktop
 
