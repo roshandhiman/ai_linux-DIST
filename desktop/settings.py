@@ -8,19 +8,9 @@ gi.require_version("Gdk", "3.0")
 from gi.repository import Gdk, GdkPixbuf, Gio, GLib, Gtk, Pango
 
 import preferences
+import glass_theme
 from settings_pages import SystemPages
 from rabbit_pet import draw_preview as draw_pet
-
-PALETTES = {
-    "dark": {
-        "surface": "rgba(28,28,28,.84)", "nav": "alpha(#000,.16)", "card": "alpha(#fff,.07)", "line": "alpha(#fff,.17)",
-        "text": "#f2f2f2", "muted": "#bdbdbd", "hover": "#393939", "selected": "#474747",
-    },
-    "light": {
-        "surface": "rgba(246,246,246,.88)", "nav": "alpha(#000,.04)", "card": "alpha(#fff,.65)", "line": "alpha(#000,.16)",
-        "text": "#222222", "muted": "#575757", "hover": "#e9e9e9", "selected": "#dcdcdc",
-    },
-}
 
 SECTIONS = [
     ("Wi-Fi", "network-wireless-symbolic", "wifi", "wireless internet", "connect"),
@@ -44,6 +34,7 @@ SECTIONS = [
 
 def button(text, action):
     widget = Gtk.Button(label=text)
+    widget.get_style_context().add_class("glass-control")
     widget.connect("clicked", action)
     return widget
 
@@ -52,15 +43,21 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
     def __init__(self, app):
         super().__init__(application=app, title="Settings")
         self.set_wmclass("mineos-settings", "MineOSSettings")
-        bounds = self.get_display().get_monitor_at_point(0, 0).get_workarea()
-        self.set_default_size(min(1060, bounds.width - 48), min(760, bounds.height - 72))
+        display = self.get_display()
+        pointer = display.get_default_seat().get_pointer()
+        _, x, y = pointer.get_position()
+        monitor = display.get_monitor_at_point(x, y) or display.get_monitor(0)
+        bounds = monitor.get_workarea()
+        width = min(980, max(320, bounds.width - 112))
+        height = min(620, max(260, bounds.height - 172))
+        self.set_default_size(width, height)
         self.set_position(Gtk.WindowPosition.CENTER)
         screen = self.get_screen()
         visual = screen.get_rgba_visual()
         if visual and screen.is_composited():
             self.set_visual(visual)
-            self.get_style_context().add_class("mineos-translucent")
         self.get_style_context().add_class("mineos-settings")
+        self.get_style_context().add_class("glass-panel")
         self.values = preferences.read()
         self.timer = 0
         self.current = None
@@ -84,9 +81,12 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
         sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         sidebar.set_size_request(246, -1)
         sidebar.get_style_context().add_class("mineos-sidebar")
+        sidebar.get_style_context().add_class("glass-card")
         body.pack_start(sidebar, False, False, 0)
         self.search = Gtk.SearchEntry(placeholder_text="Search settings")
         self.search.get_style_context().add_class("settings-search")
+        self.search.get_style_context().add_class("pill-search")
+        self.search.get_accessible().set_name("Search settings")
         sidebar.pack_start(self.search, False, False, 0)
         account = Gtk.Box(spacing=10)
         account.get_style_context().add_class("settings-account")
@@ -102,7 +102,7 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
         self.nav = Gtk.ListBox(selection_mode=Gtk.SelectionMode.SINGLE)
         self.nav.get_style_context().add_class("settings-navigation")
         navigation.add(self.nav)
-        self.stack = Gtk.Stack(transition_duration=120, hhomogeneous=False, vhomogeneous=False)
+        self.stack = Gtk.Stack(transition_duration=glass_theme.MOTION_MS, hhomogeneous=False, vhomogeneous=False)
         self.update_transition()
         body.pack_start(self.stack, True, True, 0)
         for title, icon, key, keywords, tone in SECTIONS:
@@ -124,6 +124,7 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
 
     def add_navigation_item(self, key, title, icon, tone, keywords="", search_only=False):
         row = Gtk.ListBoxRow()
+        row.get_style_context().add_class("glass-row")
         row.key = key
         row.terms = f"{title} {keywords}".casefold()
         row.search_only = search_only
@@ -138,6 +139,7 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
         image = Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.MENU)
         image.set_pixel_size(size)
         image.get_style_context().add_class("settings-icon")
+        image.get_style_context().add_class("glass-icon")
         if tone:
             image.get_style_context().add_class(tone)
         image.set_halign(Gtk.Align.CENTER)
@@ -145,6 +147,7 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
 
     def icon_button(self, icon, hint, action):
         control = Gtk.Button(image=Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON))
+        control.get_style_context().add_class("glass-control")
         control.set_tooltip_text(hint)
         control.get_accessible().set_name(hint)
         control.connect("clicked", action)
@@ -214,6 +217,7 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
         page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=22, margin=28)
         hero = Gtk.Box(spacing=16)
         hero.get_style_context().add_class("settings-hero")
+        hero.get_style_context().add_class("glass-card")
         hero.pack_start(self.badge(icon, tone, 34), False, False, 0)
         heading = Gtk.Label(label=title, xalign=0)
         heading.get_style_context().add_class("settings-section")
@@ -229,6 +233,7 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
             group.add(Gtk.Separator())
         control = Gtk.Button()
         control.get_style_context().add_class("settings-link")
+        control.get_style_context().add_class("glass-row")
         row = Gtk.Box(spacing=12)
         row.get_style_context().add_class("settings-row")
         _, icon, tone, _, _ = self.pages[key]
@@ -277,9 +282,21 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
             self.report(error)
         self.task(callback, finished, failed)
 
+    def metric(self, title, value):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+        box.get_style_context().add_class("metric-chip")
+        name = Gtk.Label(label=title)
+        name.get_style_context().add_class("metric-label")
+        amount = Gtk.Label(label=value)
+        amount.get_style_context().add_class("metric-value")
+        box.add(name)
+        box.add(amount)
+        return box
+
     def group(self, page):
         group = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         group.get_style_context().add_class("settings-group")
+        group.get_style_context().add_class("glass-card")
         page.pack_start(group, False, False, 0)
         return group
 
@@ -339,7 +356,7 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
             preferences.apply(self.values, old)
             if old["animations"] != self.values["animations"]:
                 self.update_transition()
-            if old["appearance"] != self.values["appearance"]:
+            if any(old[key] != self.values[key] for key in ("appearance", "blur", "animations")):
                 self.refresh_style()
         except (OSError, subprocess.SubprocessError, GLib.Error) as error:
             dialog = Gtk.MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.CLOSE, text="Could not apply settings", secondary_text=str(error))
@@ -356,10 +373,8 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
         dark = self.values["appearance"] == "dark"
         Gtk.Settings.get_default().set_property("gtk-application-prefer-dark-theme", dark)
         provider = Gtk.CssProvider()
-        palette = PALETTES["dark" if dark else "light"]
-        colors = "".join(f"@define-color mineos_{name} {value};\n" for name, value in palette.items())
-        provider.load_from_data((colors + (preferences.DESKTOP / "settings.css").read_text()).encode())
-        screen = Gdk.Screen.get_default()
+        screen = self.get_screen()
+        provider.load_from_data(glass_theme.style(self.values, "settings", screen.is_composited()))
         if getattr(self, "mode_provider", None):
             Gtk.StyleContext.remove_provider_for_screen(screen, self.mode_provider)
         Gtk.StyleContext.add_provider_for_screen(screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_USER + 1)
@@ -408,6 +423,7 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
     def wallpaper(self, page):
         frame = Gtk.Box()
         frame.get_style_context().add_class("settings-preview")
+        frame.get_style_context().add_class("glass-card")
         preview = Gtk.DrawingArea(height_request=136)
         self.wallpaper_image = None
         backdrop = self.values["backdrop"]

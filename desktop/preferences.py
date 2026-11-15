@@ -6,6 +6,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+import glass_theme
+
 DESKTOP = Path(__file__).resolve().parent
 CONFIG = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
 PREFS = CONFIG / "mineos" / "appearance.json"
@@ -14,7 +16,7 @@ DEFAULTS = {
     "appearance": "dark", "backdrop": str(DESKTOP / "assets" / "graphite.svg"), "background_color": "#171717",
     "ui_scale": "1",
     "wallpaper_fit": "5", "video": "", "live": False,
-    "dock_size": 52, "dock_opacity": 92, "dock_position": "bottom",
+    "dock_size": 52, "dock_opacity": glass_theme.DOCK_REST_OPACITY, "dock_position": "bottom",
     "dock_hide": True, "dock_zoom": True, "dock_roundness": 19,
     "panel_opacity": 92, "clock_24h": True, "clock_seconds": False, "blur": True, "shadows": True, "animations": True,
     "pet": True, "pet_motion": True, "pet_size": 80, "model": "",
@@ -100,22 +102,22 @@ def replace_setting(text, key, value):
 
 
 def dock(values):
-    dark = values["appearance"] == "dark"
-    tint = "29;;29;;29" if dark else "228;;228;;228"
-    highlight = "54;;54;;54" if dark else "248;;248;;248"
-    alpha = round(values["dock_opacity"] * 255 / 100)
-    template = (DESKTOP / "dock.theme").read_text()
-    template = replace_setting(template, "FillStartColor", f"{highlight};;{alpha}")
-    template = replace_setting(template, "FillEndColor", f"{tint};;{alpha}")
-    for field in ("TopRoundness", "BottomRoundness"):
-        template = replace_setting(template, field, values["dock_roundness"])
     data = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share"))
     theme_path = data / "plank/themes/MineOS/dock.theme"
-    write(theme_path, template)
+    write(theme_path, glass_theme.plank_theme(values))
+    trash = data / "applications/org.mineos.Trash.desktop"
+    if trash.is_file():
+        icon_name = "trash-" + values["dock_position"] + ".svg"
+        icon_path = data / "mineos/icons" / icon_name
+        write(icon_path, glass_theme.trash_icon(values["dock_position"]))
+        text = trash.read_text()
+        updated = re.sub(r"(?m)^Icon=.*$", lambda _: f"Icon={icon_path}", text)
+        if updated != text:
+            write(trash, updated)
     settings = {
         "icon-size": str(values["dock_size"]), "position": "'" + values["dock_position"] + "'",
         "hide-mode": "'intelligent'" if values["dock_hide"] else "'none'",
-        "zoom-enabled": str(values["dock_zoom"]).lower(), "zoom-percent": "120",
+        "zoom-enabled": str(values["dock_zoom"]).lower(), "zoom-percent": str(glass_theme.DOCK_ZOOM),
         "theme": "'MineOS'",
     }
     for key, value in settings.items():
@@ -166,11 +168,9 @@ def panel(values):
 
 def compositor(values):
     path = CONFIG / "picom" / "picom.conf"
-    template = (DESKTOP / "picom.conf").read_text()
+    template = glass_theme.compositor_config(values["ui_scale"])
     if values["blur"]:
         template = template.replace('blur-method = "none"', 'blur-method = "dual_kawase"')
-    if values["ui_scale"] == "2":
-        template = template.replace("corner-radius = 12", "corner-radius = 24")
     if not values["shadows"]:
         template = template.replace("shadow = true", "shadow = false")
     if not values["animations"]:
@@ -190,13 +190,17 @@ def apply(values, old=None):
         theme(values)
     if any(old.get(key) != values[key] for key in ("backdrop", "background_color", "wallpaper_fit")):
         wallpaper(values)
-    if any(old.get(key) != value for key, value in values.items() if key.startswith("dock_") or key == "appearance"):
+    if any(old.get(key) != value for key, value in values.items() if key.startswith("dock_") or key in ("appearance", "blur")):
         dock(values)
     if any(old.get(key) != values[key] for key in ("panel_opacity", "clock_24h", "clock_seconds", "ui_scale")):
         panel(values)
     if any(old.get(key) != values[key] for key in ("blur", "shadows", "animations", "ui_scale")):
         compositor(values)
     write(PREFS, json.dumps(values, indent=2) + "\n")
+    if old and old.get("dock_position") != values["dock_position"]:
+        subprocess.Popen([str(DESKTOP / "launch-session.sh"), "--restart-dock"],
+                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, start_new_session=True)
 
 
 if __name__ == "__main__":

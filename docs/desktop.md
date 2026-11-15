@@ -27,3 +27,5 @@ Assistant uses the local Ollama model in Chat and Team modes. Team runs planner,
 About → Startup Animation previews the same frames used by the MineOS Plymouth theme.
 
 The panel and dock start independently of the live wallpaper. MineOS keeps the original video and creates a smaller playback copy in the user cache, then pauses playback when the desktop is covered by a full-size window.
+
+The Dock, Applications, and Settings share design tokens in `desktop/glass_theme.py`. The GTK apps share styles in `desktop/glass.css`; the same tokens generate the Plank theme and Picom configuration. On accelerated GLX sessions, Picom blurs the app surfaces using dual Kawase blur. Parallels, XRender, and sessions without a compositor use denser surfaces for contrast. The small Dock gap uses a native X11 work-area reservation when XFCE and a compositor can provide it. It falls back to the monitor edge on unsupported setups.

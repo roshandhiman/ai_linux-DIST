@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 64 64">
-<defs><linearGradient id="tile" x1="0" y1="1" x2=".8" y2="0"><stop stop-color="#4e4e4e"/><stop offset="1" stop-color="#959595"/></linearGradient></defs>
+<defs><linearGradient id="tile" x1="0" y1="1" x2=".8" y2="0"><stop stop-color="#354d77"/><stop offset="1" stop-color="#79a3dc"/></linearGradient></defs>
 <rect x="3" y="3" width="58" height="58" rx="16" fill="url(#tile)" stroke="#ffffff" stroke-opacity=".18"/>
 <g stroke="#f5f5f5" stroke-width="3" stroke-linecap="round"><path d="M20 17v30m12-30v30m12-30v30"/><path d="M16 25h8m4 14h8m4-16h8" stroke-width="7"/></g>
 </svg>
