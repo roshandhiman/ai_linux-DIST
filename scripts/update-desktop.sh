@@ -32,7 +32,7 @@ fi
 
 packages=(
     gir1.2-nm-1.0 packagekit-tools bluez xfce4-notifyd xfce4-power-manager
-    ffmpeg gir1.2-gtk-3.0 gir1.2-gstreamer-1.0 gstreamer1.0-gtk3
+    ffmpeg gir1.2-gtk-3.0 gir1.2-wnck-3.0 gir1.2-gstreamer-1.0 gstreamer1.0-gtk3
     gstreamer1.0-libav python3-cairo python3-gi-cairo python3-requests
     desktop-file-utils x11-xserver-utils x11-utils dconf-cli fonts-inter arc-theme papirus-icon-theme
 )

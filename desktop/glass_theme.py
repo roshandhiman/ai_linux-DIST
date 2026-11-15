@@ -14,7 +14,7 @@ TOKENS = {
     "pill_radius": "999px",
     "space": "8px",
     "inset": "16px",
-    "window_shadow": "0 20px 60px rgba(0,0,0,.45)",
+    "window_shadow": "0 9px 23px rgba(0,0,0,.45)",
     "transition": f"{MOTION_MS}ms",
 }
 PALETTES = {

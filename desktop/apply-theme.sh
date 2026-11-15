@@ -4,6 +4,9 @@ export DISPLAY="${DISPLAY:-:0}"
 export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=/run/user/$(id -u)/bus}"
 DESKTOP_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "$DESKTOP_DIR/session-processes.sh"
+if ! python3 "$DESKTOP_DIR/close_shell_windows.py"; then
+    printf 'Close and reopen Settings and Applications to load the updated theme.\n' >&2
+fi
 CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}"
 DATA="${XDG_DATA_HOME:-$HOME/.local/share}"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/mineos"
