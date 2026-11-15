@@ -39,6 +39,10 @@ On a system installed to disk, the update survives reboot. If you booted the old
 
 For development over SSH, `make live-desktop` uses `VM_HOST` to select a test VM. Desktop setup and dependencies are documented in [docs/desktop.md](docs/desktop.md).
 
+## MineOS IDE
+
+The Code - OSS editor includes a graphite theme and a coding assistant with local and hosted models. [Install MineOS IDE and open a project](ide/README.md). [See how the editor and Assistant work](misc/mineos-ide-architecture.svg).
+
 ## The terminal assistant: `ai`
 
 Open Terminal and type `ai` for a session, or `ai "open the browser"` for one request.
