@@ -21,7 +21,6 @@ Name=Assistant
 Hidden=true
 ENTRY
 cp "$DESKTOP_DIR/tint2rc" "$CONFIG/tint2/tint2rc"
-cp "$DESKTOP_DIR/picom.conf" "$CONFIG/picom/picom.conf"
 cp "$DESKTOP_DIR/ai.desktop" "$DATA/applications/org.mineos.Assistant.desktop"
 cat > "$DATA/applications/org.mineos.Trash.desktop" <<'ENTRY'
 [Desktop Entry]
@@ -124,6 +123,7 @@ session_stop -f '^(/usr/bin/)?python3 .*/companion.py$'
 session_stop -x tint2
 session_stop -x picom
 session_stop -x plank
+session_stop -f '^(/usr/bin/)?python3 .*/dock_spacing.py '
 sleep 0.3
 "$DESKTOP_DIR/launch-session.sh"
 printf 'Desktop settings applied.\n'

@@ -7,26 +7,16 @@ from gi.repository import Gdk, Gio, GLib, Gtk, Pango
 
 import app_catalog as catalog
 import preferences
+import glass_theme
 
-DARK = {
-    "surface": "rgba(28,28,28,.80)", "text": "#f2f2f2", "muted": "#bdbdbd",
-    "border": "alpha(#fff,.17)", "control": "alpha(#fff,.08)", "hover": "alpha(#fff,.14)",
-    "selected": "#4a4a4a", "selected_border": "#717171",
-}
-LIGHT = {
-    "surface": "rgba(246,246,246,.88)", "text": "#222222", "muted": "#575757",
-    "border": "alpha(#000,.16)", "control": "#e8e8e8", "hover": "#e1e1e1",
-    "selected": "#d6d6d6", "selected_border": "#a9a9a9",
-}
-
-
-def styled(widget, name):
-    widget.get_style_context().add_class(name)
+def styled(widget, *names):
+    for name in names:
+        widget.get_style_context().add_class(name)
     return widget
 
 
 class Launcher(Gtk.ApplicationWindow):
-    def __init__(self, app, prefill=False):
+    def __init__(self, app):
         super().__init__(application=app, title="Applications")
         self.set_wmclass("mineos-applications", "MineOSApplications")
         self.set_decorated(False)
@@ -41,12 +31,8 @@ class Launcher(Gtk.ApplicationWindow):
         if visual and screen.is_composited():
             self.set_visual(visual)
         styled(self, "mineos-launcher")
-        palette = DARK if preferences.read()["appearance"] == "dark" else LIGHT
-        if not visual or not screen.is_composited():
-            palette = {**palette, "surface": "#222222" if palette is DARK else "#f2f2f2"}
-        css = "".join(f"@define-color apps_{key} {color};\n" for key, color in palette.items())
         provider = Gtk.CssProvider()
-        provider.load_from_data((css + (catalog.ASSETS.parent.parent / "launcher.css").read_text()).encode())
+        provider.load_from_data(glass_theme.style(preferences.read(), "launcher", bool(visual and screen.is_composited())))
         Gtk.StyleContext.add_provider_for_screen(screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_USER + 10)
         self.connect("destroy", lambda *_: Gtk.StyleContext.remove_provider_for_screen(screen, provider))
 
@@ -59,7 +45,7 @@ class Launcher(Gtk.ApplicationWindow):
         self.height = min(660, max(280, bounds.height - 66))
         self.set_default_size(self.width, self.height)
         self.move(bounds.x + max(0, (bounds.width - self.width) // 2), bounds.y + max(0, (bounds.height - self.height) // 2))
-        self.columns = max(2, min(7, (self.width - 56) // 120))
+        self.columns = max(2, min(8, (self.width - 42) // 106))
         self.catalog = catalog.installed_apps()
         self.active_group = "All Apps"
         self.switching_group = False
@@ -68,7 +54,7 @@ class Launcher(Gtk.ApplicationWindow):
         self.dock_settings = Gio.Settings.new_with_path(
             "net.launchpad.plank.dock.settings", "/net/launchpad/plank/docks/dock1/"
         )
-        surface = styled(Gtk.Box(orientation=Gtk.Orientation.VERTICAL), "launcher-surface")
+        surface = styled(Gtk.Box(orientation=Gtk.Orientation.VERTICAL), "launcher-surface", "glass-panel")
         self.add(surface)
         header = styled(Gtk.Box(spacing=10), "launcher-toolbar")
         icon = Gtk.Image()
@@ -77,16 +63,18 @@ class Launcher(Gtk.ApplicationWindow):
         header.pack_start(icon, False, False, 0)
         title = styled(Gtk.Label(label="Applications", xalign=0), "launcher-title")
         header.pack_start(title, True, True, 0)
-        self.search = styled(Gtk.SearchEntry(), "launcher-search")
+        self.search = styled(Gtk.SearchEntry(), "pill-search")
         self.search.set_placeholder_text("Search apps")
-        self.search.set_size_request(min(255, self.width // 3), -1)
-        header.pack_start(self.search, False, False, 0)
-        dismiss = styled(Gtk.Button(image=Gtk.Image.new_from_icon_name("window-close-symbolic", Gtk.IconSize.BUTTON)), "launcher-dismiss")
+        self.search.get_accessible().set_name("Search installed applications")
+        search_line = styled(Gtk.Box(), "launcher-search-line")
+        search_line.pack_start(self.search, True, True, 0)
+        dismiss = styled(Gtk.Button(image=Gtk.Image.new_from_icon_name("window-close-symbolic", Gtk.IconSize.BUTTON)), "launcher-dismiss", "glass-control")
         dismiss.set_tooltip_text("Close")
         dismiss.get_accessible().set_name("Close Applications")
         dismiss.connect("clicked", lambda *_: self.destroy())
         header.pack_end(dismiss, False, False, 0)
         surface.pack_start(header, False, False, 0)
+        surface.pack_start(search_line, False, False, 0)
         ribbon = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.AUTOMATIC, vscrollbar_policy=Gtk.PolicyType.NEVER)
         chips = styled(Gtk.Box(spacing=6), "launcher-chips")
         ribbon.add(chips)
@@ -95,7 +83,7 @@ class Launcher(Gtk.ApplicationWindow):
         if "Other" in categories:
             labels.append("Other")
         for label in labels:
-            chip = styled(Gtk.ToggleButton(label=label, active=label == self.active_group), "launcher-chip")
+            chip = styled(Gtk.ToggleButton(label=label, active=label == self.active_group), "launcher-chip", "chip")
             chip.connect("clicked", self.select_group, label, chips)
             chips.pack_start(chip, False, False, 0)
         surface.pack_start(ribbon, False, False, 0)
@@ -107,14 +95,12 @@ class Launcher(Gtk.ApplicationWindow):
         surface.pack_start(self.scroll, True, True, 0)
         self.search.connect("changed", self.queue_search)
         self.search.connect("activate", self.search_activate)
+        self.search.connect("stop-search", lambda *_: self.destroy())
         self.connect("key-press-event", self.key)
         self.connect("destroy", self.cancel_search)
         self.render()
         self.show_all()
-        if prefill:
-            self.search.grab_focus()
-        else:
-            self.set_focus(None)
+        self.search.grab_focus()
 
     def select_group(self, chip, label, chips):
         if self.switching_group:
@@ -175,22 +161,17 @@ class Launcher(Gtk.ApplicationWindow):
                                  min_children_per_line=self.columns, max_children_per_line=self.columns), "launcher-grid")
         grid.connect("child-activated", lambda _, child: self.launch(child.app))
         for app in apps:
-            child = styled(Gtk.FlowBoxChild(), "launcher-tile")
+            child = styled(Gtk.FlowBoxChild(), "launcher-tile", "glass-row")
             child.app = app
             child.set_tooltip_text(app.name)
             child.get_accessible().set_name(app.name)
             cell = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=7)
-            cell.set_size_request(87, -1)
             icon = app.info.get_icon() or Gio.ThemedIcon.new("application-x-executable")
             image = Gtk.Image.new_from_gicon(icon, Gtk.IconSize.DIALOG)
             image.set_pixel_size(48)
-            well = Gtk.Box()
-            well.set_size_request(64, 64)
+            well = styled(Gtk.Box(), "launcher-icon-well", "glass-icon")
+            well.set_size_request(66, 66)
             well.set_halign(Gtk.Align.CENTER)
-            if isinstance(icon, Gio.FileIcon) and icon.get_file().get_parent().get_path() == str(catalog.ASSETS):
-                image.set_pixel_size(64)
-            else:
-                styled(well, "launcher-icon-well")
             well.pack_start(image, True, False, 0)
             cell.add(well)
             name = styled(Gtk.Label(label=app.name, ellipsize=Pango.EllipsizeMode.END, max_width_chars=14), "launcher-app-name")
@@ -202,10 +183,7 @@ class Launcher(Gtk.ApplicationWindow):
 
     def key(self, _, event):
         if event.keyval == Gdk.KEY_Escape:
-            if self.search.get_text():
-                self.search.set_text("")
-            else:
-                self.destroy()
+            self.destroy()
             return True
         if event.keyval == Gdk.KEY_f and event.state & Gdk.ModifierType.CONTROL_MASK:
             self.search.grab_focus()
@@ -256,7 +234,7 @@ class Applications(Gtk.Application):
             else:
                 window.destroy()
         else:
-            Launcher(self, prefill=search).present()
+            Launcher(self).present()
         return 0
 
 
