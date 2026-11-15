@@ -114,8 +114,11 @@ def dock(values):
         updated = re.sub(r"(?m)^Icon=.*$", lambda _: f"Icon={icon_path}", text)
         if updated != text:
             write(trash, updated)
+    dock_size = values["dock_size"]
+    if run("systemd-detect-virt", "--vm").strip() == "parallels":
+        dock_size = min(dock_size, 48)
     settings = {
-        "icon-size": str(values["dock_size"]), "position": "'" + values["dock_position"] + "'",
+        "icon-size": str(dock_size), "position": "'" + values["dock_position"] + "'",
         "hide-mode": "'intelligent'" if values["dock_hide"] else "'none'",
         "zoom-enabled": str(values["dock_zoom"]).lower(), "zoom-percent": str(glass_theme.DOCK_ZOOM),
         "theme": "'MineOS'",
@@ -176,6 +179,7 @@ def compositor(values):
     if not values["animations"]:
         template = re.sub(r"        animations = \(.*?\);\n", "", template, flags=re.S)
     write(path, template)
+    write(path.with_name("mineos-parallels.conf"), glass_theme.parallels_compositor_config(values["shadows"]))
     reload_process("picom")
 
 

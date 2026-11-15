@@ -63,6 +63,7 @@ DOCK_VALUES = {
 }
 BLUR_STRENGTH = 7
 WINDOW_CORNER = 24
+PARALLELS_SHADOW = {"radius": 12, "opacity": .25, "offset_x": -10, "offset_y": -7}
 SHADOW = {"radius": 28, "opacity": .42, "offset_x": -22, "offset_y": -12}
 
 
@@ -139,3 +140,18 @@ def compositor_config(ui_scale):
         "motion_seconds": MOTION_MS / 1000,
     }
     return Template((DESKTOP / "picom.conf").read_text()).substitute(tokens)
+
+
+def parallels_compositor_config(shadows):
+    shadow = PARALLELS_SHADOW
+    return f"""
+backend = "glx";
+vsync = false;
+use-damage = false;
+shadow = {str(shadows).lower()};
+shadow-radius = {shadow["radius"]};
+shadow-opacity = {shadow["opacity"]};
+shadow-offset-x = {shadow["offset_x"]};
+shadow-offset-y = {shadow["offset_y"]};
+shadow-exclude = ["window_type = 'desktop'", "window_type = 'dock'", "name = 'MineOS Companion'"];
+""".lstrip()

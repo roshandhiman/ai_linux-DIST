@@ -36,6 +36,7 @@ open-vm-tools-desktop
 xorg
 xserver-xorg
 lightdm
+light-locker
 lightdm-gtk-greeter
 xfce4
 xfce4-terminal

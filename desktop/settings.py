@@ -213,7 +213,7 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
         self.nav.handler_unblock_by_func(self.selected)
 
     def build_page(self, key, title, icon, tone, populate):
-        scroll = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
+        scroll = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.AUTOMATIC)
         page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=22, margin=28)
         hero = Gtk.Box(spacing=16)
         hero.get_style_context().add_class("settings-hero")

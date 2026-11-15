@@ -34,19 +34,29 @@ if [[ -z "$(session_pids -x picom)" ]]; then
     compositor_log="$STATE_DIR/compositor.log"
     picom_args=(--config "$picom_config" --daemon)
     if $parallels; then
-        picom_args+=(--no-frame-pacing --no-vsync --no-use-damage --blur-method none)
-    fi
-    if timeout 4s picom --config "$picom_config" --diagnostics 2>>"$compositor_log" 9>&- |
-        awk '/^### Backend:/{glx = ($3 == "glx")} glx && /Accelerated: 1/{hardware = 1} END{exit !hardware}'; then
-        if picom "${picom_args[@]}" >>"$compositor_log" 2>&1 9>&- && ! $parallels; then
-            picom_pid=$(session_pids -x picom)
-            if [[ -n "$picom_pid" ]]; then
-                printf '%s\n' "${picom_pid%%$'\n'*}" > "$glass_marker"
+        picom_config="$CONFIG/picom/mineos-parallels.conf"
+        PYTHONPATH="$DIR" python3 -c 'import preferences; preferences.compositor(preferences.read())'
+        xfconf-query -c xfwm4 -p /general/use_compositing -n -t bool -s false
+        nohup picom --config "$picom_config" --no-frame-pacing --blur-method none \
+            >>"$compositor_log" 2>&1 </dev/null 9>&- &
+        sleep 0.3
+        if ! kill -0 "$!" 2>/dev/null; then
+            picom --config "$picom_config" --backend xrender --blur-method none --daemon \
+                >>"$compositor_log" 2>&1 9>&- || true
+        fi
+    else
+        if timeout 4s picom --config "$picom_config" --diagnostics 2>>"$compositor_log" 9>&- |
+            awk '/^### Backend:/{glx = ($3 == "glx")} glx && /Accelerated: 1/{hardware = 1} END{exit !hardware}'; then
+            if picom "${picom_args[@]}" >>"$compositor_log" 2>&1 9>&-; then
+                picom_pid=$(session_pids -x picom)
+                if [[ -n "$picom_pid" ]]; then
+                    printf '%s\n' "${picom_pid%%$'\n'*}" > "$glass_marker"
+                fi
             fi
         fi
-    fi
-    if [[ -z "$(session_pids -x picom)" ]]; then
-        picom "${picom_args[@]}" --backend xrender --blur-method none >>"$compositor_log" 2>&1 9>&- || true
+        if [[ -z "$(session_pids -x picom)" ]]; then
+            picom "${picom_args[@]}" --backend xrender --blur-method none >>"$compositor_log" 2>&1 9>&- || true
+        fi
     fi
     if [[ -z "$(session_pids -x picom)" ]]; then
         printf '%s\n' 'Could not start picom. Starting the panel and dock anyway.' >>"$compositor_log"
@@ -60,6 +70,9 @@ if [[ "${1:-}" == --restart-dock ]]; then
         [[ -z "$(session_pids -x plank)" ]] && break
         sleep 0.05
     done
+    while read -r pid; do
+        [[ -n "$pid" ]] && kill -KILL "$pid" 2>/dev/null || true
+    done < <(session_pids -x plank)
 fi
 if [[ -z "$(session_pids -x plank)" ]]; then
     PYTHONPATH="$DIR" python3 -c 'import preferences; preferences.dock(preferences.read())' 9>&- >>"$STATE_DIR/dock.log" 2>&1 || true
