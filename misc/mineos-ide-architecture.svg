@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="748" viewBox="0 0 1200 748" role="img" aria-labelledby="title description">
+  <title id="title">MineOS IDE architecture</title>
+  <desc id="description">A Code - OSS workbench hosts the MineOS Assistant. It sends your request and selected workspace context to a local or hosted model. Ask streams a reply. Edit proposes changes and commands, which need your approval. The IDE keeps a conversation per workspace and shares SQLite history with the MineOS terminal assistant when installed.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M1 1 8 5 1 9" fill="none" stroke="#cfae8f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="748" rx="26" fill="#151413"/>
+  <rect x="1" y="1" width="1198" height="746" rx="25" fill="none" stroke="#393531" stroke-width="2"/>
+  <g font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" fill="#f4efe8">
+    <rect x="43" y="42" width="58" height="58" rx="16" fill="#eac5a4"/>
+    <path d="M58 81V61l14 12 14-12v20" fill="none" stroke="#261c16" stroke-width="3.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="123" y="76" font-size="39" font-weight="700">MineOS IDE architecture</text>
+    <text x="125" y="105" font-size="20" fill="#c8c0b7">How the editor, models, and Assistant fit together</text>
+    <rect x="42" y="133" width="1116" height="88" rx="17" fill="#22201e" stroke="#46403a"/>
+    <path d="M66 162h26v22H66zM66 168h26M74 168v16" fill="none" stroke="#eac5a4" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="109" y="170" font-size="21" font-weight="700">Code - OSS workbench</text>
+    <text x="109" y="198" font-size="18" fill="#c8c0b7">Editor · Explorer · Git · Debugger · Terminal · Open VSX</text>
+    <rect x="857" y="158" width="274" height="38" rx="19" fill="#34302b" stroke="#4e453c"/>
+    <text x="994" y="182" text-anchor="middle" font-size="16" fill="#eac5a4" font-weight="600">VSCodium base · ARM64 / x86-64</text>
+    <text x="43" y="259" font-size="15" font-weight="700" letter-spacing="2.3" fill="#eac5a4">BUILT-IN ASSISTANT</text>
+    <g stroke="#cfae8f" stroke-width="2" fill="none" marker-end="url(#arrow)">
+      <path d="M349 378h25"/>
+      <path d="M719 378h25"/>
+    </g>
+    <g fill="#22201e" stroke="#46403a">
+      <rect x="42" y="280" width="302" height="273" rx="17"/>
+      <rect x="382" y="280" width="331" height="273" rx="17"/>
+      <rect x="751" y="280" width="407" height="273" rx="17"/>
+    </g>
+    <g fill="#3a3028">
+      <rect x="61" y="301" width="34" height="33" rx="8"/>
+      <rect x="401" y="301" width="34" height="33" rx="8"/>
+      <rect x="770" y="301" width="34" height="33" rx="8"/>
+    </g>
+    <g fill="#f1cdaa" font-size="16" font-weight="700" text-anchor="middle">
+      <text x="78" y="323">1</text><text x="418" y="323">2</text><text x="787" y="323">3</text>
+    </g>
+    <g font-size="22" font-weight="700">
+      <text x="106" y="324">Project context</text>
+      <text x="446" y="324">Model routing</text>
+      <text x="815" y="324">Answer or proposal</text>
+    </g>
+    <g font-size="17.5" fill="#d1c9bf">
+      <text x="62" y="363">Write a request in Ask or Edit.</text>
+      <text x="62" y="393">Attach the active editor, a</text>
+      <text x="62" y="418">selection, or project files.</text>
+      <text x="62" y="478">Workspace trust controls file</text>
+      <text x="62" y="503">access, edits, and commands.</text>
+    </g>
+    <path d="M62 445h262" stroke="#46403a"/>
+    <text x="402" y="365" font-size="17.5" font-weight="700">MineOS Local</text>
+    <text x="402" y="391" font-size="17.5" fill="#d1c9bf">On-device model endpoint</text>
+    <path d="M402 410h290" stroke="#46403a"/>
+    <text x="402" y="441" font-size="17.5" font-weight="700">Hosted APIs</text>
+    <g font-size="17.5" fill="#d1c9bf">
+      <text x="402" y="467">OpenAI, Gemini, Groq, OpenCode</text>
+      <text x="402" y="492">Console, or a compatible endpoint</text>
+      <text x="402" y="521">Uses your provider key</text>
+    </g>
+    <rect x="770" y="346" width="369" height="62" rx="10" fill="#2b2723"/>
+    <rect x="770" y="419" width="369" height="115" rx="10" fill="#2b2723"/>
+    <text x="787" y="372" font-size="18" font-weight="700" fill="#eac5a4">Ask</text>
+    <text x="787" y="395" font-size="17.5" fill="#e0d8d0">Streams an answer into chat.</text>
+    <text x="787" y="447" font-size="18" font-weight="700" fill="#eac5a4">Edit</text>
+    <g font-size="17.5" fill="#e0d8d0">
+      <text x="787" y="472">Previews file changes in the diff editor.</text>
+      <text x="787" y="495">You approve edits before they apply.</text>
+      <text x="787" y="518">You confirm before commands run.</text>
+    </g>
+    <path d="M956 555v26" fill="none" stroke="#cfae8f" stroke-width="2" marker-end="url(#arrow)"/>
+    <rect x="42" y="590" width="1116" height="116" rx="17" fill="#22201e" stroke="#46403a"/>
+    <path d="M564 612v72" stroke="#46403a"/>
+    <g font-size="20" font-weight="700">
+      <text x="64" y="634">Workspace conversation</text>
+      <text x="590" y="634">Shared SQLite history</text>
+    </g>
+    <g font-size="18" fill="#d1c9bf">
+      <text x="64" y="666">The IDE keeps the active chat for each workspace.</text>
+      <text x="590" y="665">The IDE and terminal assistant share saved requests</text>
+      <text x="590" y="689">when the MineOS terminal agent is installed.</text>
+    </g>
+  </g>
+</svg>

@@ -62,6 +62,11 @@ CREATE TABLE IF NOT EXISTS episodes (
     outcome TEXT NOT NULL,
     route   TEXT NOT NULL DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS transcripts (
+    episode_id INTEGER PRIMARY KEY REFERENCES episodes(id) ON DELETE CASCADE,
+    request    TEXT NOT NULL,
+    answer     TEXT NOT NULL
+);
 """
 
 #: Relations that hold many objects at once. Anything else is treated as
@@ -80,6 +85,15 @@ _STOP: Final[frozenset[str]] = frozenset(
 )
 
 _TOKEN = re.compile(r"[a-z0-9][a-z0-9_.@+-]*")
+
+
+_TRANSCRIPT_CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]")
+_TRANSCRIPT_SECRET = re.compile(r"\b(?:gh[pousr]_|github_pat_|sk-(?:proj-)?|gsk_|AIza)[A-Za-z0-9_-]{16,}")
+
+
+def _transcript(text: str) -> str:
+    clean = _TRANSCRIPT_CONTROL.sub("", text.replace("\r\n", "\n"))
+    return _TRANSCRIPT_SECRET.sub("[redacted]", clean)[:12000]
 
 
 def _tokens(text: str) -> set[str]:
@@ -171,10 +185,14 @@ class GraphMemory:
         )
 
     def log_episode(self, request: str, answer: str, outcome: str, route: str = "") -> None:
-        self._db.execute(
+        request, answer = _transcript(request), _transcript(answer)
+        cursor = self._db.execute(
             "INSERT INTO episodes(at, request, answer, outcome, route) VALUES (?, ?, ?, ?, ?)",
-            (time.time(), sanitise(request, limit=300), sanitise(answer, limit=300),
-             outcome, route),
+            (time.time(), sanitise(request, limit=300), sanitise(answer, limit=300), outcome, route),
+        )
+        self._db.execute(
+            "INSERT INTO transcripts(episode_id, request, answer) VALUES (?, ?, ?)",
+            (cursor.lastrowid, request, answer),
         )
         # Episodes are a log, not a memory: keep the last thousand.
         self._db.execute(
@@ -261,6 +279,15 @@ class GraphMemory:
             (limit,),
         ).fetchall()
         return [(r[0], r[1], r[2], r[3]) for r in rows]
+
+    def history(self, *, limit: int = 15, before: int | None = None) -> list[tuple[int, float, str, str, str]]:
+        rows = self._db.execute(
+            """SELECT e.id, e.at, COALESCE(t.request, e.request), COALESCE(t.answer, e.answer), e.route
+               FROM episodes e LEFT JOIN transcripts t ON e.id = t.episode_id
+               WHERE (? IS NULL OR e.id < ?) ORDER BY e.id DESC LIMIT ?""",
+            (before, before, min(30, max(1, limit))),
+        ).fetchall()
+        return [(r[0], r[1], r[2], r[3], "ide" if r[4] == "ide" else "terminal") for r in rows]
 
     def stats(self) -> dict[str, int]:
         one = lambda sql: int(self._db.execute(sql).fetchone()[0])  # noqa: E731

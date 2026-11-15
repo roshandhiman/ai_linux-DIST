@@ -1,0 +1,42 @@
+{
+  "name": "mineos-assistant",
+  "displayName": "MineOS Assistant",
+  "description": "Coding assistant and model settings for MineOS IDE",
+  "version": "0.1.0",
+  "publisher": "mineos",
+  "engines": {"vscode": "^1.95.0"},
+  "main": "./extension.js",
+  "extensionKind": ["workspace"],
+  "activationEvents": ["onView:mineos.assistant", "onCommand:mineos.open", "onCommand:mineos.settings", "onCommand:mineos.context"],
+  "capabilities": {
+    "untrustedWorkspaces": {"supported": "limited", "description": "Workspace context, edits and commands require workspace trust."},
+    "virtualWorkspaces": false
+  },
+  "contributes": {
+    "commands": [
+      {"command": "mineos.open", "title": "MineOS: Open Assistant Beside Editor", "icon": "$(comment-discussion)"},
+      {"command": "mineos.settings", "title": "MineOS: Model Settings", "icon": "$(settings-gear)"},
+      {"command": "mineos.context", "title": "MineOS: Attach Active Editor"}
+    ],
+    "viewsContainers": {
+      "activitybar": [{"id": "mineos-workbench", "title": "MineOS", "icon": "media/assistant.svg"}]
+    },
+    "views": {
+      "mineos-workbench": [{"type": "webview", "id": "mineos.assistant", "name": "Assistant"}]
+    },
+    "menus": {
+      "view/title": [
+        {"command": "mineos.open", "when": "view == mineos.assistant", "group": "navigation@1"},
+        {"command": "mineos.settings", "when": "view == mineos.assistant", "group": "navigation@2"}
+      ],
+      "editor/context": [
+        {"command": "mineos.context", "when": "editorTextFocus && resourceScheme == file", "group": "navigation@20"}
+      ]
+    },
+    "keybindings": [{"command": "mineos.open", "key": "ctrl+alt+i", "mac": "cmd+alt+i"}],
+    "themes": [{"label": "MineOS Graphite", "uiTheme": "vs-dark", "path": "./media/graphite.json"}],
+    "configurationDefaults": {
+      "workbench.colorTheme": "MineOS Graphite"
+    }
+  }
+}
