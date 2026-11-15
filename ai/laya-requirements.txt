@@ -1,0 +1,59 @@
+# Python packages for the Laya router (tier one), installed into /opt/laya.
+#
+# Exact versions: ai/fetch-offline-ai.sh downloads these wheels once, and the
+# ISO build installs them offline (pip --no-index), so every build ships the
+# same set that was tested. To upgrade: install laya[serve] in a fresh venv,
+# test it with the router, and paste the new `pip freeze` here.
+#
+# torch is the CPU-only build (the "+cpu" version exists only on PyTorch's CPU
+# index). The default PyPI torch would pull in ~3 GB of CUDA libraries that a
+# VM without a GPU can never use.
+laya==0.4.32
+torch==2.15.0+cpu
+transformers==5.23.0
+tokenizers==0.23.3
+safetensors==0.8.0
+huggingface_hub==2.4.0
+hf-xet==1.8.0
+numpy==2.5.4
+vegaml==0.16.1
+cryptography==50.0.2
+cffi==2.1.1
+pycparser==3.12
+regex==2026.11.9
+PyYAML==6.0.3
+tqdm==4.70.1
+packaging==26.3
+filelock==4.2.4
+fsspec==2026.9.0
+Jinja2==3.1.6
+MarkupSafe==3.0.3
+networkx==3.7
+sympy==1.14.0
+mpmath==1.3.0
+setuptools==78.1.0
+typing_extensions==4.16.0
+truststore==0.10.5
+# laya-serve: the HTTP service mineos-router.service runs.
+fastapi==0.163.0
+starlette==1.10.0
+pydantic==2.14.3
+pydantic_core==2.50.4
+typing-inspection==0.4.5
+annotated-types==0.8.0
+annotated-doc==0.0.6
+anyio==4.16.0
+idna==3.20
+uvicorn==0.54.0
+h11==0.16.0
+click==8.5.1
+python-multipart==0.0.33
+httpx2==2.16.0
+httpcore2==2.16.0
+opentelemetry-api==1.45.2
+typer==0.29.1
+rich==15.0.0
+markdown-it-py==4.3.0
+mdurl==0.1.2
+Pygments==2.21.0
+shellingham==1.5.4

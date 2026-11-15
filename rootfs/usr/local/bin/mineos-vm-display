@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Picks a usable screen size when MineOS runs in a VM without display guest tools
+# (VirtualBox, or QEMU without SPICE). X then starts at 800x600 or 1024x768,
+# so switch once to the largest mode that fits MINEOS_VM_MAX_MODE (default 1920x1080).
+# VMware and SPICE resize the screen themselves, and real hardware is left alone.
+set -u
+
+virt=$(systemd-detect-virt --vm 2>/dev/null || true)
+case "$virt" in
+    ""|none|vmware) exit 0 ;;
+esac
+if pgrep -x spice-vdagent >/dev/null; then
+    exit 0
+fi
+
+max=${MINEOS_VM_MAX_MODE:-1920x1080}
+max_width=${max%x*}
+max_height=${max#*x}
+query=$(xrandr --query 2>/dev/null) || exit 0
+
+read -r output width < <(awk '
+    $2 == "connected" {
+        for (i = 3; i <= NF; i++) if ($i ~ /^[0-9]+x[0-9]+\+/) { split($i, size, "x"); print $1, size[1]; exit }
+        print $1, 0; exit
+    }' <<< "$query")
+if [[ -z "${output:-}" ]] || (( width >= 1280 )); then
+    exit 0
+fi
+
+mode=$(awk -v out="$output" -v mw="$max_width" -v mh="$max_height" '
+    $1 == out { inside = 1; next }
+    inside && /^[^[:space:]]/ { exit }
+    inside && $1 ~ /^[0-9]+x[0-9]+$/ {
+        split($1, size, "x")
+        if (size[1] <= mw && size[2] <= mh && size[1] * size[2] > best) { best = size[1] * size[2]; pick = $1 }
+    }
+    END { print pick }' <<< "$query")
+if [[ -n "$mode" ]]; then
+    xrandr --output "$output" --mode "$mode"
+fi

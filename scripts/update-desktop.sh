@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
 if (( EUID == 0 )); then
     printf '%s\n' 'Run this from the MineOS desktop as your normal user. The updater uses sudo when needed.' >&2
@@ -54,11 +54,11 @@ import sys
 from pathlib import Path
 
 root = Path(sys.argv[1])
-for directory in ("desktop", "ai-agent"):
+for directory in ("desktop", "ai/agent", "branding"):
     for source in (root / directory).glob("*.py"):
         ast.parse(source.read_text(), filename=str(source))
 PYTHON
-for script in "$source_dir/desktop/"*.sh "$source_dir/boot/install-login.sh"; do
+for script in "$source_dir/desktop/"*.sh "$source_dir/branding/install-login.sh"; do
     bash -n "$script"
 done
 
@@ -90,8 +90,8 @@ tar --exclude='__pycache__' --exclude='*.pyc' -C "$source_dir/desktop" -cf - . |
     sudo tar --no-same-owner -C "$stage" -xf -
 sudo find "$stage" -type d -exec chmod 755 {} +
 sudo chmod 755 "$stage/"*.sh
-sudo install -m 644 "$source_dir/ai-agent/"{artifacts,research}.py /opt/ai/
-sudo install -m 755 "$source_dir/ai-agent/jarvis_gui.py" /opt/ai/jarvis_gui.py
+sudo install -m 644 "$source_dir/ai/agent/"{artifacts,research}.py /opt/ai/
+sudo install -m 755 "$source_dir/ai/agent/jarvis_gui.py" /opt/ai/jarvis_gui.py
 sudo mv -- /opt/ai/desktop "$stage.old"
 if ! sudo mv -- "$stage" /opt/ai/desktop; then
     sudo mv -- "$stage.old" /opt/ai/desktop
@@ -115,7 +115,7 @@ fi
 sudo rm -rf -- "$stage.old"
 trap - EXIT
 if [[ "$(cat /etc/X11/default-display-manager 2>/dev/null || true)" == /usr/sbin/lightdm ]]; then
-    sudo bash "$source_dir/boot/install-login.sh"
+    sudo bash "$source_dir/branding/install-login.sh"
 fi
 
 printf '%s\n' 'MineOS desktop update installed. Reopen Settings and Assistant to load the new version.'

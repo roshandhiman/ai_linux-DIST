@@ -1,29 +1,38 @@
 VM_HOST ?= roshanpreet@10.211.55.12
 REMOTE_DIR ?= /home/roshanpreet/distro-dev
 
-.PHONY: live-sync live-desktop live-hud test-ai git-push
+.PHONY: live-sync live-desktop live-hud test-ai test-agent iso boot-test
+
+# Build a live ISO on a Debian 13 host: make iso ISO=/absolute/path/MineOS.iso
+iso:
+	sudo bash scripts/build-iso.sh $(ISO)
+
+# Boot an amd64 ISO headless in QEMU and wait for the desktop: make boot-test ISO=MineOS.iso
+boot-test:
+	bash scripts/boot-test.sh $(ISO) boot-test.log
 
 live-sync:
-	rsync -avz --exclude '.git' --exclude '*.gguf' --exclude '*.iso' ./ $(VM_HOST):$(REMOTE_DIR)/
-	ssh $(VM_HOST) "sudo mkdir -p /opt/ai && sudo cp -r $(REMOTE_DIR)/ai-agent/* /opt/ai/ && sudo ln -sf /opt/ai/jarvis.py /usr/local/bin/ai && sudo ln -sf /opt/ai/jarvis_gui.py /usr/local/bin/ai-hud && sudo chmod +x /usr/local/bin/ai /usr/local/bin/ai-hud /opt/ai/*.py"
+	rsync -avz --exclude '.git' --exclude '.venv' --exclude '*.gguf' --exclude '*.iso' --exclude 'dist' ./ $(VM_HOST):$(REMOTE_DIR)/
+	ssh $(VM_HOST) "sudo mkdir -p /opt/ai /etc/mineos && sudo cp -r $(REMOTE_DIR)/ai/agent/* /opt/ai/ && sudo rm -rf /opt/ai/mineos_agent && sudo cp -r $(REMOTE_DIR)/ai/mineos_agent /opt/ai/ && sudo install -m 755 $(REMOTE_DIR)/ai/system/ai /usr/local/bin/ai && sudo ln -sf /opt/ai/jarvis_gui.py /usr/local/bin/ai-hud && sudo chmod +x /usr/local/bin/ai-hud /opt/ai/*.py"
+	ssh $(VM_HOST) "test -e /etc/mineos/agent.json || sudo install -m 644 $(REMOTE_DIR)/ai/system/agent.json /etc/mineos/agent.json"
 	ssh $(VM_HOST) "sudo cp $(REMOTE_DIR)/desktop/ai.desktop /usr/share/applications/ && sudo chmod +x /usr/share/applications/ai.desktop"
-	ssh $(VM_HOST) "sudo cp $(REMOTE_DIR)/rootfs/etc/profile.d/ai-shell.sh /etc/profile.d/ && sudo chmod +x /etc/profile.d/ai-shell.sh"
+	ssh $(VM_HOST) "sudo rm -f /etc/profile.d/ai-shell.sh && sudo install -m 644 $(REMOTE_DIR)/ai/system/ai-shell.sh /etc/profile.d/mineos-ai.sh"
 	ssh $(VM_HOST) "sudo cp $(REMOTE_DIR)/rootfs/etc/sysctl.d/99-ai-kernel.conf /etc/sysctl.d/ && sudo sysctl -p /etc/sysctl.d/99-ai-kernel.conf || true"
-	ssh $(VM_HOST) "sudo mkdir -p /etc/udev/rules.d && sudo cp $(REMOTE_DIR)/rootfs/etc/udev/rules.d/99-ai-hardware.rules /etc/udev/rules.d/ && sudo cp $(REMOTE_DIR)/rootfs/usr/local/bin/ai-hardware-event /usr/local/bin/ && sudo chmod +x /usr/local/bin/ai-hardware-event && sudo udevadm control --reload-rules || true"
-	ssh $(VM_HOST) "sudo cp $(REMOTE_DIR)/rootfs/etc/systemd/system/ai-sentinel.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now ai-sentinel.service || true"
+	ssh $(VM_HOST) "sudo mkdir -p /etc/udev/rules.d && sudo cp $(REMOTE_DIR)/ai/system/99-ai-hardware.rules /etc/udev/rules.d/ && sudo cp $(REMOTE_DIR)/ai/system/ai-hardware-event /usr/local/bin/ && sudo chmod +x /usr/local/bin/ai-hardware-event && sudo udevadm control --reload-rules || true"
+	ssh $(VM_HOST) "sudo cp $(REMOTE_DIR)/ai/system/ai-sentinel.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now ai-sentinel.service || true"
 
 live-desktop:
 	rsync -avz --exclude '__pycache__' desktop/ $(VM_HOST):/opt/ai/desktop/
-	rsync -avz ai-agent/jarvis_gui.py ai-agent/research.py ai-agent/artifacts.py $(VM_HOST):/opt/ai/
+	rsync -avz ai/agent/jarvis_gui.py ai/agent/research.py ai/agent/artifacts.py $(VM_HOST):/opt/ai/
+	rsync -avz --exclude __pycache__ ai/mineos_agent $(VM_HOST):/opt/ai/
 	ssh $(VM_HOST) "chmod +x /opt/ai/desktop/*.sh /opt/ai/jarvis_gui.py && bash /opt/ai/desktop/apply-theme.sh"
 
 live-hud:
 	ssh $(VM_HOST) "DISPLAY=:0 python3 /opt/ai/jarvis_gui.py"
 
 test-ai:
-	ssh $(VM_HOST) "ai 'open files and check memory'"
+	ssh $(VM_HOST) "ai --status; ai 'what time is it'"
 
-git-push:
-	git add .
-	git commit -m "update deep os kernel, udev, sentinel and shell integrations"
-	git push origin main
+# Unit tests for the terminal assistant; no model server needed.
+test-agent:
+	python3 -m unittest discover -s ai/tests -t ai

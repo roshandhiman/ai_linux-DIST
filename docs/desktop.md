@@ -4,7 +4,7 @@ A native XFCE/X11 desktop for Debian 13, combining light neutral application win
 
 ## Apply to an existing desktop
 
-Install this directory at `/opt/ai/desktop` and the assistant at `/opt/ai/jarvis_gui.py`, then run as the desktop user:
+Install the repository's `desktop/` directory at `/opt/ai/desktop` and `ai/agent/jarvis_gui.py` at `/opt/ai/jarvis_gui.py`, then run as the desktop user:
 
 ```bash
 bash /opt/ai/desktop/apply-theme.sh

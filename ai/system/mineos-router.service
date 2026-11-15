@@ -1,0 +1,49 @@
+[Unit]
+Description=MineOS request router (Laya decision encoder)
+Documentation=https://huggingface.co/convaiinnovations/laya
+After=network.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+# Loopback only, one checkpoint, CPU, and never the network: the weights are
+# a local folder shipped in the ISO, so nothing is downloaded at run time.
+# The port must match "router.url" in /etc/mineos/agent.json, and the name
+# "mineos" must match "router.checkpoint" there.
+Environment=LAYA_HOST=127.0.0.1
+Environment=LAYA_PORT=8090
+Environment=LAYA_DEVICE=cpu
+Environment=LAYA_THREADS=2
+Environment=LAYA_EXTRA_MODELS={"mineos":"/usr/share/mineos/models/laya-multilingual"}
+Environment=LAYA_MODELS=mineos
+Environment=LAYA_DEFAULT_MODEL=mineos
+Environment=LAYA_MAX_LOADED=1
+Environment=LAYA_PRELOAD=1
+Environment=LAYA_LOG_LEVEL=warning
+Environment=HF_HUB_OFFLINE=1
+Environment=TRANSFORMERS_OFFLINE=1
+Environment=HF_HUB_DISABLE_TELEMETRY=1
+Environment=USE_TF=0
+Environment=HOME=/tmp
+ExecStart=/opt/laya/bin/laya-serve
+# Below the language model: routing is the cheap tier and must not starve it.
+Nice=10
+Restart=on-failure
+RestartSec=5
+MemoryMax=2G
+# Hardening: the router reads one folder and talks on one port.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

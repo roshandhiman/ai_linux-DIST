@@ -1,22 +1,64 @@
-# Distro Build artifacts
-*.iso
-*.img
-*.squashfs
+# ---- Build output -------------------------------------------------------
+dist/
 build/
 cache/
 chroot/
+*.iso
+*.iso.part*
+*.iso.sha256
+*.img
+*.squashfs
+*.tar.zst
 
-# Heavy AI model weights (downloaded via download-models.sh)
+# Offline AI bundle fetched by ai/fetch-offline-ai.sh
+mineos-ai/
+.mineos-ai-*/
+
+# ---- Model weights (never commit) --------------------------------------
 *.gguf
+*.safetensors
+*.onnx
+*.pt
+*.pth
 *.bin
-models/*.gguf
+models/
 
-# System & OS files
+# ---- Virtual machine disks / snapshots ---------------------------------
+*.qcow2
+*.vdi
+*.vmdk
+*.vhd
+*.vhdx
+*.pvm/
+*.utm/
+
+# ---- Python ------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# ---- Secrets and local config ------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.claude/settings.local.json
+
+# ---- Editors / OS ------------------------------------------------------
+.idea/
+.vscode/
+*.swp
+*~
 .DS_Store
 Thumbs.db
-__pycache__/
-*.pyc
+Desktop.ini
 
-# Local runtime logs
+# ---- Logs --------------------------------------------------------------
 *.log
-

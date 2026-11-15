@@ -6,14 +6,20 @@ if [[ $EUID != 0 ]]; then
     exit 1
 fi
 
-SOURCE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+SOURCE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 ARCH=$(dpkg --print-architecture)
 case "$ARCH" in
     arm64) grub_packages=(grub-efi-arm64-bin) ;;
     amd64) grub_packages=(grub-efi-amd64-bin grub-pc-bin) ;;
     *) printf 'Unsupported architecture: %s\n' "$ARCH" >&2; exit 1 ;;
 esac
-OUTPUT=$(realpath -m -- "${1:-$PWD/MineOS-1.0-$ARCH.iso}")
+VERSION=$(tr -d '[:space:]' < "$SOURCE/VERSION")
+if [[ ! "$VERSION" =~ ^[0-9]+(\.[0-9]+)*$ ]]; then
+    printf 'VERSION must look like 1.0 or 1.2.3, got: %s\n' "$VERSION" >&2
+    exit 1
+fi
+BUILD_ID=${MINEOS_BUILD_ID:-$(date -u +%Y%m%d)}
+OUTPUT=$(realpath -m -- "${1:-$PWD/MineOS-$VERSION-$ARCH.iso}")
 if [[ -e "$OUTPUT" || ! -d "$(dirname -- "$OUTPUT")" ]]; then
     printf '%s\n' 'Choose a new ISO filename in an existing directory.' >&2
     exit 1
@@ -54,13 +60,14 @@ mount --make-rslave "$ROOTFS/dev"
 printf '#!/bin/sh\nexit 101\n' > "$ROOTFS/usr/sbin/policy-rc.d"
 chmod 755 "$ROOTFS/usr/sbin/policy-rc.d"
 
+# packages.list is architecture-neutral; the kernel for $ARCH is added below.
 packages=()
-while read -r package; do
+while read -r package _; do
     case "$package" in
-        ""|grub-efi-arm64|grub-common|linux-image-arm64|linux-headers-arm64) ;;
+        ""|"#"*) ;;
         *) packages+=("$package") ;;
     esac
-done < "$SOURCE/packages.list"
+done < "$SOURCE/config/packages.list"
 chroot "$ROOTFS" apt-get update
 chroot "$ROOTFS" env DEBIAN_FRONTEND=noninteractive apt-get install -y "linux-image-$ARCH" "${packages[@]}" \
     live-boot live-config live-config-systemd network-manager-gnome pulseaudio-utils desktop-file-utils xdg-user-dirs ca-certificates
@@ -68,10 +75,17 @@ chroot "$ROOTFS" env DEBIAN_FRONTEND=noninteractive apt-get install -y "linux-im
 install -d "$ROOTFS/opt/ai/desktop" "$ROOTFS/usr/share/plymouth/themes/mineos" \
     "$ROOTFS/etc/xdg/autostart" "$ROOTFS/usr/share/applications" "$ROOTFS/usr/local/share/applications" \
     "$ROOTFS/etc/systemd/system" "$ROOTFS/etc/lightdm/lightdm.conf.d"
-cp -a "$SOURCE/ai-agent/." "$ROOTFS/opt/ai/"
+cp -a "$SOURCE/ai/agent/." "$ROOTFS/opt/ai/"
+cp -a "$SOURCE/ai/mineos_agent" "$ROOTFS/opt/ai/"
+find "$ROOTFS/opt/ai" -name __pycache__ -prune -exec rm -rf {} +
 cp -a "$SOURCE/desktop/." "$ROOTFS/opt/ai/desktop/"
-ln -s /opt/ai/jarvis.py "$ROOTFS/usr/local/bin/ai"
+install -m 755 "$SOURCE/ai/system/ai" "$ROOTFS/usr/local/bin/ai"
 ln -s /opt/ai/jarvis_gui.py "$ROOTFS/usr/local/bin/ai-hud"
+install -d "$ROOTFS/etc/mineos"
+install -m 644 "$SOURCE/ai/system/agent.json" "$ROOTFS/etc/mineos/agent.json"
+install -m 644 "$SOURCE/ai/system/ai-shell.sh" "$ROOTFS/etc/profile.d/mineos-ai.sh"
+# The assistant must at least start and describe itself inside the image.
+chroot "$ROOTFS" /usr/local/bin/ai --version
 install -m 644 "$SOURCE/desktop/settings.desktop" "$ROOTFS/usr/share/applications/org.mineos.Settings.desktop"
 for app in xfce-settings-manager xfce-backdrop-settings xfce-ui-settings; do
     install -m 644 "$SOURCE/desktop/hidden-settings.desktop" "$ROOTFS/usr/local/share/applications/$app.desktop"
@@ -81,16 +95,31 @@ install -m 644 "$SOURCE/desktop/ai.desktop" "$ROOTFS/usr/share/applications/org.
 SESSION_XML="$ROOTFS/etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-session.xml"
 sed -i '0,/<property name="Count" type="int" value="5"\//s//<property name="Count" type="int" value="2"\//' "$SESSION_XML"
 grep -q '<property name="Count" type="int" value="2"/>' "$SESSION_XML"
-install -m 644 "$SOURCE/boot/mineos/mineos.script" "$SOURCE/boot/mineos/mineos.plymouth" "$ROOTFS/usr/share/plymouth/themes/mineos/"
+install -m 644 "$SOURCE/branding/plymouth/mineos.script" "$SOURCE/branding/plymouth/mineos.plymouth" "$ROOTFS/usr/share/plymouth/themes/mineos/"
 install -m 644 "$SOURCE/rootfs/etc/lightdm/lightdm.conf.d/live.conf" "$ROOTFS/etc/lightdm/lightdm.conf.d/40-mineos.conf"
-bash "$SOURCE/boot/install-login.sh" "$ROOTFS"
+bash "$SOURCE/branding/install-login.sh" "$ROOTFS"
 
-awk '
-    /^NAME=/ { print "NAME=\"MineOS\""; next }
-    /^PRETTY_NAME=/ { print "PRETTY_NAME=\"MineOS\""; next }
-    { print }
-' "$ROOTFS/usr/lib/os-release" > "$ROOTFS/etc/mineos-os-release"
+install -m 755 "$SOURCE/rootfs/usr/local/bin/mineos-vm-display" "$ROOTFS/usr/local/bin/mineos-vm-display"
+
+# /etc/os-release tells every tool which OS this is. ID_LIKE=debian keeps
+# Debian-aware software working; VERSION_CODENAME stays the Debian codename.
+cat > "$ROOTFS/etc/mineos-os-release" <<OSRELEASE
+PRETTY_NAME="MineOS $VERSION (based on Debian 13)"
+NAME="MineOS"
+VERSION_ID="$VERSION"
+VERSION="$VERSION"
+VERSION_CODENAME=trixie
+ID=mineos
+ID_LIKE=debian
+BUILD_ID=$BUILD_ID
+HOME_URL="https://github.com/roshandhiman/ai_linux-DIST"
+SUPPORT_URL="https://github.com/roshandhiman/ai_linux-DIST/issues"
+BUG_REPORT_URL="https://github.com/roshandhiman/ai_linux-DIST/issues"
+OSRELEASE
 mv -Tf "$ROOTFS/etc/mineos-os-release" "$ROOTFS/etc/os-release"
+# \n and \l are agetty placeholders for the hostname and terminal, so pass them as data.
+printf 'MineOS %s %s\n\n' "$VERSION" '\n \l' > "$ROOTFS/etc/issue"
+printf 'MineOS %s\n' "$VERSION" > "$ROOTFS/etc/issue.net"
 printf '%s\n' mineos > "$ROOTFS/etc/hostname"
 printf '127.0.0.1 localhost\n127.0.1.1 mineos\n' > "$ROOTFS/etc/hosts"
 
@@ -102,6 +131,15 @@ Exec=/opt/ai/desktop/first-login.sh
 OnlyShowIn=XFCE;
 Terminal=false
 ENTRY
+cat > "$ROOTFS/etc/xdg/autostart/mineos-vm-display.desktop" <<'ENTRY'
+[Desktop Entry]
+Type=Application
+Name=MineOS VM display size
+Exec=/usr/local/bin/mineos-vm-display
+OnlyShowIn=XFCE;
+Terminal=false
+NoDisplay=true
+ENTRY
 cat > "$ROOTFS/etc/xdg/autostart/picom.desktop" <<'ENTRY'
 [Desktop Entry]
 Type=Application
@@ -109,25 +147,45 @@ Name=Picom
 Hidden=true
 ENTRY
 
-if [[ -n "${MINEOS_OLLAMA_DIR:-}" ]]; then
-    OLLAMA="$MINEOS_OLLAMA_DIR"
-    [[ -x "$OLLAMA/bin/ollama" && -d "$OLLAMA/lib/ollama" ]]
-    install -d "$ROOTFS/usr/local/bin" "$ROOTFS/usr/local/lib"
-    install -m 755 "$OLLAMA/bin/ollama" "$ROOTFS/usr/local/bin/ollama"
-    cp -a "$OLLAMA/lib/ollama" "$ROOTFS/usr/local/lib/"
-    chroot "$ROOTFS" /usr/local/bin/ollama --version
-    chroot "$ROOTFS" useradd --system --home /usr/share/ollama --create-home --shell /usr/sbin/nologin ollama
-    install -m 644 "$SOURCE/rootfs/etc/systemd/system/ai-core.service" "$ROOTFS/etc/systemd/system/ai-core.service"
-    if [[ -n "${MINEOS_OLLAMA_MODELS:-}" ]]; then
-        [[ -d "$MINEOS_OLLAMA_MODELS/blobs" && -d "$MINEOS_OLLAMA_MODELS/manifests" ]]
-        install -d "$ROOTFS/usr/share/ollama/models"
-        cp -a "$MINEOS_OLLAMA_MODELS/." "$ROOTFS/usr/share/ollama/models/"
+# The offline models: llama.cpp's server plus one GGUF file (tier two), and
+# the Laya router (tier one), all fetched and checksummed by
+# ai/fetch-offline-ai.sh. Without MINEOS_AI_DIR the ISO still boots and `ai`
+# still does the simple things with its rules (open apps, volume, memory);
+# requests that need the language model say the server is not running.
+if [[ -n "${MINEOS_AI_DIR:-}" ]]; then
+    AI_DIR="$MINEOS_AI_DIR"
+    MODEL=qwen2.5-1.5b-instruct-q4_k_m.gguf
+    [[ -x "$AI_DIR/llama.cpp/llama-server" && -f "$AI_DIR/models/$MODEL" ]]
+    install -d "$ROOTFS/opt/llama.cpp" "$ROOTFS/usr/share/mineos/models"
+    cp -a "$AI_DIR/llama.cpp/." "$ROOTFS/opt/llama.cpp/"
+    install -m 644 "$AI_DIR/models/$MODEL" "$ROOTFS/usr/share/mineos/models/$MODEL"
+    # Fails the build if a shared library llama-server needs is missing.
+    chroot "$ROOTFS" /opt/llama.cpp/llama-server --version
+    install -m 644 "$SOURCE/ai/system/mineos-llm.service" "$ROOTFS/etc/systemd/system/mineos-llm.service"
+    chroot "$ROOTFS" systemctl enable mineos-llm.service
+
+    # Tier one: the Laya router. Its Python packages are installed from the
+    # wheels the fetch script pinned, with no index, so the build cannot pick
+    # up anything else; its weights are a plain folder read offline.
+    if [[ -d "$AI_DIR/laya-wheels" && -f "$AI_DIR/models/laya-multilingual/model.safetensors" ]]; then
+        install -d "$ROOTFS/tmp/laya-wheels"
+        cp -a "$AI_DIR/laya-wheels/." "$ROOTFS/tmp/laya-wheels/"
+        install -m 644 "$SOURCE/ai/laya-requirements.txt" "$ROOTFS/tmp/laya-wheels/requirements.txt"
+        chroot "$ROOTFS" python3 -m venv /opt/laya
+        chroot "$ROOTFS" /opt/laya/bin/pip install --no-index --no-cache-dir \
+            --find-links /tmp/laya-wheels -r /tmp/laya-wheels/requirements.txt
+        rm -rf "$ROOTFS/tmp/laya-wheels"
+        find "$ROOTFS/opt/laya" -name __pycache__ -prune -exec rm -rf {} +
+        cp -a "$AI_DIR/models/laya-multilingual" "$ROOTFS/usr/share/mineos/models/"
+        chmod -R a+rX "$ROOTFS/usr/share/mineos/models/laya-multilingual"
+        # Fails the build if torch, transformers or laya cannot import here.
+        chroot "$ROOTFS" env USE_TF=0 /opt/laya/bin/python -c 'import laya.serve, torch, transformers'
+        install -m 644 "$SOURCE/ai/system/mineos-router.service" "$ROOTFS/etc/systemd/system/mineos-router.service"
+        chroot "$ROOTFS" systemctl enable mineos-router.service
     fi
-    chroot "$ROOTFS" chown -R ollama:ollama /usr/share/ollama
-    chroot "$ROOTFS" systemctl enable ai-core.service
 fi
 
-install -m 644 "$SOURCE/boot/render_frames.py" "$ROOTFS/opt/ai/boot-render.py"
+install -m 644 "$SOURCE/branding/render_frames.py" "$ROOTFS/opt/ai/boot-render.py"
 chroot "$ROOTFS" python3 /opt/ai/boot-render.py /usr/share/plymouth/themes/mineos
 rm "$ROOTFS/opt/ai/boot-render.py"
 chroot "$ROOTFS" plymouth-set-default-theme mineos
@@ -145,6 +203,10 @@ cp "$ROOTFS/boot/initrd.img-${kernel#vmlinuz-}" "$IMAGE/live/initrd.img"
 install -m 644 "$SOURCE/rootfs/boot/grub/grub.cfg" "$IMAGE/boot/grub/grub.cfg"
 grub-script-check "$IMAGE/boot/grub/grub.cfg"
 mksquashfs "$ROOTFS" "$IMAGE/live/filesystem.squashfs" -noappend -comp zstd -Xcompression-level 6 -processors "$(nproc)" -e boot
+# The squashfs now holds the whole system, so free the unpacked copy (about
+# 6 GB with the AI) before writing the ISO: a CI runner has too little disk
+# for both at once. Its /dev, /sys and /proc were unmounted above.
+rm -rf -- "$ROOTFS"
 PARTIAL=$(mktemp "$(dirname -- "$OUTPUT")/.mineos-XXXXXXXX.iso")
 grub-mkrescue -o "$PARTIAL" "$IMAGE" -- -volid MINEOS
 boot_report=$(xorriso -indev "$PARTIAL" -report_el_torito plain)

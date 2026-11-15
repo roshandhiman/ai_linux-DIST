@@ -1,0 +1,7 @@
+# Everything here runs on Linux. Keep LF line endings even when the repo is
+# checked out on Windows, otherwise bash fails with "$'\r': command not found".
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.iso binary

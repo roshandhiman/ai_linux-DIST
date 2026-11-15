@@ -1,0 +1,36 @@
+[Unit]
+Description=MineOS local language model (llama.cpp server)
+Documentation=https://github.com/ggml-org/llama.cpp/tree/master/tools/server
+After=network.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+# Listens on loopback only: the model is for this machine, not the network.
+# -c 4096 must match "context" in /etc/mineos/agent.json.
+# --alias is the model name the agent sends; it must match "model" there too.
+ExecStart=/opt/llama.cpp/llama-server \
+    --model /usr/share/mineos/models/qwen2.5-1.5b-instruct-q4_k_m.gguf \
+    --alias qwen2.5-1.5b-instruct \
+    --host 127.0.0.1 --port 8080 \
+    --ctx-size 4096 --parallel 1 \
+    --no-webui
+Nice=5
+Restart=on-failure
+RestartSec=3
+# Hardening: the server reads one model file and talks on one port.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target
