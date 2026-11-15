@@ -9,7 +9,7 @@ from gi.repository import Gdk, GdkPixbuf, Gio, GLib, Gtk, Pango
 
 import preferences
 from settings_pages import SystemPages
-from pixel_pet import draw as draw_pet
+from rabbit_pet import draw_preview as draw_pet
 
 PALETTES = {
     "dark": {
@@ -501,7 +501,7 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
         companion.pack_start(sprite, False, False, 6)
 
     def draw_companion(self, widget, cr):
-        draw_pet(cr, widget.get_allocated_width(), 0, hovered=True)
+        draw_pet(cr, min(widget.get_allocated_width(), widget.get_allocated_height()))
         return True
 
     def model_changed(self, widget, _):
