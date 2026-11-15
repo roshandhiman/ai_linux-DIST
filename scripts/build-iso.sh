@@ -77,7 +77,7 @@ install -d "$ROOTFS/tmp/mineos-ide"
 cp -a "$SOURCE/ide/." "$ROOTFS/tmp/mineos-ide/"
 chroot "$ROOTFS" bash /tmp/mineos-ide/install.sh --system
 chroot "$ROOTFS" runuser -u nobody -- /opt/mineos-ide/current/bin/codium --version
-test -s "$ROOTFS/opt/mineos-ide/current/resources/app/extensions/mineos-assistant/package.json"
+chroot "$ROOTFS" test -s /opt/mineos-ide/current/resources/app/extensions/mineos-assistant/package.json
 rm -rf -- "$ROOTFS/tmp/mineos-ide"
 
 install -d "$ROOTFS/opt/ai/desktop" "$ROOTFS/usr/share/plymouth/themes/mineos" \
