@@ -59,7 +59,8 @@ while kill -0 "$QEMU_PID" 2>/dev/null; do
         desktop_at=$SECONDS
     fi
     # Give the session 30 seconds to crash before calling it a pass.
-    if [[ -n "$desktop_at" ]] && (( SECONDS - desktop_at >= 30 )); then
+    if [[ -n "$desktop_at" ]] && (( SECONDS - desktop_at >= 30 )) &&
+        grep -Fq 'MineOS desktop ready' "$LOG"; then
         if ! grep -Eq 'lightdm\.service: (Main process exited|Failed)|lightdm-autologin:session\): session closed' "$LOG"; then
             printf 'PASS: MineOS reached the desktop in %d seconds.\n' "$desktop_at"
             exit 0

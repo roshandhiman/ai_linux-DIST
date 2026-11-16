@@ -493,6 +493,7 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
 
     def dock(self, page):
         group = self.group(page)
+        self.choices(group, "Style", "dock_style", [("mineos", "MineOS"), ("docky", "Docky")])
         self.choices(group, "Position", "dock_position", [("bottom", "Bottom"), ("left", "Left"), ("right", "Right")])
         self.slider(group, "Icon size", "dock_size", 26, 72)
         self.slider(group, "Opacity", "dock_opacity", 0, 100)

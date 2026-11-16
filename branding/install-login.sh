@@ -17,6 +17,7 @@ CONFIG="$ROOT/etc/lightdm/lightdm-gtk-greeter.conf"
 
 install -d -m 755 "$ASSETS" "$THEME"
 install -m 644 "$SOURCE/login/"*.svg "$ASSETS/"
+install -m 644 "$SOURCE/../desktop/assets/plasma/scarlet-tree.png" "$ASSETS/scarlet-tree.png"
 install -m 644 "$SOURCE/login/gtk.css" "$THEME/gtk.css"
 
 if [[ -z "$ROOT" && -e "$CONFIG" ]]; then

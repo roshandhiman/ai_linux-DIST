@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
+case ":${XDG_CURRENT_DESKTOP:-}:" in
+    *:KDE:*) exit 0 ;;
+esac
 DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "$DIR/session-processes.sh"
 export DISPLAY="${DISPLAY:-:0}"

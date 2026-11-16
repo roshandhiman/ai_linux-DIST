@@ -93,9 +93,33 @@ def rgba(color, alpha):
     return ";;".join(str(value) for value in (*color, alpha))
 
 
+def docky_plank_theme(values, palette):
+    radius = max(2, values["dock_roundness"])
+    fill = palette["dock"]
+    alpha = round(max(0, min(values["dock_opacity"], 100)) * 255 / 100)
+    return {
+        **DOCK_VALUES,
+        "HorizPadding": 8,
+        "TopPadding": 8,
+        "BottomPadding": 8,
+        "ItemPadding": 0,
+        "IndicatorSize": 4,
+        "TopRoundness": radius,
+        "BottomRoundness": radius,
+        "OuterStrokeColor": rgba((255, 255, 255), 71),
+        "InnerStrokeColor": rgba((255, 255, 255), 13),
+        "FillStartColor": rgba(fill, alpha),
+        "FillEndColor": rgba(fill, alpha),
+    }
+
+
 def plank_theme(values):
     palette = PALETTES.get(values["appearance"], PALETTES["dark"])
     blurred = values["blur"] and capable()
+    if values["dock_style"] == "docky":
+        tokens = docky_plank_theme(values, palette)
+        return Template((DESKTOP / "dock.theme").read_text()).substitute(tokens)
+
     opacity = values["dock_opacity"] if blurred else DOCK_FALLBACK_OPACITY + values["dock_opacity"] * (100 - DOCK_FALLBACK_OPACITY) / 100
     alpha = round(opacity * 255 / 100)
     radius = max(2, round(DOCK_RADIUS * values["dock_roundness"] / 24))

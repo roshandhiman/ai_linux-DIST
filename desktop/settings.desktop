@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Settings
+Name=MineOS Settings
 Exec=python3 /opt/ai/desktop/settings.py
 Icon=/opt/ai/desktop/assets/icons/settings.svg
 Terminal=false

@@ -43,11 +43,15 @@ if [[ "$ID" != debian || "$VERSION_CODENAME" != trixie ]]; then
     exit 1
 fi
 HOST_SOURCES="$WORK/build-debian.list"
-printf 'deb http://deb.debian.org/debian trixie main\ndeb http://deb.debian.org/debian-security trixie-security main\n' > "$HOST_SOURCES"
+printf 'deb http://deb.debian.org/debian trixie main\ndeb-src http://deb.debian.org/debian trixie main\ndeb http://deb.debian.org/debian-security trixie-security main\n' > "$HOST_SOURCES"
 APT_OPTIONS=(-o "Dir::Etc::sourcelist=$HOST_SOURCES" -o "Dir::Etc::sourceparts=-")
 apt-get "${APT_OPTIONS[@]}" update
 DEBIAN_FRONTEND=noninteractive apt-get "${APT_OPTIONS[@]}" install -y --no-install-recommends \
     debootstrap debian-archive-keyring ca-certificates wget squashfs-tools xorriso mtools grub-common "${grub_packages[@]}"
+
+DEBIAN_FRONTEND=noninteractive apt-get "${APT_OPTIONS[@]}" build-dep -y xfce4-terminal=1.1.4-1
+printf 'Dir::Etc::sourcelist "%s";\nDir::Etc::sourceparts "-";\n' "$HOST_SOURCES" > "$WORK/terminal-apt.conf"
+APT_CONFIG="$WORK/terminal-apt.conf" bash "$SOURCE/scripts/build-terminal.sh" "$WORK/terminal"
 
 mkdir -p "$IMAGE/live" "$IMAGE/boot/grub"
 debootstrap --arch="$ARCH" --variant=minbase --include=ca-certificates --components=main,non-free-firmware trixie "$ROOTFS" http://deb.debian.org/debian
@@ -73,6 +77,16 @@ chroot "$ROOTFS" env DEBIAN_FRONTEND=noninteractive apt-get install -y "linux-im
     live-boot live-config live-config-systemd network-manager-gnome pulseaudio-utils desktop-file-utils xdg-user-dirs ca-certificates \
     libasound2t64 libatk-bridge2.0-0t64 libatspi2.0-0t64 libgbm1 libgtk-3-0t64 libnss3 libsecret-1-0 libx11-xcb1 libxss1
 
+mapfile -t plasma_packages < "$SOURCE/config/plasma-packages.list"
+chroot "$ROOTFS" env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${plasma_packages[@]}"
+test -s "$ROOTFS/usr/share/xsessions/plasmax11.desktop"
+test -x "$ROOTFS/usr/bin/plasmashell"
+terminal_package="xfce4-terminal_1.1.4-1+mineos1_${ARCH}.deb"
+install -m 644 "$WORK/terminal/$terminal_package" "$ROOTFS/tmp/$terminal_package"
+chroot "$ROOTFS" dpkg -i "/tmp/$terminal_package"
+rm -f "$ROOTFS/tmp/$terminal_package"
+
+
 install -d "$ROOTFS/tmp/mineos-ide"
 cp -a "$SOURCE/ide/." "$ROOTFS/tmp/mineos-ide/"
 chroot "$ROOTFS" bash /tmp/mineos-ide/install.sh --system
@@ -95,6 +109,15 @@ install -m 644 "$SOURCE/ai/system/ai-shell.sh" "$ROOTFS/etc/profile.d/mineos-ai.
 # The assistant must at least start and describe itself inside the image.
 chroot "$ROOTFS" /usr/local/bin/ai --version
 install -m 644 "$SOURCE/desktop/settings.desktop" "$ROOTFS/usr/share/applications/org.mineos.Settings.desktop"
+install -m 644 "$SOURCE/desktop/launcher.desktop" "$ROOTFS/usr/share/applications/org.mineos.Apps.desktop"
+install -m 644 "$SOURCE/desktop/terminal.desktop" "$ROOTFS/usr/share/applications/org.mineos.Terminal.desktop"
+install -m 644 "$SOURCE/rootfs/etc/xdg/kdeglobals" "$ROOTFS/etc/xdg/kdeglobals"
+install -m 644 "$SOURCE/rootfs/etc/xdg/ksplashrc" "$ROOTFS/etc/xdg/ksplashrc"
+install -D -m 644 "$SOURCE/rootfs/usr/share/xsessions/mineos.desktop" "$ROOTFS/usr/share/mineos/xsessions/mineos.desktop"
+bash "$SOURCE/branding/install-desktop.sh" "$ROOTFS"
+
+install -m 644 "$SOURCE/rootfs/etc/xdg/kcm-about-distrorc" "$ROOTFS/etc/xdg/kcm-about-distrorc"
+
 for app in xfce-settings-manager xfce-backdrop-settings xfce-ui-settings; do
     install -m 644 "$SOURCE/desktop/hidden-settings.desktop" "$ROOTFS/usr/local/share/applications/$app.desktop"
 done
@@ -106,13 +129,14 @@ grep -q '<property name="Count" type="int" value="2"/>' "$SESSION_XML"
 install -m 644 "$SOURCE/branding/plymouth/mineos.script" "$SOURCE/branding/plymouth/mineos.plymouth" "$ROOTFS/usr/share/plymouth/themes/mineos/"
 install -m 644 "$SOURCE/rootfs/etc/lightdm/lightdm.conf.d/live.conf" "$ROOTFS/etc/lightdm/lightdm.conf.d/40-mineos.conf"
 bash "$SOURCE/branding/install-login.sh" "$ROOTFS"
+chroot "$ROOTFS" lightdm --show-config | grep -F "user-session=mineos"
 
 install -m 755 "$SOURCE/rootfs/usr/local/bin/mineos-vm-display" "$ROOTFS/usr/local/bin/mineos-vm-display"
 
 # /etc/os-release tells every tool which OS this is. ID_LIKE=debian keeps
 # Debian-aware software working; VERSION_CODENAME stays the Debian codename.
 cat > "$ROOTFS/etc/mineos-os-release" <<OSRELEASE
-PRETTY_NAME="MineOS $VERSION (based on Debian 13)"
+PRETTY_NAME="MineOS $VERSION"
 NAME="MineOS"
 VERSION_ID="$VERSION"
 VERSION="$VERSION"
@@ -139,6 +163,16 @@ Exec=/opt/ai/desktop/first-login.sh
 OnlyShowIn=XFCE;
 Terminal=false
 ENTRY
+cat > "$ROOTFS/etc/xdg/autostart/mineos-plasma.desktop" <<'ENTRY'
+[Desktop Entry]
+Type=Application
+Name=MineOS Desktop Defaults
+Exec=/opt/ai/desktop/plasma-first-login.sh
+OnlyShowIn=KDE;
+Terminal=false
+NoDisplay=true
+ENTRY
+install -m 644 "$SOURCE/rootfs/etc/xdg/autostart/mineos-companion.desktop" "$ROOTFS/etc/xdg/autostart/mineos-companion.desktop"
 cat > "$ROOTFS/etc/xdg/autostart/mineos-vm-display.desktop" <<'ENTRY'
 [Desktop Entry]
 Type=Application

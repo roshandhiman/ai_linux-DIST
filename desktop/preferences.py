@@ -16,7 +16,7 @@ DEFAULTS = {
     "appearance": "dark", "backdrop": str(DESKTOP / "assets" / "graphite.svg"), "background_color": "#171717",
     "ui_scale": "1",
     "wallpaper_fit": "5", "video": "", "live": False,
-    "dock_size": 52, "dock_opacity": glass_theme.DOCK_REST_OPACITY, "dock_position": "bottom",
+    "dock_style": "mineos", "dock_size": 52, "dock_opacity": glass_theme.DOCK_REST_OPACITY, "dock_position": "bottom",
     "dock_hide": True, "dock_zoom": True, "dock_roundness": 19,
     "panel_opacity": 92, "clock_24h": True, "clock_seconds": False, "blur": True, "shadows": True, "animations": True,
     "pet": True, "pet_motion": True, "pet_size": 80, "model": "",
@@ -131,7 +131,8 @@ def replace_setting(text, key, value):
 
 def dock(values):
     data = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share"))
-    theme_path = data / "plank/themes/MineOS/dock.theme"
+    theme_name = "Docky" if values["dock_style"] == "docky" else "MineOS"
+    theme_path = data / "plank" / "themes" / theme_name / "dock.theme"
     write(theme_path, glass_theme.plank_theme(values))
     trash = data / "applications/org.mineos.Trash.desktop"
     if trash.is_file():
@@ -149,7 +150,7 @@ def dock(values):
         "icon-size": str(dock_size), "position": "'" + values["dock_position"] + "'",
         "hide-mode": "'intelligent'" if values["dock_hide"] else "'none'",
         "zoom-enabled": str(values["dock_zoom"]).lower(), "zoom-percent": str(glass_theme.DOCK_ZOOM),
-        "theme": "'MineOS'",
+        "theme": f"'{theme_name}'",
     }
     for key, value in settings.items():
         run("gsettings", "set", DOCK, key, value)

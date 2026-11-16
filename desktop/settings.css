@@ -11,8 +11,9 @@ window.mineos-settings {
 }
 .mineos-toolbar .title { font-weight: 700; }
 .settings-navigation, .mineos-settings scrolledwindow viewport { background-color: transparent; }
+.mineos-settings label { color: @glass_text; }
 .settings-navigation { padding: 2px ${space} ${inset}; }
-.settings-navigation row { padding: 2px 5px; margin: 2px 0; }
+.settings-navigation row { background: transparent; box-shadow: none; padding: 2px 5px; margin: 2px 0; }
 .settings-navigation row:selected { background-color: @glass_selected; color: @glass_text; box-shadow: inset 0 0 0 1px @glass_line; }
 .settings-account { padding: 3px 13px 13px; }
 .settings-account-name { font-weight: 700; font-size: 14px; }
