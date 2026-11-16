@@ -1,0 +1,70 @@
+--- a/terminal/terminal-window.c
++++ b/terminal/terminal-window.c
+@@ -2645,6 +2645,59 @@
+ 
+ 
+ 
++
++static GtkWidget *
++terminal_window_header_button (TerminalWindow *window,
++                               const gchar    *icon,
++                               const gchar    *label,
++                               GCallback       action)
++{
++  GtkWidget *button;
++
++  button = gtk_button_new_from_icon_name (icon, GTK_ICON_SIZE_BUTTON);
++  gtk_widget_set_tooltip_text (button, label);
++  atk_object_set_name (gtk_widget_get_accessible (button), label);
++  gtk_widget_set_focus_on_click (button, FALSE);
++  gtk_style_context_add_class (gtk_widget_get_style_context (button), "flat");
++  g_signal_connect_swapped (button, "clicked", action, window);
++
++  return button;
++}
++
++
++static void
++terminal_window_install_header (TerminalWindow *window)
++{
++  GtkWidget *header;
++  GtkWidget *zoom;
++
++  header = gtk_header_bar_new ();
++  gtk_header_bar_set_has_subtitle (GTK_HEADER_BAR (header), FALSE);
++  gtk_header_bar_set_show_close_button (GTK_HEADER_BAR (header), TRUE);
++  gtk_header_bar_set_decoration_layout (GTK_HEADER_BAR (header), ":minimize,maximize,close");
++
++  gtk_header_bar_pack_start (GTK_HEADER_BAR (header),
++                             terminal_window_header_button (window, "window-new-symbolic", _("New Window"),
++                                                            G_CALLBACK (terminal_window_action_new_window)));
++
++  zoom = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
++  gtk_style_context_add_class (gtk_widget_get_style_context (zoom), "linked");
++  gtk_container_add (GTK_CONTAINER (zoom),
++                     terminal_window_header_button (window, "zoom-out-symbolic", _("Decrease Text Size"),
++                                                    G_CALLBACK (terminal_window_action_zoom_out)));
++  gtk_container_add (GTK_CONTAINER (zoom),
++                     terminal_window_header_button (window, "zoom-in-symbolic", _("Increase Text Size"),
++                                                    G_CALLBACK (terminal_window_action_zoom_in)));
++  gtk_header_bar_pack_end (GTK_HEADER_BAR (header), zoom);
++  gtk_header_bar_pack_end (GTK_HEADER_BAR (header),
++                           terminal_window_header_button (window, "preferences-system-symbolic", _("Preferences"),
++                                                          G_CALLBACK (terminal_window_action_prefs)));
++
++  gtk_window_set_titlebar (GTK_WINDOW (window), header);
++  gtk_widget_show_all (header);
++}
++
++
+ /**
+  * terminal_window_new:
+  * @fullscreen: Whether to set the window to fullscreen.
+@@ -2667,6 +2720,7 @@
+   gboolean        show_borders;
+ 
+   window = g_object_new (TERMINAL_TYPE_WINDOW, "role", role, NULL);
++  terminal_window_install_header (window);
+ 
+   /* read default preferences */
+   g_object_get (G_OBJECT (window->priv->preferences),

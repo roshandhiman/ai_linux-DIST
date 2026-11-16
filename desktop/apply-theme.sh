@@ -94,17 +94,6 @@ touch "$BOOKMARKS"
 if ! grep -q '^computer:///' "$BOOKMARKS"; then
     printf 'computer:/// This PC\n' >> "$BOOKMARKS"
 fi
-cat > "$CONFIG/xfce4/terminal/terminalrc" <<'TERMINAL'
-[Configuration]
-FontName=DejaVu Sans Mono 10
-MiscMenubarDefault=FALSE
-MiscToolbarDefault=FALSE
-MiscBordersDefault=TRUE
-ColorForeground=#e9e9e9
-ColorBackground=#252525
-ColorCursor=#ffffff
-BackgroundMode=TERMINAL_BACKGROUND_SOLID
-TERMINAL
 cat > "$CONFIG/autostart/picom.desktop" <<'ENTRY'
 [Desktop Entry]
 Type=Application

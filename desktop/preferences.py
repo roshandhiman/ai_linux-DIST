@@ -52,6 +52,34 @@ def write(path, text):
     os.replace(file.name, path)
 
 
+def terminal_defaults():
+    from gi.repository import GLib
+
+    path = CONFIG / "xfce4/terminal/terminalrc"
+    group = "Configuration"
+    settings = GLib.KeyFile()
+    if path.exists():
+        settings.load_from_file(str(path), GLib.KeyFileFlags.KEEP_COMMENTS)
+    else:
+        defaults = {
+            "FontName": "DejaVu Sans Mono 10",
+            "MiscMenubarDefault": "FALSE",
+            "MiscBordersDefault": "TRUE",
+            "ColorForeground": "#e9e9e9",
+            "ColorBackground": "#252525",
+            "ColorCursor": "#ffffff",
+            "BackgroundMode": "TERMINAL_BACKGROUND_SOLID",
+        }
+        for key, value in defaults.items():
+            settings.set_string(group, key, value)
+    if settings.has_group(group):
+        keys = settings.get_keys(group)[0]
+        if "MiscToolbarDefault" in keys and settings.get_value(group, "MiscToolbarDefault") == "FALSE":
+            return
+    settings.set_string(group, "MiscToolbarDefault", "FALSE")
+    write(path, settings.to_data()[0])
+
+
 def run(*argv):
     return subprocess.run(argv, check=True, capture_output=True, text=True, timeout=10).stdout
 
@@ -208,4 +236,5 @@ def apply(values, old=None):
 
 
 if __name__ == "__main__":
+    terminal_defaults()
     apply(read())
