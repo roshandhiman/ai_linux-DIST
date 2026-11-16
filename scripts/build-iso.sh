@@ -129,7 +129,9 @@ grep -q '<property name="Count" type="int" value="2"/>' "$SESSION_XML"
 install -m 644 "$SOURCE/branding/plymouth/mineos.script" "$SOURCE/branding/plymouth/mineos.plymouth" "$ROOTFS/usr/share/plymouth/themes/mineos/"
 install -m 644 "$SOURCE/rootfs/etc/lightdm/lightdm.conf.d/live.conf" "$ROOTFS/etc/lightdm/lightdm.conf.d/40-mineos.conf"
 bash "$SOURCE/branding/install-login.sh" "$ROOTFS"
-chroot "$ROOTFS" lightdm --show-config | grep -F "user-session=mineos"
+lightdm_config=$(chroot "$ROOTFS" lightdm --show-config 2>&1)
+grep -F "sessions-directory=/usr/share/mineos/xsessions" <<< "$lightdm_config"
+grep -F "user-session=mineos" <<< "$lightdm_config"
 
 install -m 755 "$SOURCE/rootfs/usr/local/bin/mineos-vm-display" "$ROOTFS/usr/local/bin/mineos-vm-display"
 
