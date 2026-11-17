@@ -12,6 +12,8 @@ import native_wallpaper
 DESKTOP = Path(__file__).resolve().parent
 CONFIG = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
 PREFS = CONFIG / "mineos" / "appearance.json"
+PET_POSITION = PREFS.with_name("companion-position.json")
+PET_SIZES = {120: "Medium", 166: "Large"}
 DOCK = "net.launchpad.plank.dock.settings:/net/launchpad/plank/docks/dock1/"
 DEFAULTS = {
     "appearance": "dark", "backdrop": str(DESKTOP / "assets" / "graphite.svg"), "background_color": "#171717",
@@ -20,7 +22,7 @@ DEFAULTS = {
     "dock_style": "mineos", "dock_size": 52, "dock_opacity": glass_theme.DOCK_REST_OPACITY, "dock_position": "bottom",
     "dock_hide": True, "dock_zoom": True, "dock_roundness": 19,
     "panel_opacity": 92, "clock_24h": True, "clock_seconds": False, "blur": True, "shadows": True, "animations": True,
-    "pet": True, "pet_motion": True, "pet_size": 80, "model": "",
+    "pet": True, "pet_motion": True, "pet_size": 120, "model": "",
 }
 
 
@@ -32,6 +34,9 @@ def read():
     except (OSError, ValueError):
         return DEFAULTS.copy()
     values = {**DEFAULTS, **{key: data[key] for key in DEFAULTS if key in data and type(data[key]) is type(DEFAULTS[key])}}
+    if values["pet_size"] not in PET_SIZES:
+        # Map custom sizes from the previous companion to the two presets.
+        values["pet_size"] = 166 if values["pet_size"] >= 110 else DEFAULTS["pet_size"]
     if "ui_scale" not in data:
         try:
             scale = run("xfconf-query", "-c", "xsettings", "-p", "/Gdk/WindowScalingFactor").strip()

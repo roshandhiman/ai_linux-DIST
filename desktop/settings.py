@@ -12,7 +12,7 @@ import native_wallpaper
 import preferences
 import glass_theme
 from settings_pages import SystemPages
-from rabbit_pet import draw_preview as draw_pet
+from companion_art import draw as draw_pet
 
 SECTIONS = [
     ("Wi-Fi", "network-wireless-symbolic", "wifi", "wireless internet", "connect"),
@@ -22,7 +22,7 @@ SECTIONS = [
     ("General", "preferences-system-symbolic", "general", "about storage update time language startup", ""),
     ("Accessibility", "preferences-desktop-accessibility-symbolic", "accessibility", "sticky slow bounce keys high contrast", ""),
     ("Appearance", "weather-clear-night-symbolic", "appearance", "dark light effects shadows blur animations", "personal"),
-    ("Assistant", "face-smile-symbolic", "assistant", "ollama local model pixel pet companion", "personal"),
+    ("Assistant", "face-smile-symbolic", "assistant", "local model mino pet companion", "personal"),
     ("Desktop & Dock", "user-desktop-symbolic", "dock", "opacity position icons corner radius magnification", ""),
     ("Displays", "video-display-symbolic", "display", "resolution scale monitors refresh color profiles", "hardware"),
     ("Menu Bar", "view-list-symbolic", "menu_bar", "top panel opacity transparency clock", ""),
@@ -335,13 +335,19 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
         scale.connect("value-changed", lambda widget: self.change(key, int(widget.get_value())))
         self.row(group, title, scale)
 
-    def choices(self, group, title, key, options):
+    def choices(self, group, title, key, options, info=None):
         control = Gtk.ComboBoxText()
+        values = {str(value): value for value, _ in options}
         for value, label in options:
-            control.append(value, label)
-        control.set_active_id(self.values[key])
-        control.connect("changed", lambda widget: self.change(key, widget.get_active_id()))
-        self.row(group, title, control)
+            control.append(str(value), label)
+        control.set_active_id(str(self.values[key]))
+        def changed(widget):
+            active_id = widget.get_active_id()
+            if active_id in values:
+                self.change(key, values[active_id])
+
+        control.connect("changed", changed)
+        self.row(group, title, control, info)
         return control
 
     def change(self, key, value):
@@ -605,9 +611,10 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
         model.connect("focus-out-event", self.model_changed)
         self.row(group, "Local model", model)
         companion = self.group(page)
-        self.switch(companion, "Desktop companion", "pet")
-        self.switch(companion, "Animate companion", "pet_motion")
-        self.slider(companion, "Companion size", "pet_size", 52, 130)
+        self.switch(companion, "Show Mino on the desktop", "pet")
+        self.switch(companion, "Animate Mino", "pet_motion")
+        self.choices(companion, "Companion size", "pet_size", list(preferences.PET_SIZES.items()),
+                     "Drag Mino to move it. Click to open chat.")
         sprite = Gtk.DrawingArea(width_request=82, height_request=82)
         sprite.set_halign(Gtk.Align.CENTER)
         sprite.connect("draw", self.draw_companion)

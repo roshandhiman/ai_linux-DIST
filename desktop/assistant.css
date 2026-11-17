@@ -1,36 +1,74 @@
-window.mineos-assistant { font-family: Inter, sans-serif; }
-window.mineos-assistant.mineos-translucent {
-    background-color: alpha(@theme_bg_color, .83);
-    background-image: linear-gradient(155deg, alpha(#fff, .13), transparent 65%);
+window.mineos-assistant {
+    background-color: @theme_bg_color;
+    color: @theme_fg_color;
+    font-family: Inter, sans-serif;
 }
-.mineos-assistant .assistant-toolbar, .mineos-assistant scrolledwindow viewport { background-color: transparent; }
-.assistant-composer {
-    margin: 10px 24px 24px;
+.mineos-assistant .assistant-toolbar {
+    padding: 6px 12px;
+    background-image: none;
+    background-color: mix(@theme_bg_color, @theme_fg_color, .05);
+    border-bottom: 1px solid alpha(@theme_fg_color, .12);
+}
+.mineos-assistant .assistant-toolbar button,
+.mineos-assistant .assistant-welcome button {
+    border-radius: 10px;
+}
+.mineos-assistant .assistant-messages { padding: 20px 24px; }
+.mineos-assistant .assistant-welcome { padding: 36px 0 20px; }
+.mineos-assistant .assistant-welcome-title {
+    font-size: 24px;
+    font-weight: 700;
+}
+.mineos-assistant .assistant-welcome button { padding: 6px 12px; }
+.mineos-assistant .assistant-footer {
+    padding: 12px 24px 13px;
+    border-top: 1px solid alpha(@theme_fg_color, .12);
+    background-color: mix(@theme_bg_color, @theme_fg_color, .025);
+}
+.mineos-assistant .assistant-composer {
     padding: 7px;
-    border: 1px solid alpha(@theme_fg_color, .22);
-    border-radius: 24px;
-    background-color: alpha(@theme_fg_color, .08);
+    border: 1px solid alpha(@theme_fg_color, .24);
+    border-radius: 15px;
+    background-color: mix(@theme_bg_color, @theme_fg_color, .055);
 }
-.assistant-composer entry {
-    border: none;
+.mineos-assistant .assistant-composer-focused { border-color: #a891ee; }
+.mineos-assistant .assistant-composer textview { padding: 8px; }
+.mineos-assistant .assistant-composer textview,
+.mineos-assistant .assistant-composer textview text {
     background-color: transparent;
+    font-size: 11pt;
+}
+.mineos-assistant .assistant-send {
+    padding: 5px 12px;
+    border-radius: 10px;
+    border: 1px solid alpha(#7964b6, .34);
+    background-image: none;
+    background-color: #c5b4fa;
+    color: #211839;
     box-shadow: none;
-    padding: 6px 11px;
-    font-size: 14px;
+    font-weight: 600;
 }
-.assistant-composer .suggested-action {
-    border-radius: 18px;
-    min-width: 22px;
-    background-color: @theme_fg_color;
-    color: @theme_bg_color;
+.mineos-assistant .assistant-send:hover { background-color: #d5c7ff; }
+.mineos-assistant .assistant-send:disabled {
+    background-color: alpha(@theme_fg_color, .10);
+    color: alpha(@theme_fg_color, .60);
 }
-.assistant-composer .suggested-action:hover { background-color: mix(@theme_fg_color, @theme_bg_color, .18); }
-.assistant-message {
-    padding: 15px 18px;
-    border-radius: 18px;
-    background-color: alpha(@theme_fg_color, .07);
-    border: 1px solid alpha(@theme_fg_color, .14);
+.mineos-assistant .assistant-status,
+.mineos-assistant .assistant-role {
+    font-size: 12px;
+    color: alpha(@theme_fg_color, .76);
 }
-.assistant-message.user-message { background-color: alpha(@theme_fg_color, .13); margin-left: 34px; }
-.assistant-role { font-size: 12px; color: alpha(@theme_fg_color, .76); margin-bottom: 4px; }
-.assistant-body { font-size: 14px; }
+.mineos-assistant .assistant-message {
+    padding: 13px 16px;
+    border-radius: 14px;
+    background-color: mix(@theme_bg_color, @theme_fg_color, .055);
+    border: 1px solid alpha(@theme_fg_color, .13);
+    margin-right: 22px;
+}
+.mineos-assistant .assistant-message.user-message {
+    background-color: mix(@theme_bg_color, #9a7fe1, .16);
+    border-color: alpha(#9a7fe1, .42);
+    margin-left: 34px;
+    margin-right: 0;
+}
+.mineos-assistant .assistant-body { font-size: 11pt; }
