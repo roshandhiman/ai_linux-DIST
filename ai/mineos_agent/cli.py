@@ -19,9 +19,9 @@ import sys
 from . import __version__
 from .agent import Agent, Outcome, Turn
 from .config import AgentConfig, load_config
-from .llm import OpenAIChat, health
 from .memory import GraphMemory
 from .os_api import OsApi
+from .providers import PRESETS, build_model, check_health, describe
 from .router import HybridRouter, LayaRouter
 from .sandbox import Sandbox
 from .text import fold_ascii
@@ -98,7 +98,7 @@ def build_agent(config: AgentConfig, *, trace: Trace) -> Agent:
                        timeout=config.router.timeout)
             if config.router.url else None)
     return Agent(
-        model=OpenAIChat(config.llm),
+        model=build_model(config.llm),
         api=OsApi(home=config.home, memory=memory, approver=_approver),
         router=HybridRouter(laya=laya, threshold=config.router.threshold),
         memory=memory,
@@ -136,20 +136,20 @@ def _show_turn(turn: Turn, trace: Trace) -> None:
 
 
 def show_status(config: AgentConfig, agent: Agent) -> int:
-    ok, detail = health(config.llm)
-    key = "set (hosted model)" if config.llm.api_key else "none (local model, nothing leaves this machine)"
+    ok, detail = check_health(config.llm)
     stats = agent.memory.stats()
     _out(f"MineOS assistant {__version__}")
     _out(f"  model     {config.llm.model} at {config.llm.base_url}")
+    _out(f"  provider  {describe(config.llm)}")
     _out(f"  server    {'OK' if ok else 'NOT REACHABLE'}: {detail}")
-    _out(f"  api key   {key}")
     _out(f"  router    {agent.router.describe()}")
     laya = getattr(agent.router, "laya", None)
     if laya is not None:
         up, said = laya.health()
         _out(f"  laya      {'OK' if up else 'NOT REACHABLE (rules still work)'}: {said}")
     _out(f"  sandbox   {agent.sandbox.describe()}")
-    _out(f"  memory    {config.memory_path} ({stats['facts']} facts, {stats['episodes']} past requests)")
+    _out(f"  memory    {config.memory_path} ({stats['facts']} facts, "
+         f"{stats['tasks']} tasks, {stats['episodes']} past requests)")
     _out(f"  context   {config.llm.context} tokens, {config.max_steps} steps x {config.max_attempts} tries")
     for warning in config.warnings:
         _out(_c("33", f"  warning   {warning}"))
@@ -161,6 +161,14 @@ def show_memory(agent: Agent) -> int:
     _out("What I remember:" if facts else "I don't remember anything yet. Try: remember that my name is Sam")
     for fact in facts:
         _out(f"  {fact}")
+    tasks = agent.memory.tasks(limit=5)
+    if tasks:
+        _out("\nTasks:")
+        for task in tasks:
+            mark = "unfinished - say 'continue'" if task.status == "open" else task.status
+            _out(f"  [{mark}] {task.request[:70]} ({len(task.steps)} step(s))")
+            for note in task.notes[-3:]:
+                _out(f"      noted: {note}")
     episodes = agent.memory.episodes(limit=5)
     if episodes:
         _out("\nRecent requests:")
@@ -189,7 +197,8 @@ _HELP = """Type what you want in plain words. Examples:
   what's using my disk space    search youtube for lofi music
   remember that my sister is Priya
   find my pdf files in downloads and tell me the biggest
-Commands: /status  /memory  /history [before-id]  /forget <thing>  /clear  /trace  /quit"""
+  continue                      pick up a task that ran out of steps
+Commands: /status  /memory  /forget <thing>  /clear  /trace  /quit"""
 
 
 def repl(agent: Agent, trace: Trace, config: AgentConfig) -> int:
@@ -197,7 +206,7 @@ def repl(agent: Agent, trace: Trace, config: AgentConfig) -> int:
         import readline  # noqa: F401 - line editing and history where available
     except ImportError:
         pass
-    ok, detail = health(agent.config.llm, timeout=2)
+    ok, detail = check_health(agent.config.llm, timeout=2)
     _out(_c("1", "MineOS assistant") + "  (type /help for examples, /quit to leave)")
     if not ok:
         _out(_c("33", f"  note: {detail}. Simple commands still work."))
@@ -252,12 +261,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--before", type=int, metavar="ID", help="show history before the given request ID")
     parser.add_argument("--forget", metavar="THING", help="delete what it remembers about THING")
     parser.add_argument("-q", "--quiet", action="store_true", help="hide the step-by-step trace")
-    parser.add_argument("--url", help="model server base URL (OpenAI-compatible)")
+    parser.add_argument("--provider", choices=sorted(PRESETS),
+                        help="which model provider (default: local; hosted ones need a key)")
+    parser.add_argument("--url", help="model server base URL")
     parser.add_argument("--model", help="model name to request")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     args = parser.parse_args(argv)
 
-    config = load_config()
+    config = load_config(provider=args.provider)
     if args.url:
         config.llm.base_url = args.url.rstrip("/")
     if args.model:
