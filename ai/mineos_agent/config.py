@@ -3,11 +3,13 @@
     built-in defaults
       < /etc/mineos/agent.json          (what the ISO ships)
       < ~/.config/mineos/agent.json     (what the user changed)
-      < environment variables           (MINEOS_LLM_URL, MINEOS_LLM_MODEL, MINEOS_API_KEY,
-                                         MINEOS_ROUTER_URL)
+      < environment variables           (MINEOS_PROVIDER, MINEOS_LLM_URL, MINEOS_LLM_MODEL,
+                                         MINEOS_API_KEY, MINEOS_ROUTER_URL)
       < command-line flags
 
-Later wins. The default talks to the local ``llama-server`` on 127.0.0.1:8080,
+Later wins. A provider preset (``"provider": "anthropic"``) then fills in whatever
+is still at its default, and finds the provider's own key variable if no key was
+given. The default talks to the local ``llama-server`` on 127.0.0.1:8080,
 so a fresh install works offline with no key. An API key is only ever used when
 the user provides one, and a hosted endpoint is only used when the user points
 ``base_url`` at it -- nothing in here phones anywhere by itself.
@@ -40,6 +42,10 @@ def user_paths() -> dict[str, Path]:
 
 @dataclass(slots=True)
 class LLMConfig:
+    #: Which provider: "local" (default) or a name from providers.PRESETS, such as
+    #: "anthropic" or "groq". A preset fills in the URL, context and key variable
+    #: for anything left at its default.
+    provider: str = "local"
     #: OpenAI-compatible base URL. llama-server serves /v1/chat/completions.
     base_url: str = "http://127.0.0.1:8080/v1"
     #: Model name sent in the request. llama-server answers to its --alias.
@@ -105,7 +111,7 @@ def _read_json(path: Path, warnings: list[str]) -> Mapping[str, Any]:
 def _apply(config: AgentConfig, data: Mapping[str, Any], origin: str) -> None:
     llm = data.get("llm", {})
     if isinstance(llm, dict):
-        for key in ("base_url", "model", "api_key"):
+        for key in ("provider", "base_url", "model", "api_key"):
             if isinstance(llm.get(key), str) and llm[key].strip():
                 setattr(config.llm, key, llm[key].strip())
         for key in ("context", "max_tokens"):
@@ -154,6 +160,7 @@ def load_config(
     *,
     files: tuple[Path, ...] | None = None,
     environ: Mapping[str, str] | None = None,
+    provider: str | None = None,
 ) -> AgentConfig:
     """Build the effective configuration. Never raises on a bad file."""
     config = AgentConfig()
@@ -165,6 +172,8 @@ def load_config(
             _apply(config, data, str(path))
             if isinstance(data.get("llm"), dict) and data["llm"].get("api_key"):
                 _check_private(path, config.warnings)
+    if env.get("MINEOS_PROVIDER", "").strip():
+        config.llm.provider = env["MINEOS_PROVIDER"].strip()
     if env.get("MINEOS_LLM_URL", "").strip():
         config.llm.base_url = env["MINEOS_LLM_URL"].strip()
     if env.get("MINEOS_LLM_MODEL", "").strip():
@@ -173,6 +182,12 @@ def load_config(
         config.llm.api_key = env["MINEOS_API_KEY"].strip()
     if "MINEOS_ROUTER_URL" in env:  # set but empty means "rules only"
         config.router.url = env["MINEOS_ROUTER_URL"].strip() or None
+    if provider:  # the --provider flag outranks every file and variable
+        config.llm.provider = provider
+    from .providers import apply_provider  # late: providers imports this module
+    problem = apply_provider(config.llm, env)
+    if problem:
+        config.warnings.append(problem)
     config.llm.base_url = config.llm.base_url.rstrip("/")
     if config.router.url:
         config.router.url = config.router.url.rstrip("/")

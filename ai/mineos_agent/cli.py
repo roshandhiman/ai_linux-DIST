@@ -19,9 +19,9 @@ import sys
 from . import __version__
 from .agent import Agent, Outcome, Turn
 from .config import AgentConfig, load_config
-from .llm import OpenAIChat, health
 from .memory import GraphMemory
 from .os_api import OsApi
+from .providers import PRESETS, build_model, check_health, describe
 from .router import HybridRouter, LayaRouter
 from .sandbox import Sandbox
 from .text import fold_ascii
@@ -98,7 +98,7 @@ def build_agent(config: AgentConfig, *, trace: Trace) -> Agent:
                        timeout=config.router.timeout)
             if config.router.url else None)
     return Agent(
-        model=OpenAIChat(config.llm),
+        model=build_model(config.llm),
         api=OsApi(home=config.home, memory=memory, approver=_approver),
         router=HybridRouter(laya=laya, threshold=config.router.threshold),
         memory=memory,
@@ -136,13 +136,12 @@ def _show_turn(turn: Turn, trace: Trace) -> None:
 
 
 def show_status(config: AgentConfig, agent: Agent) -> int:
-    ok, detail = health(config.llm)
-    key = "set (hosted model)" if config.llm.api_key else "none (local model, nothing leaves this machine)"
+    ok, detail = check_health(config.llm)
     stats = agent.memory.stats()
     _out(f"MineOS assistant {__version__}")
     _out(f"  model     {config.llm.model} at {config.llm.base_url}")
+    _out(f"  provider  {describe(config.llm)}")
     _out(f"  server    {'OK' if ok else 'NOT REACHABLE'}: {detail}")
-    _out(f"  api key   {key}")
     _out(f"  router    {agent.router.describe()}")
     laya = getattr(agent.router, "laya", None)
     if laya is not None:
@@ -182,7 +181,7 @@ def repl(agent: Agent, trace: Trace, config: AgentConfig) -> int:
         import readline  # noqa: F401 - line editing and history where available
     except ImportError:
         pass
-    ok, detail = health(agent.config.llm, timeout=2)
+    ok, detail = check_health(agent.config.llm, timeout=2)
     _out(_c("1", "MineOS assistant") + "  (type /help for examples, /quit to leave)")
     if not ok:
         _out(_c("33", f"  note: {detail}. Simple commands still work."))
@@ -230,12 +229,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--memory", action="store_true", help="show what the assistant remembers")
     parser.add_argument("--forget", metavar="THING", help="delete what it remembers about THING")
     parser.add_argument("-q", "--quiet", action="store_true", help="hide the step-by-step trace")
-    parser.add_argument("--url", help="model server base URL (OpenAI-compatible)")
+    parser.add_argument("--provider", choices=sorted(PRESETS),
+                        help="which model provider (default: local; hosted ones need a key)")
+    parser.add_argument("--url", help="model server base URL")
     parser.add_argument("--model", help="model name to request")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     args = parser.parse_args(argv)
 
-    config = load_config()
+    config = load_config(provider=args.provider)
     if args.url:
         config.llm.base_url = args.url.rstrip("/")
     if args.model:
