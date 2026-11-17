@@ -1,3 +1,4 @@
+import json
 import subprocess
 from threading import Thread
 from pathlib import Path
@@ -7,6 +8,7 @@ gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
 from gi.repository import Gdk, GdkPixbuf, Gio, GLib, Gtk, Pango
 
+import native_wallpaper
 import preferences
 import glass_theme
 from settings_pages import SystemPages
@@ -203,6 +205,8 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
             self.select_parent(target)
         if not self.stack.get_child_by_name(key):
             self.build_page(key, title, icon, tone, populate)
+        elif key == "wallpaper":
+            self.refresh_wallpaper_page()
         self.stack.set_visible_child_name(key)
         self.back.set_sensitive(bool(self.back_stack))
         self.forward.set_sensitive(bool(self.forward_stack))
@@ -338,6 +342,7 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
         control.set_active_id(self.values[key])
         control.connect("changed", lambda widget: self.change(key, widget.get_active_id()))
         self.row(group, title, control)
+        return control
 
     def change(self, key, value):
         if self.values[key] == value:
@@ -358,8 +363,9 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
                 self.update_transition()
             if any(old[key] != self.values[key] for key in ("appearance", "blur", "animations")):
                 self.refresh_style()
-        except (OSError, subprocess.SubprocessError, GLib.Error) as error:
-            dialog = Gtk.MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.CLOSE, text="Could not apply settings", secondary_text=str(error))
+        except (OSError, ValueError, subprocess.SubprocessError, GLib.Error) as error:
+            detail = (getattr(error, "stderr", None) or str(error)).strip()
+            dialog = Gtk.MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.CLOSE, text="Could not apply settings", secondary_text=detail)
             dialog.run()
             dialog.destroy()
         return GLib.SOURCE_REMOVE
@@ -411,22 +417,45 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
         color.parse(self.values["background_color"])
         Gdk.cairo_set_source_rgba(cr, color)
         cr.paint()
-        if self.wallpaper_image:
-            image = self.wallpaper_image
-            scale = max(width / image.get_width(), height / image.get_height())
-            cr.translate((width - image.get_width() * scale) / 2, (height - image.get_height() * scale) / 2)
-            cr.scale(scale, scale)
+        image = self.wallpaper_image
+        if image:
+            scale_x, scale_y = width / image.get_width(), height / image.get_height()
+            fit = self.values["video_fit"] if self.values["live"] and self.values["video"] else {
+                "1": "center", "3": "stretch", "4": "fit", "5": "fill"
+            }.get(self.values["wallpaper_fit"], "fill")
+            if fit != "stretch":
+                scale = min(scale_x, scale_y) if fit in ("fit", "center") else max(scale_x, scale_y)
+                scale_x = scale_y = scale
+            cr.translate((width - image.get_width() * scale_x) / 2, (height - image.get_height() * scale_y) / 2)
+            cr.scale(scale_x, scale_y)
             Gdk.cairo_set_source_pixbuf(cr, image, 0, 0)
             cr.paint()
         return True
 
     def wallpaper(self, page):
+        if native_wallpaper.available():
+            try:
+                native = native_wallpaper.selection()
+                saved = preferences.read()
+                if any(saved[key] != value for key, value in native.items()):
+                    preferences.write(preferences.PREFS, json.dumps({**saved, **native}, indent=2) + "\n")
+                self.values.update(native)
+            except (OSError, ValueError, subprocess.SubprocessError):
+                pass
         frame = Gtk.Box()
         frame.get_style_context().add_class("settings-preview")
         frame.get_style_context().add_class("glass-card")
-        preview = Gtk.DrawingArea(height_request=136)
+        monitor = self.get_display().get_monitor_at_window(self.get_window()) if self.get_window() else None
+        monitor = monitor or self.get_display().get_primary_monitor()
+        bounds = monitor.get_geometry() if monitor else None
+        dimensions = (bounds.width, bounds.height) if bounds else (16, 9)
+        preview = Gtk.DrawingArea(width_request=min(320, round(180 * dimensions[0] / dimensions[1])),
+                                  height_request=min(180, round(320 * dimensions[1] / dimensions[0])),
+                                  halign=Gtk.Align.CENTER)
         self.wallpaper_image = None
+        self.wallpaper_preview_widget = preview
         backdrop = self.values["backdrop"]
+        video = self.values["video"]
         if backdrop:
             try:
                 self.wallpaper_image = GdkPixbuf.Pixbuf.new_from_file_at_scale(backdrop, 594, 360, True)
@@ -435,6 +464,25 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
         preview.connect("draw", self.wallpaper_preview)
         frame.pack_start(preview, True, True, 0)
         page.pack_start(frame, False, False, 0)
+        media = self.group(page)
+        toggle = Gtk.Switch(active=bool(video and self.values["live"]), sensitive=bool(video))
+        toggle.connect("notify::active", self.toggle_live_wallpaper)
+        self.row(media, "Live wallpaper", toggle, "Video plays muted behind your desktop icons.")
+        file_row = self.row(media, "Video", button("Choose…", lambda _: self.pick(True)),
+                            Path(video).name if video else "Select a local video file")
+        if native_wallpaper.available():
+            fit = self.choices(media, "Video fit", "video_fit", [
+                ("fill", "Fill screen"), ("fit", "Fit entire video"), ("stretch", "Stretch")
+            ])
+            fit.set_sensitive(bool(video))
+            fit.connect("changed", lambda *_: preview.queue_draw())
+        if video:
+            labels = file_row.get_children()[0]
+            resolution = self.value("")
+            resolution.get_style_context().add_class("settings-value")
+            labels.pack_start(resolution, False, False, 0)
+            Thread(target=self.load_wallpaper_video_preview,
+                   args=(video, preview, resolution, self.values["live"]), daemon=True).start()
         options = self.group(page)
         color = Gdk.RGBA()
         color.parse(self.values["background_color"])
@@ -442,13 +490,52 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
         pick_color.connect("color-set", self.change_color, preview)
         self.row(options, "Background color", pick_color)
         self.row(options, "Picture", button("Choose…", lambda _: self.pick(False)), Path(backdrop).name if backdrop else None)
-        self.choices(options, "Picture fit", "wallpaper_fit", [("5", "Fill"), ("4", "Fit"), ("3", "Stretch"), ("1", "Center")])
-        media = self.group(page)
-        video = self.values["video"]
-        self.row(media, "Video", button("Choose…", lambda _: self.pick(True)), Path(video).name if video else None)
-        if video or backdrop:
-            self.switch(media, "Live wallpaper", "live")
-        self.row(media, "Reset wallpaper", button("Reset", self.reset_wallpaper))
+        fit = self.choices(options, "Picture fit", "wallpaper_fit", [("5", "Fill"), ("4", "Fit"), ("3", "Stretch"), ("1", "Center")])
+        fit.connect("changed", lambda *_: preview.queue_draw())
+        self.row(options, "Reset wallpaper", button("Reset", self.reset_wallpaper))
+
+    def toggle_live_wallpaper(self, toggle, _):
+        self.values["live"] = toggle.get_active()
+        self.flush()
+        GLib.idle_add(self.refresh_wallpaper_page)
+
+    def load_wallpaper_video_preview(self, video, preview, resolution, live):
+        try:
+            dimensions = self.wallpaper_video_dimensions(video)
+            data = subprocess.run(
+                ["ffmpeg", "-nostdin", "-v", "error", "-threads", "2", "-i", video, "-frames:v", "1",
+                 "-vf", "scale=480:-2", "-f", "image2pipe", "-vcodec", "png", "-threads:v", "1", "pipe:1"],
+                check=True, capture_output=True, timeout=8,
+            ).stdout if live else b""
+        except (OSError, ValueError, subprocess.SubprocessError):
+            dimensions, data = None, b""
+        GLib.idle_add(self.apply_wallpaper_video_preview, preview, resolution, dimensions, data)
+
+    def apply_wallpaper_video_preview(self, preview, resolution, dimensions, data):
+        if preview is not self.wallpaper_preview_widget or not resolution.get_parent():
+            return GLib.SOURCE_REMOVE
+        resolution.set_text(f"{dimensions[0]} × {dimensions[1]}" if dimensions else "Video unavailable")
+        if data:
+            try:
+                loader = GdkPixbuf.PixbufLoader.new_with_type("png")
+                loader.write(data)
+                loader.close()
+                self.wallpaper_image = loader.get_pixbuf()
+                preview.queue_draw()
+            except GLib.Error:
+                pass
+        return GLib.SOURCE_REMOVE
+
+    def wallpaper_video_dimensions(self, path):
+        raw = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height",
+             "-of", "json", path],
+            check=True, capture_output=True, timeout=5,
+        ).stdout
+        streams = json.loads(raw).get("streams", [])
+        if not streams or not all(streams[0].get(axis) for axis in ("width", "height")):
+            raise ValueError("Choose a file containing a supported video track.")
+        return streams[0]["width"], streams[0]["height"]
 
     def change_color(self, widget, preview):
         color = widget.get_rgba()
@@ -464,21 +551,30 @@ class Settings(SystemPages, Gtk.ApplicationWindow):
         for mime in (["video/mp4", "video/webm", "video/quicktime", "video/x-matroska"] if video else ["image/png", "image/jpeg", "image/webp"]):
             rule.add_mime_type(mime)
         dialog.add_filter(rule)
-        if dialog.run() == Gtk.ResponseType.OK:
-            path = dialog.get_filename()
-            self.values["video" if video else "backdrop"] = path
-            if video:
-                self.values["live"] = True
-            else:
-                self.values["live"] = False
-            dialog.destroy()
-            self.flush()
-            self.refresh_wallpaper_page()
-        else:
-            dialog.destroy()
+        folder = Path.home() / "Wallpapers" if video else Path.home() / "Pictures"
+        if folder.is_dir():
+            dialog.set_current_folder(str(folder))
+        path = dialog.get_filename() if dialog.run() == Gtk.ResponseType.OK else None
+        dialog.destroy()
+        if not path:
+            return
+        if video:
+            try:
+                self.wallpaper_video_dimensions(path)
+            except (OSError, ValueError, subprocess.SubprocessError):
+                error = Gtk.MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.CLOSE,
+                                          text="Could not open this video",
+                                          secondary_text="Choose a local MP4, WebM, MOV, or MKV with a readable video track.")
+                error.run()
+                error.destroy()
+                return
+        self.values["video" if video else "backdrop"] = path
+        self.values["live"] = video
+        self.flush()
+        self.refresh_wallpaper_page()
 
     def reset_wallpaper(self, *_):
-        for key in ("backdrop", "background_color", "wallpaper_fit", "video", "live"):
+        for key in native_wallpaper.NATIVE_KEYS:
             self.values[key] = preferences.DEFAULTS[key]
         self.flush()
         self.refresh_wallpaper_page()

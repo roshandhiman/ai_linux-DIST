@@ -101,6 +101,8 @@ cp -a "$SOURCE/ai/agent/." "$ROOTFS/opt/ai/"
 cp -a "$SOURCE/ai/mineos_agent" "$ROOTFS/opt/ai/"
 find "$ROOTFS/opt/ai" -name __pycache__ -prune -exec rm -rf {} +
 cp -a "$SOURCE/desktop/." "$ROOTFS/opt/ai/desktop/"
+install -d "$ROOTFS/usr/share/plasma/wallpapers/org.mineos.video"
+cp -a "$SOURCE/desktop/native-wallpaper/." "$ROOTFS/usr/share/plasma/wallpapers/org.mineos.video/"
 install -m 755 "$SOURCE/ai/system/ai" "$ROOTFS/usr/local/bin/ai"
 ln -s /opt/ai/jarvis_gui.py "$ROOTFS/usr/local/bin/ai-hud"
 install -d "$ROOTFS/etc/mineos"

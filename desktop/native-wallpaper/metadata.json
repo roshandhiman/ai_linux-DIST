@@ -1,0 +1,11 @@
+{
+    "KPackageStructure": "Plasma/Wallpaper",
+    "KPlugin": {
+        "Id": "org.mineos.video",
+        "Name": "MineOS Live Wallpaper",
+        "Description": "Play a muted video as the desktop background",
+        "Icon": "video-x-generic",
+        "Version": "1.0"
+    },
+    "X-KDE-ParentApp": "org.kde.plasmashell"
+}

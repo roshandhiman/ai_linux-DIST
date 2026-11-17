@@ -20,3 +20,5 @@ dolphin
 ark
 kde-spectacle
 kio-extras
+qml6-module-qtmultimedia
+qml6-module-qtquick-dialogs

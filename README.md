@@ -13,6 +13,20 @@ Open the [latest MineOS GitHub release](https://github.com/roshandhiman/ai_linux
 
 Download all ISO parts and the SHA-256 checksum for your architecture. Follow the release notes to join the parts and verify the ISO. For development builds, see [GitHub Actions](https://github.com/roshandhiman/ai_linux-DIST/actions/workflows/build-iso.yml).
 
+## Update live wallpaper in place
+
+Open Terminal inside MineOS 1.0.4 or newer. If you already cloned this repository, run `git pull --ff-only` from that checkout and then run `bash scripts/update-wallpaper.sh`.
+
+For a fresh checkout:
+
+```bash
+git clone --branch main https://github.com/roshandhiman/ai_linux-DIST.git ~/mineos-source
+cd ~/mineos-source
+bash scripts/update-wallpaper.sh
+```
+
+Reopen **Settings → Wallpaper** and select your video. The updater keeps your existing files and saves a backup path in Terminal. A live ISO session needs persistent storage to retain the update across restarts.
+
 ## Update an existing MineOS desktop
 
 Open Terminal inside the running MineOS desktop (in your VM or on your PC). Use your normal account with sudo access.

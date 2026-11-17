@@ -7,6 +7,7 @@ import tempfile
 from pathlib import Path
 
 import glass_theme
+import native_wallpaper
 
 DESKTOP = Path(__file__).resolve().parent
 CONFIG = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
@@ -15,7 +16,7 @@ DOCK = "net.launchpad.plank.dock.settings:/net/launchpad/plank/docks/dock1/"
 DEFAULTS = {
     "appearance": "dark", "backdrop": str(DESKTOP / "assets" / "graphite.svg"), "background_color": "#171717",
     "ui_scale": "1",
-    "wallpaper_fit": "5", "video": "", "live": False,
+    "wallpaper_fit": "5", "video": "", "video_fit": "fill", "live": False,
     "dock_style": "mineos", "dock_size": 52, "dock_opacity": glass_theme.DOCK_REST_OPACITY, "dock_position": "bottom",
     "dock_hide": True, "dock_zoom": True, "dock_roundness": 19,
     "panel_opacity": 92, "clock_24h": True, "clock_seconds": False, "blur": True, "shadows": True, "animations": True,
@@ -221,7 +222,10 @@ def apply(values, old=None):
         xfce("xsettings", "/Gtk/CursorThemeSize", "int", 24 * scale)
     if old.get("appearance") != values["appearance"]:
         theme(values)
-    if any(old.get(key) != values[key] for key in ("backdrop", "background_color", "wallpaper_fit")):
+    if native_wallpaper.available():
+        if any(old.get(key) != values[key] for key in native_wallpaper.NATIVE_KEYS):
+            native_wallpaper.apply(values, old)
+    elif any(old.get(key) != values[key] for key in native_wallpaper.NATIVE_KEYS[:3]):
         wallpaper(values)
     if any(old.get(key) != value for key, value in values.items() if key.startswith("dock_") or key in ("appearance", "blur")):
         dock(values)

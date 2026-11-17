@@ -11,6 +11,7 @@ gi.require_version("Gdk", "3.0")
 gi.require_version("Gst", "1.0")
 from gi.repository import Gdk, GdkPixbuf, Gio, GLib, Gst, Gtk
 
+import native_wallpaper
 import preferences
 import rabbit_pet
 from wallpaper_cache import playback_copy
@@ -317,7 +318,7 @@ class DesktopCompanion(Gtk.Application):
         if values["pet"] and (not previous or not self.pet.motion or values["pet_size"] != previous["pet_size"]):
             self.pet.reposition(0)
         self.pet.queue_draw()
-        current = (values["live"], values["video"], values["backdrop"])
+        current = (values["live"] and not native_wallpaper.available(), values["video"], values["backdrop"])
         if current != self.last_wallpaper:
             self.last_wallpaper = current
             if self.prepare_timer:
