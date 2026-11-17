@@ -35,6 +35,7 @@ packages=(
     light-locker ffmpeg gir1.2-gtk-3.0 gir1.2-wnck-3.0 gir1.2-gstreamer-1.0 gstreamer1.0-gtk3
     gstreamer1.0-libav python3-cairo python3-gi-cairo python3-requests
     desktop-file-utils x11-xserver-utils x11-utils dconf-cli fonts-inter arc-theme papirus-icon-theme
+    gir1.2-atspi-2.0 xdotool tesseract-ocr tesseract-ocr-eng python3-pil
 )
 missing=()
 for package in "${packages[@]}"; do
@@ -65,9 +66,10 @@ done
 backup="$(mktemp -d "$state_dir/desktop-backup.XXXXXXXX")"
 sudo cp -a /opt/ai/desktop "$backup/desktop"
 mkdir -p "$backup/assistant" "$backup/config"
-for file in jarvis_gui.py artifacts.py research.py; do
+assistant_files=(jarvis_gui.py artifacts.py research.py screen_context.py desktop_actions.py mineos_agent/llm.py)
+for file in "${assistant_files[@]}"; do
     if [[ -f "/opt/ai/$file" ]]; then
-        cp -a "/opt/ai/$file" "$backup/assistant/"
+        install -D -m 644 "/opt/ai/$file" "$backup/assistant/$file"
     fi
 done
 for item in mineos plank tint2 picom gtk-3.0 xfce4 autostart; do
@@ -90,7 +92,8 @@ tar --exclude='__pycache__' --exclude='*.pyc' -C "$source_dir/desktop" -cf - . |
     sudo tar --no-same-owner -C "$stage" -xf -
 sudo find "$stage" -type d -exec chmod 755 {} +
 sudo chmod 755 "$stage/"*.sh
-sudo install -m 644 "$source_dir/ai/agent/"{artifacts,research}.py /opt/ai/
+sudo install -m 644 "$source_dir/ai/agent/"{artifacts,research,screen_context,desktop_actions}.py /opt/ai/
+sudo install -m 644 "$source_dir/ai/mineos_agent/llm.py" /opt/ai/mineos_agent/llm.py
 sudo install -m 755 "$source_dir/ai/agent/jarvis_gui.py" /opt/ai/jarvis_gui.py
 sudo mv -- /opt/ai/desktop "$stage.old"
 if ! sudo mv -- "$stage" /opt/ai/desktop; then
@@ -100,8 +103,14 @@ fi
 if ! bash /opt/ai/desktop/apply-theme.sh; then
     sudo mv -- /opt/ai/desktop "$stage"
     sudo mv -- "$stage.old" /opt/ai/desktop
-    for file in "$backup/assistant/"*; do
-        [[ -f "$file" ]] && sudo cp -a "$file" /opt/ai/
+    for file in "${assistant_files[@]}"; do
+        if [[ -f "$backup/assistant/$file" ]]; then
+            mode=644
+            [[ "$file" != jarvis_gui.py ]] || mode=755
+            sudo install -D -m "$mode" "$backup/assistant/$file" "/opt/ai/$file"
+        else
+            sudo rm -f -- "/opt/ai/$file"
+        fi
     done
     cp -a "$backup/config/." "$config_dir/"
     if [[ -d "$backup/applications" ]]; then

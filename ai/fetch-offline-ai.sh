@@ -6,6 +6,7 @@
 # Produces:
 #   <dir>/llama.cpp/   llama-server and its libraries (llama.cpp release b11571)
 #   <dir>/models/qwen2.5-1.5b-instruct-q4_k_m.gguf
+#   <dir>/models/screen-vision/      local screenshot-description weights
 #   <dir>/models/laya-multilingual/   the router's encoder checkpoint
 #   <dir>/laya-wheels/                its Python packages (torch CPU, laya, ...)
 #
@@ -83,6 +84,8 @@ python3 -m pip download --quiet --dest "$TEMP/laya-wheels" \
     --abi cp313 --abi abi3 --abi none "${PLATFORMS[@]}" \
     --extra-index-url https://download.pytorch.org/whl/cpu \
     -r "$(dirname -- "$(realpath -- "$0")")/laya-requirements.txt"
+
+bash "$(dirname -- "$(realpath -- "$0")")/fetch-screen-vision.sh" "$TEMP/models/screen-vision"
 
 mv -T "$TEMP" "$DEST"
 trap - EXIT

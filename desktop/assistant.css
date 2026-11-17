@@ -72,3 +72,13 @@ window.mineos-assistant {
     margin-right: 0;
 }
 .mineos-assistant .assistant-body { font-size: 11pt; }
+
+.mineos-assistant .assistant-context button {
+    border-radius: 9px;
+    padding: 4px 11px;
+}
+.mineos-assistant .assistant-context button.context-active {
+    background-image: none;
+    background-color: #c5b4fa;
+    color: #211839;
+}

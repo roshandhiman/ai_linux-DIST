@@ -15,11 +15,13 @@ and no fallback model: a silent retry loop is the failure mode to design
 against on a slow CPU, not to implement.
 """
 
+import ipaddress
 import json
 import re
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import urlsplit
 from dataclasses import dataclass
 from typing import Iterator, Protocol
 
@@ -50,6 +52,11 @@ class ChatModel(Protocol):
 _THINK = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
 @dataclass(slots=True)
 class OpenAIChat:
     """A chat model behind an OpenAI-compatible ``/chat/completions``."""
@@ -58,6 +65,20 @@ class OpenAIChat:
     #: Tokens the server reported for the last call, for the trace.
     last_usage: dict | None = None
     last_seconds: float = 0.0
+    loopback_only: bool = False
+
+    def _open(self, request):
+        if not self.loopback_only:
+            return urllib.request.urlopen(request, timeout=self.config.timeout)
+        try:
+            url = urlsplit(self.config.base_url)
+            local = url.scheme == "http" and not url.username and ipaddress.ip_address(url.hostname).is_loopback
+        except ValueError:
+            local = False
+        if not local:
+            raise LLMError("desktop context requires a local model on a numeric loopback address")
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
+        return opener.open(request, timeout=self.config.timeout)
 
     @property
     def model_id(self) -> str:
@@ -93,7 +114,7 @@ class OpenAIChat:
             payload["temperature"] = temperature
         request = self._request(payload)
         try:
-            with urllib.request.urlopen(request, timeout=self.config.timeout) as response:
+            with self._open(request) as response:
                 body = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
             raise LLMError(_http_message(exc, self.config.base_url)) from exc
@@ -132,7 +153,7 @@ class OpenAIChat:
         }
         request = self._request(payload)
         try:
-            response = urllib.request.urlopen(request, timeout=self.config.timeout)
+            response = self._open(request)
         except urllib.error.HTTPError as exc:
             raise LLMError(_http_message(exc, self.config.base_url)) from exc
         except (urllib.error.URLError, TimeoutError, OSError) as exc:

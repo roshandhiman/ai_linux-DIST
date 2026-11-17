@@ -210,6 +210,13 @@ if [[ -n "${MINEOS_AI_DIR:-}" ]]; then
     install -m 644 "$SOURCE/ai/system/mineos-llm.service" "$ROOTFS/etc/systemd/system/mineos-llm.service"
     chroot "$ROOTFS" systemctl enable mineos-llm.service
 
+    if [[ -d "$AI_DIR/models/screen-vision" ]]; then
+        install -D -m 644 "$AI_DIR/models/screen-vision/model.gguf" \
+            "$ROOTFS/usr/share/mineos/models/screen-vision/model.gguf"
+        install -D -m 644 "$AI_DIR/models/screen-vision/projector.gguf" \
+            "$ROOTFS/usr/share/mineos/models/screen-vision/projector.gguf"
+    fi
+
     # Tier one: the Laya router. Its Python packages are installed from the
     # wheels the fetch script pinned, with no index, so the build cannot pick
     # up anything else; its weights are a plain folder read offline.

@@ -116,7 +116,7 @@ ai/                  Everything AI-related, kept separate from the OS
   tests/               Unit tests for mineos_agent (fake model, no server needed)
   agent/               jarvis_gui.py (graphical Assistant), sentinel.py, research.py, older jarvis.py and tools/
   system/              llama.cpp and sentinel systemd units, `ai` launcher, agent.json, shell hook, ESP32 udev rule
-  fetch-offline-ai.sh  Downloads the pinned llama.cpp server, Qwen2.5 1.5B GGUF and Laya router, and verifies their checksums
+  fetch-offline-ai.sh  Downloads and verifies the pinned inference engine, offline language models, and screen vision model
   laya-requirements.txt  Exact Python package versions for the Laya router (installed into /opt/laya)
   download-model.sh    Downloads a GGUF model manually (not used by the build)
 docs/                desktop.md: desktop setup, dependencies and components
@@ -176,7 +176,7 @@ Apply the MineOS sign-in theme with `sudo bash branding/install-login.sh`. Light
 
 On a native Debian 13 ARM64 or AMD64 build machine, run `sudo bash scripts/build-iso.sh /absolute/path/to/MineOS.iso` (or `make iso ISO=/absolute/path/to/MineOS.iso`). The builder creates a separate temporary Debian root and uses the XFCE desktop and MineOS splash from this repository. Building an ISO can use several gigabytes of disk space and downloads packages from Debian.
 
-To embed the offline model, run `bash ai/fetch-offline-ai.sh /absolute/path/mineos-ai` first. It downloads llama.cpp release b11571, the Qwen2.5 1.5B Instruct Q4_K_M GGUF (about 1.1 GB) and the Laya multilingual checkpoint (about 0.7 GB), and checks every file against pinned SHA-256 sums. It also downloads the router's Python packages (CPU-only PyTorch, transformers, laya) at the exact versions in `ai/laya-requirements.txt`. Together they add roughly 2 GB to the ISO, and the VM needs about 6 GB of RAM to run both models. Then build with `MINEOS_AI_DIR=/absolute/path/mineos-ai`. Without it, the live desktop starts normally and `ai` still handles simple requests, but anything that needs the language model reports that the server is not running.
+To embed the offline model, run `bash ai/fetch-offline-ai.sh /absolute/path/mineos-ai` first. It downloads llama.cpp release b11571, the Qwen2.5 1.5B Instruct Q4_K_M GGUF (about 1.1 GB) and the Laya multilingual checkpoint (about 0.7 GB), and SmolVLM2 for on-device screenshot descriptions (about 235 MB). It checks every file against pinned SHA-256 sums. It also downloads the router's Python packages (CPU-only PyTorch, transformers, laya) at the exact versions in `ai/laya-requirements.txt`. Together they add roughly 2 GB to the ISO, and the VM needs about 6 GB of RAM to run both models. Then build with `MINEOS_AI_DIR=/absolute/path/mineos-ai`. Without it, the live desktop starts normally and `ai` still handles simple requests, but anything that needs the language model reports that the server is not running.
 
 - **ARM64** boots in an ARM64 UEFI VM, such as Parallels on Apple Silicon.
 - **AMD64** boots on 64-bit Intel or AMD PCs, including machines that normally run Windows, and in compatible x86-64 VMs. The image supports UEFI and legacy BIOS. UEFI requires firmware configuration that permits the unsigned live bootloader.

@@ -2,6 +2,7 @@
 import gi
 
 gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
 from gi.repository import Gtk, Gdk, Gio, GLib, Pango
 from pathlib import Path
 from urllib.parse import quote_plus
@@ -21,6 +22,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from mineos_agent.config import load_config  # noqa: E402
 from mineos_agent.llm import LLMError, OpenAIChat  # noqa: E402
 
+import desktop_actions
+import screen_context
+
 if DESKTOP.is_dir():
     sys.path.insert(0, str(DESKTOP))
     from companion_art import draw as draw_companion  # noqa: E402
@@ -32,6 +36,16 @@ MODE_DESCRIPTIONS = {
     "Web": "Sends this query to an online search provider.",
     "Team": "Plans, drafts, and reviews a response in three passes.",
 }
+
+
+SCREEN_REQUEST = re.compile(
+    r"\b(screenshot|my screen|on (?:the|this) screen|read (?:the )?screen)\b|\b(?:this|that) error\b|\bwhy (?:is|am) .{0,70}(?:error|failing)\b",
+    re.IGNORECASE,
+)
+VISUAL_REQUEST = re.compile(r"\b(image|photo|picture|diagram|chart|layout|describe)\b|what.{0,15}on my screen", re.IGNORECASE)
+SELECTION_REQUEST = re.compile(r"\b(selected|highlighted|selection)\b", re.IGNORECASE)
+NOTE_REQUEST = re.compile(r"\b(write|draft|make|create|take)\b.{0,45}\bnotes?\b(?!\.\w)", re.IGNORECASE)
+EDIT_REQUEST = re.compile(r"\b(fix|correct|rewrite|refactor|edit|replace|translate)\b", re.IGNORECASE)
 
 
 def current_model():
@@ -125,6 +139,11 @@ class AssistantWindow(Gtk.ApplicationWindow):
         self.set_position(Gtk.WindowPosition.CENTER)
         self.history = [{"role": "system", "content": SYSTEM_PROMPT}]
         self.busy = False
+        self.target = None
+        self.private_session = False
+        self.context = None
+        self.attachment = None
+        self.selection_timer = 0
         self.pending_message = None
         self.closed = False
         self.connect("destroy", self.mark_closed)
@@ -160,6 +179,19 @@ class AssistantWindow(Gtk.ApplicationWindow):
 
         footer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         footer.get_style_context().add_class("assistant-footer")
+        context_controls = Gtk.Box(spacing=6)
+        context_controls.get_style_context().add_class("assistant-context")
+        self.screen_button = Gtk.Button(label="Screen")
+        self.screen_button.set_tooltip_text("Read the visible monitor on send, on this device")
+        self.selection_button = Gtk.Button(label="Selection")
+        self.selection_button.set_tooltip_text("Read the original app’s highlighted text on send")
+        for button, source in ((self.screen_button, "screen"), (self.selection_button, "selection")):
+            button.connect("clicked", self.attach_context, source)
+            context_controls.pack_start(button, False, False, 0)
+        self.attachment_status = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        self.attachment_status.get_style_context().add_class("assistant-status")
+        context_controls.pack_start(self.attachment_status, True, True, 3)
+        footer.pack_start(context_controls, False, False, 0)
         composer = Gtk.Box(spacing=8)
         composer.get_style_context().add_class("assistant-composer")
         input_scroll = Gtk.ScrolledWindow(hexpand=True)
@@ -235,7 +267,10 @@ class AssistantWindow(Gtk.ApplicationWindow):
         self.entry.grab_focus()
 
     def mode_changed(self, *_):
-        self.progress.set_text(MODE_DESCRIPTIONS[self.mode.get_active_text()])
+        if self.private_session:
+            self.progress.set_text("Offline conversation · stays on this device")
+        else:
+            self.progress.set_text(MODE_DESCRIPTIONS[self.mode.get_active_text()])
 
     def composer_focus(self, _, __, composer, focused):
         style = composer.get_style_context()
@@ -271,6 +306,11 @@ class AssistantWindow(Gtk.ApplicationWindow):
         if self.busy:
             return
         self.history = self.history[:1]
+        self.private_session = False
+        self.context = None
+        self.clear_context()
+        self.mode.set_sensitive(True)
+        self.mode_changed()
         for child in self.messages.get_children():
             child.destroy()
         self.entry.get_buffer().set_text("")
@@ -390,19 +430,305 @@ class AssistantWindow(Gtk.ApplicationWindow):
         text = self.message_text()
         if self.busy or not text:
             return
+        mode = self.mode.get_active_text()
+        source = self.attachment
+        low = text.lower()
+        action = None
+        if re.search(r"\b(organi[sz]e|sort|tidy)\b.{0,30}\bdesktop\b", low):
+            action = "organize"
+        elif re.search(r"\b(clean|clear|remove|delete)\b.{0,30}\b(cache|thumbnails)\b", low):
+            action = "cache"
+        elif not source and SELECTION_REQUEST.search(text):
+            source = "selection"
+        elif not source and SCREEN_REQUEST.search(text):
+            source = "screen"
+        elif not source and not self.context and NOTE_REQUEST.search(text) and re.search(r"\b(this|that)\b", low):
+            source = "screen"
+
         self.busy = True
         self.entry.get_buffer().set_text("")
         self.entry.set_editable(False)
         self.clear_button.set_sensitive(False)
         self.mode.set_sensitive(False)
+        self.screen_button.set_sensitive(False)
+        self.selection_button.set_sensitive(False)
+        self.clear_context()
         self.spinner.show()
         self.spinner.start()
         self.progress.set_text("Working…")
         self.add_message("user", text)
         self.history.append({"role": "user", "content": text})
-        snapshot = [dict(message) for message in self.history]
-        mode = self.mode.get_active_text()
-        threading.Thread(target=self.worker, args=(text, snapshot, mode), daemon=True).start()
+        if action:
+            threading.Thread(target=self.prepare_plan, args=(action,), daemon=True).start()
+        elif source or self.private_session or NOTE_REQUEST.search(text):
+            self.begin_private_chat()
+            if source == "screen":
+                self.share_screen(text)
+            elif source == "selection":
+                self.read_selection(text)
+            else:
+                self.run_private(text, None)
+        else:
+            snapshot = [dict(message) for message in self.history]
+            threading.Thread(target=self.worker, args=(text, snapshot, mode), daemon=True).start()
+
+    def attach_context(self, _button, source):
+        self.attachment = None if self.attachment == source else source
+        self.show_attachment()
+
+    def show_attachment(self):
+        for button, source in ((self.screen_button, "screen"), (self.selection_button, "selection")):
+            style = button.get_style_context()
+            if self.attachment == source:
+                style.add_class("context-active")
+            else:
+                style.remove_class("context-active")
+        self.attachment_status.set_text({
+            "screen": "Screen will be read on send",
+            "selection": "Selection will be read on send",
+        }.get(self.attachment, ""))
+
+    def clear_context(self):
+        self.attachment = None
+        self.show_attachment()
+
+    def begin_private_chat(self):
+        self.private_session = True
+        self.mode.set_active(0)
+        self.mode.set_sensitive(False)
+
+    def run_private(self, question, source, captured=None):
+        snapshot = [{**message, "content": message["content"][:550]} for message in self.history[-5:-1]]
+        context = self.context
+        target = self.target
+        threading.Thread(target=self.private_worker, args=(question, source, captured, snapshot, context, target),
+                         daemon=True).start()
+
+    def read_selection(self, question):
+        clipboard = Gtk.Clipboard.get(Gdk.SELECTION_PRIMARY)
+        self.selection_timer = GLib.timeout_add_seconds(2, self.selection_unavailable)
+
+        def received(_clipboard, selected):
+            if self.closed or not self.selection_timer:
+                return
+            GLib.source_remove(self.selection_timer)
+            self.selection_timer = 0
+            if not selected or not selected.strip():
+                self.selection_unavailable()
+            elif len(selected) > screen_context.MAX_TEXT:
+                self.finish("Select a shorter passage or code block and try again.", [], None)
+            else:
+                self.run_private(question, "selection", selected)
+
+        clipboard.request_text(received)
+
+    def selection_unavailable(self):
+        self.selection_timer = 0
+        self.finish("I couldn’t read a selection. Select text in the original app before opening Mino, "
+                    "or paste it into this offline chat.", [], None)
+        return GLib.SOURCE_REMOVE
+
+    def share_screen(self, question):
+        self.hide()
+        GLib.timeout_add(250, self.read_screen, question)
+
+    def read_screen(self, question):
+        if self.closed:
+            return GLib.SOURCE_REMOVE
+        try:
+            captured = screen_context.capture(self.target)
+        except (RuntimeError, GLib.Error) as error:
+            captured = None
+            self.finish(str(error), [], None)
+        self.present()
+        self.entry.grab_focus()
+        if captured:
+            self.run_private(question, "screen", captured)
+        return GLib.SOURCE_REMOVE
+
+    def private_worker(self, question, source, captured, history, context, target):
+        from artifacts import unfence
+
+        reply = ""
+        suggestion = None
+        try:
+            if source == "screen":
+                GLib.idle_add(self.update_progress, "Reading screen text locally…")
+                try:
+                    screen_text = screen_context.readable_text(captured)
+                except (OSError, subprocess.SubprocessError):
+                    screen_text = ""
+                visual = ""
+                if not screen_text or VISUAL_REQUEST.search(question):
+                    GLib.idle_add(self.update_progress, "Looking at the screenshot locally…")
+                    try:
+                        visual = screen_context.visual_description(captured, question=question)
+                    except (OSError, subprocess.SubprocessError):
+                        pass
+                parts = []
+                if screen_text:
+                    parts.append(f"Recognized screen text:\n{screen_text[:3800]}")
+                if visual:
+                    parts.append(f"Local image description:\n{visual}")
+                context = ("screen capture", "\n\n".join(parts)) if parts else None
+                if not context:
+                    raise ValueError("I couldn’t read useful details from this screen. Open the relevant app "
+                                     "or select the error text and use Selection.")
+            elif source == "selection":
+                context = ("selected text", captured)
+
+            prompt = screen_context.context_message(question, context[1], context[0]) if context else question
+            model = screen_context.offline_chat()
+            note = bool(NOTE_REQUEST.search(question))
+            selected = context[1] if context and context[0] == "selected text" else None
+            edit = bool(selected is not None and EDIT_REQUEST.search(question))
+            GLib.idle_add(self.update_progress, "Answering on this device…")
+            if note or edit:
+                instruction = (
+                    "Draft the requested note in plain text. Return only the finished note."
+                    if note else
+                    "Return only the complete replacement for the selected text. Keep unrelated text, "
+                    "indentation, and surrounding style as supplied. Do not include an explanation."
+                )
+                model.config.max_tokens = 600
+                generated = unfence(model.complete(system=screen_context.SCREEN_PROMPT + " " + instruction, user=prompt))
+                if not generated:
+                    raise ValueError("The local model returned an empty draft.")
+                if edit:
+                    # The completion client strips outer whitespace. Restore the
+                    # selection's initial indentation and trailing newlines.
+                    indent = selected[:len(selected) - len(selected.lstrip(" \t"))]
+                    ending = selected[len(selected.rstrip("\n")):]
+                    generated = indent + generated + ending
+                reply = generated
+                suggestion = (generated, selected if edit else None, target, note)
+            else:
+                messages = [{"role": "system", "content": screen_context.SCREEN_PROMPT}, *history,
+                            {"role": "user", "content": prompt}]
+                pieces = []
+                for token in model.stream_messages(messages, max_tokens=420):
+                    pieces.append(token)
+                    GLib.idle_add(self.stream_reply, "".join(pieces))
+                reply = "".join(pieces).strip() or "The local model returned an empty response."
+        except (LLMError, OSError, ValueError) as error:
+            reply = f"Couldn’t complete this offline. {error}"
+        GLib.idle_add(self.finish_private, reply, context, suggestion)
+
+    def finish_private(self, reply, context, suggestion):
+        if self.closed:
+            return GLib.SOURCE_REMOVE
+        self.context = context
+        self.finish(reply, [], None)
+        if suggestion:
+            self.offer_text(*suggestion)
+        return GLib.SOURCE_REMOVE
+
+    def offer_text(self, text, selected, target, note):
+        from artifacts import materialize
+
+        row = Gtk.Box(spacing=8)
+        copy = Gtk.Button(label="Copy text")
+        copy.connect("clicked", lambda *_: Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(text, -1))
+        row.pack_start(copy, False, False, 0)
+        if note:
+            save = Gtk.Button(label="Save note…")
+            save.connect("clicked", self.save_artifact, materialize("MineOS Note.txt", "Documents", text))
+            row.pack_start(save, False, False, 0)
+        if desktop_actions.editor_pid(target):
+            apply = Gtk.Button(label="Insert into editor" if selected is None else "Replace selection in editor")
+            apply.connect("clicked", self.apply_editor, text, selected, target)
+            row.pack_start(apply, False, False, 0)
+        self.messages.pack_start(row, False, False, 0)
+        row.show_all()
+        GLib.idle_add(self.scroll_bottom)
+
+    def apply_editor(self, button, text, selected, target):
+        button.set_sensitive(False)
+
+        def apply():
+            try:
+                desktop_actions.update_editor(target, text, selected)
+                result = "Inserted text in the original editor." if selected is None else "Replaced the reviewed selection."
+                succeeded = True
+            except (OSError, ValueError, GLib.Error, subprocess.SubprocessError) as error:
+                result = f"Couldn’t update the editor. {error}"
+                succeeded = False
+            GLib.idle_add(self.editor_applied, button, succeeded, result)
+
+        threading.Thread(target=apply, daemon=True).start()
+
+    def editor_applied(self, button, succeeded, message):
+        if not self.closed:
+            self.add_message("assistant", message)
+            button.set_sensitive(not succeeded)
+        return GLib.SOURCE_REMOVE
+
+    def prepare_plan(self, action):
+        try:
+            if action == "organize":
+                changes = desktop_actions.organization_plan(desktop_actions.desktop_folder())
+                title = "Organize Desktop"
+                summary = f"{len(changes)} files can move into folders by type."
+            else:
+                cache = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
+                changes = desktop_actions.cache_plan(cache)
+                title = "Clear older thumbnails"
+                size = GLib.format_size(sum(change.size for change in changes))
+                summary = f"{len(changes)} generated thumbnails older than 7 days · {size}"
+            if not changes:
+                summary = "I found no eligible desktop files." if action == "organize" else "I found no eligible older thumbnails."
+        except (OSError, ValueError) as error:
+            changes = []
+            title = ""
+            summary = f"Couldn’t prepare the preview. {error}"
+        GLib.idle_add(self.offer_plan, title, summary, changes)
+
+    def offer_plan(self, title, summary, changes):
+        if self.closed:
+            return GLib.SOURCE_REMOVE
+        self.finish(summary, [], None)
+        if changes:
+            review = Gtk.Button(label="Review changes", halign=Gtk.Align.START)
+            review.connect("clicked", self.review_plan, title, summary, changes)
+            self.messages.pack_start(review, False, False, 0)
+            review.show()
+            GLib.idle_add(self.scroll_bottom)
+        return GLib.SOURCE_REMOVE
+
+    def review_plan(self, button, title, summary, changes):
+        dialog = Gtk.Dialog(title=title, transient_for=self, modal=True)
+        dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Apply changes", Gtk.ResponseType.OK)
+        dialog.set_default_response(Gtk.ResponseType.CANCEL)
+        dialog.set_default_size(600, 400)
+        box = dialog.get_content_area()
+        box.set_border_width(12)
+        box.pack_start(Gtk.Label(label=summary, xalign=0), False, False, 8)
+        view = Gtk.TextView(editable=False, wrap_mode=Gtk.WrapMode.WORD_CHAR)
+        entries = []
+        for change in changes:
+            if change.destination:
+                entries.append(f"{change.source.name}  →  {change.destination.parent.name}/")
+            else:
+                entries.append(f"{change.source.parent.name}/{change.source.name}  ·  {GLib.format_size(change.size)}")
+        view.get_buffer().set_text("\n".join(entries))
+        scroll = Gtk.ScrolledWindow()
+        scroll.add(view)
+        box.pack_start(scroll, True, True, 0)
+        dialog.show_all()
+        apply = dialog.run() == Gtk.ResponseType.OK
+        dialog.destroy()
+        if apply:
+            button.set_sensitive(False)
+
+            def execute():
+                done, skipped = desktop_actions.apply_plan(changes)
+                verb = "Moved" if changes[0].destination else "Removed"
+                result = f"{verb} {done} of {len(changes)} items."
+                if skipped:
+                    result += "\nSkipped: " + "\n".join(skipped[:6])
+                GLib.idle_add(self.editor_applied, button, True, result)
+
+            threading.Thread(target=execute, daemon=True).start()
 
     def worker(self, text, history, mode):
         import requests
@@ -477,7 +803,9 @@ class AssistantWindow(Gtk.ApplicationWindow):
             self.add_message("assistant", reply, sources)
         if artifact:
             self.offer_artifact(artifact)
-        self.mode.set_sensitive(True)
+        self.mode.set_sensitive(not self.private_session)
+        self.screen_button.set_sensitive(True)
+        self.selection_button.set_sensitive(True)
         self.mode_changed()
         self.spinner.stop()
         self.spinner.hide()
@@ -495,10 +823,14 @@ class Assistant(Gtk.Application):
         self.window = None
 
     def do_activate(self):
+        own_window = self.window.get_window() if self.window is not None else None
+        target = screen_context.active_target(own_window)
         if self.window is None:
             self.window = AssistantWindow(self)
             self.window.connect("destroy", self.reset)
             self.window.show_all()
+        if target:
+            self.window.target = target
         self.window.present()
         self.window.entry.grab_focus()
 
