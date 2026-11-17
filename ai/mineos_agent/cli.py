@@ -148,7 +148,8 @@ def show_status(config: AgentConfig, agent: Agent) -> int:
         up, said = laya.health()
         _out(f"  laya      {'OK' if up else 'NOT REACHABLE (rules still work)'}: {said}")
     _out(f"  sandbox   {agent.sandbox.describe()}")
-    _out(f"  memory    {config.memory_path} ({stats['facts']} facts, {stats['episodes']} past requests)")
+    _out(f"  memory    {config.memory_path} ({stats['facts']} facts, "
+         f"{stats['tasks']} tasks, {stats['episodes']} past requests)")
     _out(f"  context   {config.llm.context} tokens, {config.max_steps} steps x {config.max_attempts} tries")
     for warning in config.warnings:
         _out(_c("33", f"  warning   {warning}"))
@@ -160,6 +161,14 @@ def show_memory(agent: Agent) -> int:
     _out("What I remember:" if facts else "I don't remember anything yet. Try: remember that my name is Sam")
     for fact in facts:
         _out(f"  {fact}")
+    tasks = agent.memory.tasks(limit=5)
+    if tasks:
+        _out("\nTasks:")
+        for task in tasks:
+            mark = "unfinished - say 'continue'" if task.status == "open" else task.status
+            _out(f"  [{mark}] {task.request[:70]} ({len(task.steps)} step(s))")
+            for note in task.notes[-3:]:
+                _out(f"      noted: {note}")
     episodes = agent.memory.episodes(limit=5)
     if episodes:
         _out("\nRecent requests:")
@@ -173,6 +182,7 @@ _HELP = """Type what you want in plain words. Examples:
   what's using my disk space    search youtube for lofi music
   remember that my sister is Priya
   find my pdf files in downloads and tell me the biggest
+  continue                      pick up a task that ran out of steps
 Commands: /status  /memory  /forget <thing>  /clear  /trace  /quit"""
 
 

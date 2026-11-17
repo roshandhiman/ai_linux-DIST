@@ -141,6 +141,9 @@ class OsApi:
     #: turn on the first one, and says so itself: in testing, the model was
     #: told "the user declined" and still answered "I moved it to the Trash".
     declined: list[str] = field(default_factory=list)
+    #: The task this request is working on, set by the agent while it runs one.
+    #: ``mine.note`` pins findings to it; with no task there is nothing to pin to.
+    task: int | None = None
     app_dirs: tuple[Path, ...] = (
         Path("/usr/share/applications"), Path("/usr/local/share/applications"),
     )
@@ -437,6 +440,15 @@ class OsApi:
     @api("recall(query) -> list", "facts you stored that relate to the query")
     def recall(self, query: str) -> list[str]:
         return [str(f) for f in self.memory.recall(str(query))]
+
+    @api("note(text) -> str", "pin one short finding for this task so it stays in view on long tasks, e.g. mine.note('biggest pdf: ~/Downloads/a.pdf, 40 MB')")
+    def note(self, text: str) -> str:
+        if self.task is None:
+            raise ApiError("there is no task in progress to pin a note to")
+        try:
+            return self.memory.pin_note(self.task, str(text))
+        except ValueError as exc:
+            raise ApiError(str(exc)) from None
 
     @api("forget(name) -> str", "delete everything stored about a person or thing", effect=True)
     def forget(self, name: str) -> str:
