@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=MineOS Terminal
+GenericName=Terminal
+Exec=xfce4-terminal
+Icon=/opt/ai/desktop/assets/icons/terminal.svg
+Terminal=false
+Categories=System;TerminalEmulator;
+StartupWMClass=Xfce4-terminal

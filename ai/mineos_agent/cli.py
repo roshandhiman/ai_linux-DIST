@@ -177,6 +177,21 @@ def show_memory(agent: Agent) -> int:
     return 0
 
 
+def show_history(agent: Agent, before: int | None = None) -> int:
+    rows = agent.memory.history(before=before)
+    if not rows:
+        _out("No further requests in shared history.")
+        return 0
+    for identifier, _, request, answer, channel in rows:
+        _out(f"#{identifier} [{channel}] {request}")
+        if answer:
+            _out(answer)
+        _out()
+    if len(rows) == 15:
+        _out(f"Earlier requests: ai --history --before {rows[-1][0]}")
+    return 0
+
+
 _HELP = """Type what you want in plain words. Examples:
   open the browser              volume 40
   what's using my disk space    search youtube for lofi music
@@ -213,6 +228,11 @@ def repl(agent: Agent, trace: Trace, config: AgentConfig) -> int:
                 show_status(config, agent)
             elif command == "/memory":
                 show_memory(agent)
+            elif command == "/history":
+                if arg and not arg.isdecimal():
+                    _out("Usage: /history [before-id]")
+                else:
+                    show_history(agent, int(arg) if arg else None)
             elif command == "/forget" and arg:
                 _out(agent.api.forget(arg))
             elif command == "/clear":
@@ -237,6 +257,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("request", nargs="*", help="what you want done; omit for a session")
     parser.add_argument("--status", action="store_true", help="check the model server and setup")
     parser.add_argument("--memory", action="store_true", help="show what the assistant remembers")
+    parser.add_argument("--history", action="store_true", help="show shared IDE and Terminal history")
+    parser.add_argument("--before", type=int, metavar="ID", help="show history before the given request ID")
     parser.add_argument("--forget", metavar="THING", help="delete what it remembers about THING")
     parser.add_argument("-q", "--quiet", action="store_true", help="hide the step-by-step trace")
     parser.add_argument("--provider", choices=sorted(PRESETS),
@@ -258,6 +280,8 @@ def main(argv: list[str] | None = None) -> int:
             return show_status(config, agent)
         if args.memory:
             return show_memory(agent)
+        if args.history:
+            return show_history(agent, args.before)
         if args.forget:
             _out(agent.api.forget(args.forget))
             return 0

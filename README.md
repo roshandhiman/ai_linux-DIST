@@ -4,14 +4,14 @@ A Debian-based Linux desktop project with an offline AI assistant (llama.cpp ser
 
 The desktop uses XFCE/X11, Thunar, neutral light and dark GTK themes, a slim charcoal top panel, a compact translucent Plank dock, and still or live wallpaper. The assistant opens on demand; the desktop does not display service badges, promotional text, or a custom file-manager dashboard.
 
-## Download MineOS 1.0 Live ISO
+## Download the latest MineOS Live ISO
 
-Open the [MineOS 1.0 GitHub release](https://github.com/roshandhiman/ai_linux-DIST/releases/tag/v1.0.0) and choose the files for your system under **Assets**.
+Open the [latest MineOS GitHub release](https://github.com/roshandhiman/ai_linux-DIST/releases/latest) and choose the files for your system under **Assets**.
 
 - **ARM64** for Apple Silicon Macs running Parallels and other ARM64 UEFI VMs.
 - **AMD64 (x86-64)** for Intel and AMD PCs with UEFI or legacy BIOS.
 
-Download both ISO parts and the SHA-256 checksum for your architecture. Follow the release notes to join the parts and verify the ISO. For development builds, see [GitHub Actions](https://github.com/roshandhiman/ai_linux-DIST/actions/workflows/build-iso.yml).
+Download all ISO parts and the SHA-256 checksum for your architecture. Follow the release notes to join the parts and verify the ISO. For development builds, see [GitHub Actions](https://github.com/roshandhiman/ai_linux-DIST/actions/workflows/build-iso.yml).
 
 ## Update an existing MineOS desktop
 
@@ -38,6 +38,10 @@ The script installs any missing desktop dependencies, saves a backup, and applie
 On a system installed to disk, the update survives reboot. If you booted the old live ISO, the update only lasts for the current session unless you configured persistence for the system. To keep the new desktop with a live ISO, get the latest successful [Build MineOS ISOs run](https://github.com/roshandhiman/ai_linux-DIST/actions/workflows/build-iso.yml?query=branch%3Amain+is%3Asuccess), unzip the ARM64 or x86-64 artifact, and attach the new ISO to your VM.
 
 For development over SSH, `make live-desktop` uses `VM_HOST` to select a test VM. Desktop setup and dependencies are documented in [docs/desktop.md](docs/desktop.md).
+
+## MineOS IDE
+
+The Code - OSS editor includes a graphite theme and a coding assistant with local and hosted models. [Install MineOS IDE and open a project](ide/README.md). [See how the editor and Assistant work](misc/mineos-ide-architecture.svg).
 
 ## The terminal assistant: `ai`
 

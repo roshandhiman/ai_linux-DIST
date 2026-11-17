@@ -33,6 +33,7 @@ class SystemPages:
 
     def action(self, text, callback):
         widget = Gtk.Button(label=text)
+        widget.get_style_context().add_class("glass-control")
         widget.connect("clicked", callback)
         return widget
 
@@ -191,6 +192,7 @@ class SystemPages:
 
         check_button = self.action("Check Now", check)
         install = self.action("Install Updates", apply)
+        install.get_style_context().add_class("suggested-action")
         install.set_sensitive(False)
         controls = Gtk.Box(spacing=7)
         controls.add(check_button)
@@ -205,7 +207,11 @@ class SystemPages:
             bar.set_size_request(190, -1)
             self.row(group, "System volume" if path == "/" else "Home volume", bar,
                      f"{disk.used / 2**30:.1f} GiB used of {disk.total / 2**30:.1f} GiB")
-            self.row(group, "Available", self.value(f"{disk.free / 2**30:.1f} GiB"))
+            metrics = Gtk.Box(spacing=8, homogeneous=True)
+            metrics.get_style_context().add_class("metric-line")
+            for label, amount in (("Used", disk.used), ("Available", disk.free), ("Capacity", disk.total)):
+                metrics.pack_start(self.metric(label, f"{amount / 2**30:.1f} GiB"), True, True, 0)
+            group.pack_start(metrics, False, False, 0)
 
     def date_time(self, page):
         def load():

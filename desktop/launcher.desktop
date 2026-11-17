@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=Apps
-Exec=/opt/ai/desktop/launcher.sh
-Icon=/opt/ai/desktop/assets/icons/apps.svg
+Name=MineOS Applications
+Exec=/opt/ai/desktop/launcher.sh --search
+Icon=/opt/ai/desktop/assets/icons/mineos.svg
 Terminal=false
 NoDisplay=true
 StartupWMClass=MineOSApplications

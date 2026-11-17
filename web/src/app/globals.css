@@ -1,0 +1,117 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --background: #080708;
+  --foreground: #e4c9d7;
+  --color-smooth-500: #e2d5db;
+  --color-brand: #d3619d;
+}
+
+body {
+  margin: 0;
+  background: #030303;
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: #e4c9d7;
+  color: #100a0e;
+}
+
+.landing {
+  padding: 8px;
+  min-block-size: 100svh;
+}
+
+.landing-field {
+  block-size: max(450px, calc(100svh - 16px));
+  border-radius: 16px;
+  background: var(--background);
+  container-type: size;
+}
+
+.landing-wordmark {
+  position: absolute;
+  inset: 50% 0 auto;
+  translate: 0 -50%;
+  margin: 0;
+  text-align: center;
+  color: var(--foreground);
+  font-size: min(22cqw, 44cqh);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.landing-field:has(canvas) .landing-wordmark {
+  opacity: 0;
+}
+
+.landing-copy {
+  position: absolute;
+  inset: calc(50% + min(10.5cqw, 21cqh) + clamp(18px, 2.6cqh, 31px)) 0 auto;
+  display: grid;
+  justify-items: center;
+  gap: clamp(14px, 2.7cqh, 24px);
+  padding-inline: 16px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.landing-copy p {
+  margin: 0;
+  color: #ebdce4;
+  font-size: clamp(16px, 2.1cqw, 25px);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  text-shadow: 0 1px 10px var(--background), 0 0 18px var(--background);
+}
+
+.download {
+  display: inline-grid;
+  min-inline-size: 120px;
+  min-block-size: 44px;
+  padding: 0 20px;
+  place-items: center;
+  border: 1px solid #eddae4;
+  border-radius: 9px;
+  background: #e4c9d7;
+  color: #160d13;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  pointer-events: auto;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.download:hover {
+  border-color: #f8e6f0;
+  background: #f5dae8;
+}
+
+.download:focus-visible {
+  outline: 2px solid #f5dae8;
+  outline-offset: 5px;
+}
+
+@media (max-width: 560px) {
+  .landing {
+    padding: 5px;
+  }
+
+  .landing-field {
+    block-size: max(410px, calc(100svh - 10px));
+    border-radius: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .download {
+    transition: none;
+  }
+}

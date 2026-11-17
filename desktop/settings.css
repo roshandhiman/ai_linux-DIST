@@ -1,56 +1,48 @@
-.mineos-settings {
-    background-color: @mineos_surface;
-    color: @mineos_text;
+window.mineos-settings {
+    font-family: ${font}; font-size: 13px; border-top: none;
+    border-top-left-radius: 0; border-top-right-radius: 0;
 }
-.mineos-sidebar {
-    background-color: @mineos_nav;
-    border-right: 1px solid @mineos_line;
-}
+.mineos-settings decoration { border-radius: ${window_radius}; box-shadow: ${window_shadow}; }
+.mineos-sidebar { background-color: @glass_nav; margin: ${space} 0 ${space} ${space}; }
 .mineos-toolbar {
-    background-color: @mineos_surface;
-    border-bottom: 1px solid @mineos_line;
-    box-shadow: none;
-    padding: 6px 14px;
-    min-height: 40px;
+    background-image: none; background-color: @glass_surface; color: @glass_text;
+    border: 1px solid @glass_line; border-radius: ${window_radius} ${window_radius} 0 0;
+    box-shadow: none; padding: 6px 14px; min-height: 42px;
 }
 .mineos-toolbar .title { font-weight: 700; }
-.settings-navigation { padding: 4px 11px 14px; background-color: transparent; }
-.settings-navigation row { margin: 1px 0; border-radius: 9px; color: @mineos_text; }
-.settings-navigation row:hover { background-color: @mineos_hover; }
-.settings-navigation row:selected { background-color: @mineos_selected; color: @mineos_text; }
-.settings-account { padding: 4px 14px 12px; }
+.settings-navigation, .mineos-settings scrolledwindow viewport { background-color: transparent; }
+.mineos-settings label { color: @glass_text; }
+.settings-navigation { padding: 2px ${space} ${inset}; }
+.settings-navigation row { background: transparent; box-shadow: none; padding: 2px 5px; margin: 2px 0; }
+.settings-navigation row:selected { background-color: @glass_selected; color: @glass_text; box-shadow: inset 0 0 0 1px @glass_line; }
+.settings-account { padding: 3px 13px 13px; }
 .settings-account-name { font-weight: 700; font-size: 14px; }
-.settings-search { margin: 13px 12px 10px; border-radius: 22px; min-height: 36px; }
-.settings-section { font-size: 28px; font-weight: 700; }
-.settings-hero { padding: 0 0 2px; }
-.settings-hero .settings-icon { border-radius: 16px; padding: 12px; }
-.settings-icon { border-radius: 7px; background-color: @mineos_hover; color: @mineos_text; padding: 5px; }
-.settings-group {
-    border: 1px solid @mineos_line;
-    border-radius: 18px;
-    background-color: @mineos_card;
-    box-shadow: inset 0 1px alpha(#fff, .07);
-}
-.settings-row { padding: 16px 18px; color: @mineos_text; }
-.settings-group separator { background-image: none; background-color: @mineos_line; min-height: 1px; margin: 0 14px; }
-.settings-value { color: @mineos_muted; }
-.settings-link { border: 0; border-radius: 12px; background-image: none; background-color: transparent; box-shadow: none; padding: 0; }
-.settings-link:hover { background-color: @mineos_hover; }
-.settings-preview { border: 1px solid @mineos_line; border-radius: 18px; padding: 8px; background-color: @mineos_card; }
-.settings-swatch { padding: 9px; border-radius: 11px; }
-.settings-swatch.selected { border-color: @mineos_muted; }
+.settings-search { margin: 13px 10px 10px; }
+.settings-section { font-size: 29px; font-weight: 700; letter-spacing: -.6px; }
+.settings-hero { padding: ${inset}; }
+.settings-hero .settings-icon { padding: 10px; }
+.settings-icon { border-radius: 10px; padding: 5px; }
+.settings-icon.connect { color: @glass_blue; }
+.settings-icon.hardware { color: @glass_mint; }
+.settings-icon.personal { color: @glass_violet; }
+.settings-icon.audio { color: @glass_amber; }
+.settings-row { padding: 13px ${inset}; }
+.settings-group separator { background-image: none; background-color: @glass_line; min-height: 1px; margin: 0 ${inset}; }
+.settings-value { color: @glass_muted; font-size: 12px; }
+.settings-link { border: 1px solid transparent; background: transparent; box-shadow: none; padding: 0; }
+.settings-preview { padding: ${space}; }
+.settings-swatch { padding: 9px; border-radius: ${control_radius}; }
+.settings-swatch.selected { border-color: @glass_accent; }
 .settings-note { padding: 12px 2px; }
-
-.mineos-settings { font-family: Inter, sans-serif; font-size: 13px; }
-.settings-navigation row { padding: 3px 5px; }
-.settings-navigation row:selected { box-shadow: inset 0 0 0 1px @mineos_line; }
-.settings-section { letter-spacing: -0.6px; }
-.settings-value { font-size: 12px; }
-
-window.mineos-settings { background-color: @theme_bg_color; }
-window.mineos-settings.mineos-translucent {
-    background-color: @mineos_surface;
-    background-image: linear-gradient(155deg, alpha(#fff, .12), transparent 65%);
-}
-.mineos-settings .mineos-toolbar { background-color: transparent; }
-.mineos-settings scrolledwindow viewport { background-color: transparent; }
+.mineos-settings button.suggested-action { background: @glass_accent_fill; color: @glass_accent; }
+.mineos-settings button.destructive-action { background: @glass_danger_fill; color: @glass_danger; }
+.mineos-settings switch { background: @glass_control; border: 1px solid @glass_line; border-radius: ${pill_radius}; min-width: 44px; min-height: 24px; }
+.mineos-settings switch:checked { background: @glass_accent_fill; border-color: @glass_accent; }
+.mineos-settings switch slider { background: @glass_text; border: none; border-radius: ${pill_radius}; min-width: 18px; min-height: 18px; margin: 2px; }
+.mineos-settings scale trough { background: @glass_control; border-radius: ${pill_radius}; min-height: 6px; }
+.mineos-settings scale highlight { background: @glass_accent; border-radius: ${pill_radius}; }
+.mineos-settings scale slider { background: @glass_text; border: 1px solid @glass_line; border-radius: ${pill_radius}; min-width: 14px; min-height: 14px; }
+.metric-line { padding: 0 ${inset} ${inset}; }
+.metric-chip { background: @glass_control; border: 1px solid @glass_line; border-radius: ${control_radius}; padding: ${space}; }
+.metric-label { color: @glass_muted; font-size: 11px; }
+.metric-value { color: @glass_text; font-weight: 700; }

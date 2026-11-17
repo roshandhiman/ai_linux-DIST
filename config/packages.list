@@ -36,6 +36,7 @@ open-vm-tools-desktop
 xorg
 xserver-xorg
 lightdm
+light-locker
 lightdm-gtk-greeter
 xfce4
 xfce4-terminal
@@ -46,6 +47,7 @@ file-roller
 firefox-esr
 picom
 plank
+x11-utils
 tint2
 rofi
 arc-theme
@@ -70,6 +72,7 @@ python3-requests
 python3-cairo
 python3-gi-cairo
 gir1.2-gtk-3.0
+gir1.2-wnck-3.0
 gir1.2-gstreamer-1.0
 gstreamer1.0-gtk3
 gstreamer1.0-libav

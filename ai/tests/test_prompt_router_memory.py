@@ -108,6 +108,17 @@ class MemoryTests(unittest.TestCase):
     def setUp(self):
         self.memory = GraphMemory(":memory:")
 
+    def test_shared_history_preserves_new_turns_and_pages_legacy_rows(self):
+        self.memory._db.execute(
+            "INSERT INTO episodes(at, request, answer, outcome) VALUES (1, 'old', 'summary', 'ok')"
+        )
+        reply = "class Example:\n    pass\n" + "x" * 350
+        self.memory.log_episode("Update the example", reply, "ide", "ide")
+        first = self.memory.history(limit=1)
+        self.assertEqual(first[0][2:], ("Update the example", reply, "ide"))
+        older = self.memory.history(before=first[0][0])
+        self.assertEqual(older[0][2:], ("old", "summary", "terminal"))
+
     def test_one_hop_recall(self):
         self.memory.remember("user", "sister", "priya")
         self.memory.remember("priya", "lives in", "pune")

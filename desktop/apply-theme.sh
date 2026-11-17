@@ -4,6 +4,9 @@ export DISPLAY="${DISPLAY:-:0}"
 export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=/run/user/$(id -u)/bus}"
 DESKTOP_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "$DESKTOP_DIR/session-processes.sh"
+if ! python3 "$DESKTOP_DIR/close_shell_windows.py"; then
+    printf 'Close and reopen Settings and Applications to load the updated theme.\n' >&2
+fi
 CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}"
 DATA="${XDG_DATA_HOME:-$HOME/.local/share}"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/mineos"
@@ -21,7 +24,6 @@ Name=Assistant
 Hidden=true
 ENTRY
 cp "$DESKTOP_DIR/tint2rc" "$CONFIG/tint2/tint2rc"
-cp "$DESKTOP_DIR/picom.conf" "$CONFIG/picom/picom.conf"
 cp "$DESKTOP_DIR/ai.desktop" "$DATA/applications/org.mineos.Assistant.desktop"
 cat > "$DATA/applications/org.mineos.Trash.desktop" <<'ENTRY'
 [Desktop Entry]
@@ -92,17 +94,6 @@ touch "$BOOKMARKS"
 if ! grep -q '^computer:///' "$BOOKMARKS"; then
     printf 'computer:/// This PC\n' >> "$BOOKMARKS"
 fi
-cat > "$CONFIG/xfce4/terminal/terminalrc" <<'TERMINAL'
-[Configuration]
-FontName=DejaVu Sans Mono 10
-MiscMenubarDefault=FALSE
-MiscToolbarDefault=FALSE
-MiscBordersDefault=TRUE
-ColorForeground=#e9e9e9
-ColorBackground=#252525
-ColorCursor=#ffffff
-BackgroundMode=TERMINAL_BACKGROUND_SOLID
-TERMINAL
 cat > "$CONFIG/autostart/picom.desktop" <<'ENTRY'
 [Desktop Entry]
 Type=Application
@@ -124,6 +115,7 @@ session_stop -f '^(/usr/bin/)?python3 .*/companion.py$'
 session_stop -x tint2
 session_stop -x picom
 session_stop -x plank
+session_stop -f '^(/usr/bin/)?python3 .*/dock_spacing.py '
 sleep 0.3
 "$DESKTOP_DIR/launch-session.sh"
 printf 'Desktop settings applied.\n'

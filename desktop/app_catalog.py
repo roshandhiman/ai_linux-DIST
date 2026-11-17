@@ -15,12 +15,12 @@ APPS = DATA / "applications"
 DOCK_SHORTCUT = "mineos-apps.dockitem"
 
 CUSTOM_APPS = {
-    "thunar.desktop": ("Files", "files"),
-    "firefox-esr.desktop": ("Firefox", "browser"),
-    "xfce4-terminal.desktop": ("Terminal", "terminal"),
-    "org.xfce.mousepad.desktop": ("Text Editor", "editor"),
-    "xfce4-taskmanager.desktop": ("Task Manager", "monitor"),
-    "org.gnome.SystemMonitor.desktop": ("System Monitor", "monitor"),
+    "thunar.desktop": "Files",
+    "firefox-esr.desktop": "Firefox",
+    "xfce4-terminal.desktop": "Terminal",
+    "org.xfce.mousepad.desktop": "Text Editor",
+    "xfce4-taskmanager.desktop": "Task Manager",
+    "org.gnome.SystemMonitor.desktop": "System Monitor",
 }
 FAVORITES = (
     "thunar.dockitem", DOCK_SHORTCUT, "firefox-esr.dockitem", "xfce4-terminal.dockitem",
@@ -64,7 +64,7 @@ def installed_apps():
         app_id = info.get_id()
         if app_id in PANEL_ROUTES or app_id in PRIVATE_LAUNCHERS:
             continue
-        name = "Firefox" if app_id == "firefox-esr.desktop" else CUSTOM_APPS.get(app_id, (info.get_display_name(), ""))[0]
+        name = CUSTOM_APPS.get(app_id, info.get_display_name())
         categories = set((info.get_categories() or "").split(";"))
         group = next((title for title, tags in GROUPS if tags & categories), "Other")
         search = " ".join([name, info.get_display_name(), info.get_generic_name() or "",
@@ -92,7 +92,7 @@ def pinned(settings, apps):
 
 def set_up_dock(defaults=False):
     settings = Gio.Settings.new_with_path("net.launchpad.plank.dock.settings", "/net/launchpad/plank/docks/dock1/")
-    for app_id, (name, icon) in CUSTOM_APPS.items():
+    for app_id, name in CUSTOM_APPS.items():
         try:
             app = Gio.DesktopAppInfo.new(app_id)
         except TypeError:
@@ -113,7 +113,6 @@ def set_up_dock(defaults=False):
             if packaged:
                 entry.load_from_file(str(packaged), GLib.KeyFileFlags.KEEP_TRANSLATIONS | GLib.KeyFileFlags.KEEP_COMMENTS)
         entry.set_string("Desktop Entry", "Name", name)
-        entry.set_string("Desktop Entry", "Icon", str(ASSETS / f"{icon}.svg"))
         entry.set_boolean("Desktop Entry", "X-MineOS-Icon", True)
         preferences.write(desktop_file, entry.to_data()[0])
         if app_id in ("thunar.desktop", "firefox-esr.desktop", "xfce4-terminal.desktop", "org.xfce.mousepad.desktop"):

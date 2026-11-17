@@ -1,0 +1,13 @@
+[General]
+ColorScheme=BreezeLight
+font=Inter,10
+menuFont=Inter,10
+smallestReadableFont=Inter,9
+toolBarFont=Inter,10
+fixed=DejaVu Sans Mono,10
+
+[WM]
+activeFont=Inter,10
+
+[Icons]
+Theme=breeze
