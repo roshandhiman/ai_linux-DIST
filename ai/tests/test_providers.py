@@ -18,7 +18,7 @@ from mineos_agent.providers import (PRESETS, AnthropicMessages, OpenAIResponses,
 
 
 class FakeProvider:
-    """Serves scripted (status, body) replies and records each request."""
+    """Serves scripted (status, body[, headers]) replies and records each request."""
 
     def __init__(self, replies):
         self.replies = list(replies)
@@ -30,11 +30,13 @@ class FakeProvider:
                 outer.seen.append({"method": self.command, "path": self.path,
                                    "headers": {k.lower(): v for k, v in self.headers.items()},
                                    "body": payload})
-                status, body = outer.replies.pop(0)
+                status, body, *headers = outer.replies.pop(0)
                 data = json.dumps(body).encode()
                 self.send_response(status)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(data)))
+                for name, value in (headers[0] if headers else {}).items():
+                    self.send_header(name, value)
                 self.end_headers()
                 self.wfile.write(data)
 
