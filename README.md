@@ -52,6 +52,38 @@ System defaults are in `/etc/mineos/agent.json`. User settings in `~/.config/min
 
 The **MineOS IDE** is based on Code - OSS and supports local and hosted models for coding assistance and diff review. [IDE setup](ide/README.md) · [Desktop components](docs/desktop.md)
 
+### MineOS Code
+
+Run `ai code` from a project folder. The CLI uses the pinned
+[Freebuff direct-provider agent runtime](https://github.com/CodebuffAI/freebuff/tree/91029df68d3cc3b4013091374495a25ee0c6d650/sdk)
+with MineOS project tools and provider settings. It can find and read files,
+create files, preview edits as diffs, move files to Trash, create a Python
+virtual environment or a new `.env`, and run project commands. Writes and
+commands ask for terminal approval.
+
+| Command | What it does |
+| --- | --- |
+| `/providers` | List providers and key status |
+| `/model auto` | Use Z.ai, then Groq, custom providers, and the local model |
+| `/model local` | Use the on-device model only |
+| `/model groq` | Use a specific hosted provider |
+| `/apiadd` | Add an HTTPS OpenAI-compatible provider with hidden key entry |
+| `/apiremove NAME` | Remove a custom provider |
+| `/resume` | Continue the session in this project and model mode |
+| `/new` | Clear the current session |
+
+Existing Z.ai and Groq keys load from the environment or MineOS Code’s private
+`code.env`. Keys added in the CLI live in the user's private
+`code-providers.json` under `~/.config/mineos/`. Provider requests include the
+prompt and tool results relevant to the task. The on-device mode keeps these
+requests on the machine. Automatic failover retries the pending model request
+and preserves completed tool calls.
+
+To build the runtime, install Bun 1.3.14 and run
+`scripts/build-code-engine.sh arm64` or `scripts/build-code-engine.sh amd64`.
+The desktop updater and image builder install the matching binary from
+`build/code/` when it is present. A checkout without the binary still has the Python coding agent.
+
 ## Development
 
 | Path | Purpose |
