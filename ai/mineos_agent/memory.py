@@ -79,6 +79,11 @@ CREATE TABLE IF NOT EXISTS episodes (
     outcome TEXT NOT NULL,
     route   TEXT NOT NULL DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS transcripts (
+    episode_id INTEGER PRIMARY KEY REFERENCES episodes(id) ON DELETE CASCADE,
+    request    TEXT NOT NULL,
+    answer     TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS tasks (
     id      INTEGER PRIMARY KEY,
     started REAL NOT NULL,
@@ -171,6 +176,11 @@ _STATUS_WORDS: Final[dict[str, str]] = {
     "failed": "did not work out",
     "expired": "unfinished and old",
 }
+
+
+def _transcript(text: str) -> str:
+    """Keep formatting for display while excluding terminal control characters."""
+    return re.sub(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]", "", str(text)[:100_000])
 
 
 def _label(text: str, limit: int) -> str:
