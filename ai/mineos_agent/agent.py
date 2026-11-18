@@ -28,6 +28,7 @@ import json
 import re
 import sqlite3
 import time
+import ast
 from collections import Counter
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
@@ -124,6 +125,22 @@ _TASK_STATUS = {
     Outcome.ANSWERED: "done",
     Outcome.DECLINED: "declined",
 }
+
+
+def _show_bare_tool_result(source: str) -> str:
+    """Keep a lone mine.* tool result visible even if the model omitted print."""
+    try:
+        body = ast.parse(source).body
+    except SyntaxError:
+        return source
+    if not body or not isinstance(body[-1], ast.Expr):
+        return source
+    expr = body[-1].value
+    if (isinstance(expr, ast.Call) and isinstance(expr.func, ast.Attribute)
+            and isinstance(expr.func.value, ast.Name) and expr.func.value.id == "mine"):
+        body[-1].value = ast.Call(func=ast.Name(id="print", ctx=ast.Load()), args=[expr], keywords=[])
+        return ast.unparse(ast.Module(body=body, type_ignores=[]))
+    return source
 
 
 def _silent(kind: str, text: str) -> None:
@@ -269,8 +286,9 @@ class Agent:
 
         def done(outcome: Outcome, answer: str) -> Turn:
             had_steps = bool(steps) or bool(earlier)
-            self._close_task(task, outcome, had_steps)
-            if had_steps and task is not None:
+            can_resume = had_steps or (route.intent == "CODE" and outcome is Outcome.OFFLINE)
+            self._close_task(task, outcome, can_resume)
+            if can_resume and task is not None:
                 if outcome is Outcome.EXHAUSTED:
                     answer += " Say 'continue' and I'll pick it up where I left off."
                 elif outcome is Outcome.OFFLINE:
@@ -319,7 +337,7 @@ class Agent:
                     recent=self.recent, failure=failure, budget=self._budget(),
                     today=datetime.now().strftime("%A %d %B %Y, %H:%M"),
                     earlier=earlier, notes=pinned(), step_offset=offset,
-                    resumed=resume is not None,
+                    resumed=resume is not None, preserve_layout=route.intent == "CODE",
                 )
                 peak = max(peak, estimate_tokens(self._system) + estimate_tokens(window))
                 self.on_event("think", f"step {len(steps) + 1}, try {attempt}")
@@ -363,7 +381,10 @@ class Agent:
                     continue
 
                 assert isinstance(decision, Code)
-                decision = Code(drop_unused_imports(decision.source))
+                source = drop_unused_imports(decision.source)
+                if route.intent == "CODE":
+                    source = _show_bare_tool_result(source)
+                decision = Code(source)
                 if steps and decision.source.strip() == steps[-1].code.strip():
                     # Escalate: stop offering code, ask only for the answer.
                     failure = Failure(
