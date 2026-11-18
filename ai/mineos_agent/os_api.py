@@ -32,7 +32,7 @@ import urllib.parse
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Final
+from typing import Any, Callable, ClassVar, Final, Iterable
 
 from .memory import GraphMemory
 
@@ -148,25 +148,28 @@ class OsApi:
         Path("/usr/share/applications"), Path("/usr/local/share/applications"),
     )
 
+    folder_aliases: ClassVar[dict[str, str]] = FOLDERS
+    command_env: dict[str, str] | None = None
+
     # -- registry ---------------------------------------------------------
 
     @staticmethod
     def functions() -> list[ApiFunction]:
         return list(_API)
 
-    @staticmethod
-    def names() -> list[str]:
-        return [f.name for f in _API]
+    @classmethod
+    def names(cls) -> list[str]:
+        return [f.name for f in cls.functions()]
 
-    @staticmethod
-    def changed_something(calls: list[str]) -> bool:
+    @classmethod
+    def changed_something(cls, calls: list[str]) -> bool:
         """Whether any of these (successful) calls had a visible effect."""
-        effects = {f.name for f in _API if f.effect}
+        effects = {f.name for f in cls.functions() if f.effect}
         return any(name in effects for name in calls)
 
     def dispatch(self, name: str, args: list, kwargs: dict) -> tuple[bool, object]:
         """The only entry point from the sandbox. Never raises."""
-        spec = next((f for f in _API if f.name == name), None)
+        spec = next((f for f in self.functions() if f.name == name), None)
         if spec is None:
             return False, f"there is no mine.{name}; see the API list"
         try:
@@ -194,8 +197,8 @@ class OsApi:
 
     def _path(self, path: str, *, must_exist: bool = True) -> Path:
         text = str(path).strip()
-        if text.lower() in FOLDERS:
-            text = "~/" + FOLDERS[text.lower()]
+        if text.lower() in self.folder_aliases:
+            text = "~/" + self.folder_aliases[text.lower()]
         if text in ("~", ""):
             candidate = self.home
         elif text.startswith("~/"):
@@ -526,7 +529,7 @@ class OsApi:
         self._approve(f"run: {shlex.join(argv)}", "")
         try:
             result = subprocess.run(argv, capture_output=True, text=True, timeout=60,
-                                    cwd=self.home, stdin=subprocess.DEVNULL,
+                                    cwd=self.home, env=self.command_env, stdin=subprocess.DEVNULL,
                                     encoding="utf-8", errors="replace")
         except subprocess.TimeoutExpired:
             raise ApiError("the command ran for over 60 seconds and was stopped") from None
@@ -662,10 +665,10 @@ def system_status(home: Path) -> dict[str, Any]:
     return status
 
 
-def api_reference() -> str:
+def api_reference(specs: Iterable[ApiFunction] = _API) -> str:
     """The API as the model reads it. Built from the registry, so it can't drift."""
     lines = []
-    for spec in _API:
+    for spec in specs:
         mark = " [asks user]" if spec.gated else ""
         lines.append(f"  mine.{spec.signature}{mark}: {spec.doc}")
     return "\n".join(lines)
