@@ -1,6 +1,7 @@
 """The ``ai`` command.
 
     ai                          interactive session
+    ai code                     workspace coding session
     ai "open the browser"       one request, then exit
     ai --status                 is the model up, which router, which sandbox
     ai --memory                 what the assistant remembers about you
@@ -15,16 +16,19 @@ printed, and the cost. ``--quiet`` hides it for normal use.
 import argparse
 import os
 import sys
+from functools import partial
+from pathlib import Path
 
 from . import __version__
 from .agent import Agent, Outcome, Turn
+from .coding import CodingProviders, build_coding_agent, project_root
 from .config import AgentConfig, load_config
 from .memory import GraphMemory
 from .os_api import OsApi
 from .providers import PRESETS, build_model, check_health, describe
 from .router import HybridRouter, LayaRouter
 from .sandbox import Sandbox
-from .text import fold_ascii
+from .text import fold_ascii, quote_block
 
 _COLOR = sys.stdout.isatty() and "NO_COLOR" not in os.environ and os.name != "nt"
 
@@ -60,6 +64,9 @@ class Trace:
             sys.stdout.write(fold_ascii(text))
             sys.stdout.flush()
             return
+        if kind == "provider":
+            _out(_c("33", f"  ~ {text}"))
+            return
         if not self.enabled:
             return
         if kind == "route":
@@ -76,14 +83,19 @@ class Trace:
             _out(_c("33", f"  ~ retrying: {text}"))
 
 
-def _approver(action: str, detail: str) -> bool:
+def _approver(action: str, detail: str, *, full_detail: bool = False) -> bool:
     """Ask on the terminal. No terminal means no."""
     if not sys.stdin.isatty():
         _out(_c("33", f"  ! needs your OK, but this is not an interactive terminal: {action}"))
         return False
     _out(_c("1;33", f"\n  The assistant wants to: {action}"))
     if detail:
-        _out(_indent(detail, ">", 8))
+        if full_detail:
+            sys.stdout.write(quote_block(detail, limit=1_000_000, max_lines=200_001,
+                                         preserve_layout=True) + "\n")
+            sys.stdout.flush()
+        else:
+            _out(_indent(detail, ">", 8))
     try:
         answer = input("  Allow this? [y/N] ").strip().lower()
     except (EOFError, KeyboardInterrupt):
@@ -201,18 +213,31 @@ _HELP = """Type what you want in plain words. Examples:
 Commands: /status  /memory  /forget <thing>  /clear  /trace  /quit"""
 
 
-def repl(agent: Agent, trace: Trace, config: AgentConfig) -> int:
+_CODING_HELP = """Ask MineOS Code to inspect the project, make a change, or run tests.
+  Add input validation and test the error cases
+  Review the authentication changes
+  continue   resume the latest unfinished task in this project
+Commands: /status  /memory  /history  /clear  /trace  /quit"""
+
+
+def repl(agent: Agent, trace: Trace, config: AgentConfig, *,
+         coding: CodingProviders | None = None) -> int:
     try:
         import readline  # noqa: F401 - line editing and history where available
     except ImportError:
         pass
-    ok, detail = check_health(agent.config.llm, timeout=2)
-    _out(_c("1", "MineOS assistant") + "  (type /help for examples, /quit to leave)")
-    if not ok:
-        _out(_c("33", f"  note: {detail}. Simple commands still work."))
+    help_text = _CODING_HELP if coding else _HELP
+    title = f"MineOS Code · {config.home}" if coding else "MineOS assistant"
+    _out(_c("1", title) + "  (type /help for examples, /quit to leave)")
+    if coding:
+        _coding_status(config.home, coding)
+    else:
+        ok, detail = check_health(agent.config.llm, timeout=2)
+        if not ok:
+            _out(_c("33", f"  note: {detail}. Simple commands still work."))
     while True:
         try:
-            line = input(_c("1;35", "mine> ")).strip()
+            line = input(_c("1;35", "code> " if coding else "mine> ")).strip()
         except (EOFError, KeyboardInterrupt):
             _out()
             return 0
@@ -223,9 +248,12 @@ def repl(agent: Agent, trace: Trace, config: AgentConfig) -> int:
             if command in ("/quit", "/exit", "/q"):
                 return 0
             if command == "/help":
-                _out(_HELP)
+                _out(help_text)
             elif command == "/status":
-                show_status(config, agent)
+                if coding:
+                    _coding_status(config.home, coding)
+                else:
+                    show_status(config, agent)
             elif command == "/memory":
                 show_memory(agent)
             elif command == "/history":
@@ -242,7 +270,7 @@ def repl(agent: Agent, trace: Trace, config: AgentConfig) -> int:
                 trace.enabled = not trace.enabled
                 _out(f"Trace {'on' if trace.enabled else 'off'}.")
             else:
-                _out("Unknown command. " + _HELP.splitlines()[-1])
+                _out("Unknown command. " + help_text.splitlines()[-1])
             continue
         try:
             turn = agent.turn(line)
@@ -252,8 +280,56 @@ def repl(agent: Agent, trace: Trace, config: AgentConfig) -> int:
         _show_turn(turn, trace)
 
 
+def _coding_status(workspace: Path, providers: CodingProviders) -> int:
+    _out(f"  Project: {workspace}")
+    for line in providers.status():
+        _out(f"  {line}")
+    return 0 if any(providers.usable(model) for model in providers.models) else 1
+
+
+def _code(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(prog="ai code", description="The MineOS coding agent.")
+    parser.add_argument("request", nargs="*", help="coding request, or omit for a session")
+    parser.add_argument("--status", action="store_true", help="show project and provider key status")
+    parser.add_argument("-q", "--quiet", action="store_true", help="hide the step-by-step trace")
+    parser.add_argument("--local", action="store_true", help="use only the on-device model")
+    from .code_session import ENGINE, run_session
+
+    args = parser.parse_args(argv)
+    has_engine = ENGINE.is_file() and os.access(ENGINE, os.X_OK)
+    trace = Trace(enabled=not args.quiet and not has_engine)
+    workspace = project_root(Path.cwd())
+    try:
+        providers = CodingProviders.from_environment(trace, include_local=True)
+    except (OSError, ValueError) as exc:
+        _out(str(exc))
+        return 1
+    if args.local:
+        providers.selection = "local"
+    if args.status:
+        return _coding_status(workspace, providers)
+
+    agent = build_coding_agent(workspace, providers, trace=trace,
+                               approver=partial(_approver, full_detail=True))
+    try:
+        if has_engine:
+            return run_session(agent, " ".join(args.request), quiet=args.quiet)
+        if not args.request:
+            return repl(agent, trace, agent.config, coding=providers)
+        turn = agent.turn(" ".join(args.request))
+        _show_turn(turn, trace)
+        return 0 if turn.ok else 1
+    finally:
+        agent.memory.close()
+
+
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="ai", description="The MineOS assistant.")
+    argv = sys.argv[1:] if argv is None else argv
+    if argv[:1] == ["code"]:
+        return _code(argv[1:])
+    parser = argparse.ArgumentParser(
+        prog="ai", description="The MineOS assistant. Run ai code for the coding agent."
+    )
     parser.add_argument("request", nargs="*", help="what you want done; omit for a session")
     parser.add_argument("--status", action="store_true", help="check the model server and setup")
     parser.add_argument("--memory", action="store_true", help="show what the assistant remembers")
