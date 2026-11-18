@@ -99,6 +99,11 @@ install -d "$ROOTFS/opt/ai/desktop" "$ROOTFS/usr/share/plymouth/themes/mineos" \
     "$ROOTFS/etc/systemd/system" "$ROOTFS/etc/lightdm/lightdm.conf.d"
 cp -a "$SOURCE/ai/agent/." "$ROOTFS/opt/ai/"
 cp -a "$SOURCE/ai/mineos_agent" "$ROOTFS/opt/ai/"
+code_engine="$SOURCE/build/code/$ARCH/mineos-code-engine"
+if [[ -x "$code_engine" ]]; then
+    install -Dm 755 "$code_engine" "$ROOTFS/opt/ai/code/mineos-code-engine"
+    install -m 644 "$SOURCE/ai/code/"{LICENSE,NOTICE} "$ROOTFS/opt/ai/code/"
+fi
 find "$ROOTFS/opt/ai" -name __pycache__ -prune -exec rm -rf {} +
 cp -a "$SOURCE/desktop/." "$ROOTFS/opt/ai/desktop/"
 install -d "$ROOTFS/usr/share/plasma/wallpapers/org.mineos.video"

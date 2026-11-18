@@ -55,7 +55,7 @@ import sys
 from pathlib import Path
 
 root = Path(sys.argv[1])
-for directory in ("desktop", "ai/agent", "branding"):
+for directory in ("desktop", "ai/agent", "ai/mineos_agent", "branding"):
     for source in (root / directory).glob("*.py"):
         ast.parse(source.read_text(), filename=str(source))
 PYTHON
@@ -66,7 +66,15 @@ done
 backup="$(mktemp -d "$state_dir/desktop-backup.XXXXXXXX")"
 sudo cp -a /opt/ai/desktop "$backup/desktop"
 mkdir -p "$backup/assistant" "$backup/config"
-assistant_files=(jarvis_gui.py artifacts.py research.py screen_context.py desktop_actions.py camera.py camera_vision.py camera_overlay.py mineos_agent/llm.py)
+coding_modules=(agent cli code_providers code_session coding config llm memory os_api prompt providers text)
+assistant_files=(jarvis_gui.py artifacts.py research.py screen_context.py desktop_actions.py camera.py camera_vision.py camera_overlay.py)
+for module in "${coding_modules[@]}"; do
+    assistant_files+=("mineos_agent/$module.py")
+done
+engine_binary="$source_dir/build/code/$(dpkg --print-architecture)/mineos-code-engine"
+if [[ -x "$engine_binary" ]]; then
+    assistant_files+=(code/mineos-code-engine code/LICENSE code/NOTICE)
+fi
 for file in "${assistant_files[@]}"; do
     if [[ -f "/opt/ai/$file" ]]; then
         install -D -m 644 "/opt/ai/$file" "$backup/assistant/$file"
@@ -93,7 +101,13 @@ tar --exclude='__pycache__' --exclude='*.pyc' -C "$source_dir/desktop" -cf - . |
 sudo find "$stage" -type d -exec chmod 755 {} +
 sudo chmod 755 "$stage/"*.sh
 sudo install -m 644 "$source_dir/ai/agent/"{artifacts,research,screen_context,desktop_actions,camera,camera_vision,camera_overlay}.py /opt/ai/
-sudo install -m 644 "$source_dir/ai/mineos_agent/llm.py" /opt/ai/mineos_agent/llm.py
+for module in "${coding_modules[@]}"; do
+    sudo install -m 644 "$source_dir/ai/mineos_agent/$module.py" /opt/ai/mineos_agent/
+done
+if [[ -x "$engine_binary" ]]; then
+    sudo install -Dm 755 "$engine_binary" /opt/ai/code/mineos-code-engine
+    sudo install -m 644 "$source_dir/ai/code/"{LICENSE,NOTICE} /opt/ai/code/
+fi
 sudo install -m 755 "$source_dir/ai/agent/jarvis_gui.py" /opt/ai/jarvis_gui.py
 sudo mv -- /opt/ai/desktop "$stage.old"
 if ! sudo mv -- "$stage" /opt/ai/desktop; then
@@ -106,7 +120,7 @@ if ! bash /opt/ai/desktop/apply-theme.sh; then
     for file in "${assistant_files[@]}"; do
         if [[ -f "$backup/assistant/$file" ]]; then
             mode=644
-            [[ "$file" != jarvis_gui.py ]] || mode=755
+            case "$file" in jarvis_gui.py|code/mineos-code-engine) mode=755 ;; esac
             sudo install -D -m "$mode" "$backup/assistant/$file" "/opt/ai/$file"
         else
             sudo rm -f -- "/opt/ai/$file"
