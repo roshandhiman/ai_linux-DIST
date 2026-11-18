@@ -83,7 +83,8 @@ def sanitise(text: str, *, limit: int = FIELD_MAX_CHARS) -> str:
     return _clip(" ".join(fold_ascii(without_roles).split()), limit)
 
 
-def quote_block(text: str, *, limit: int = 900, max_lines: int = 30) -> str:
+def quote_block(text: str, *, limit: int = 900, max_lines: int = 30,
+                preserve_layout: bool = False) -> str:
     """Multi-line untrusted text (program output, file contents) for a window.
 
     Lines survive, because a directory listing flattened onto one line is
@@ -91,9 +92,12 @@ def quote_block(text: str, *, limit: int = 900, max_lines: int = 30) -> str:
     Every line is indented, so nothing in it can start a line the reply
     parser or a chat template would read as a directive.
     """
-    cleaned = _ROLE_MARKERS.sub(" ", fold_ascii(text))
-    lines = [" ".join(line.split()) for line in cleaned.splitlines()]
-    lines = [line for line in lines if line]
+    if preserve_layout:
+        cleaned = re.sub(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]", "", text.replace("\r\n", "\n"))
+        lines = cleaned.split("\n")
+    else:
+        cleaned = _ROLE_MARKERS.sub(" ", fold_ascii(text))
+        lines = [" ".join(line.split()) for line in cleaned.splitlines() if line.strip()]
     dropped = max(0, len(lines) - max_lines)
     lines = lines[:max_lines]
     body = "\n".join("  | " + line for line in lines) if lines else "  | (nothing)"
