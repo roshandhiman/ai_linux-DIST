@@ -11,27 +11,40 @@ out. No message history, on purpose -- the agent re-renders the whole window
 every call from the trajectory it owns (see :mod:`mineos_agent.prompt`).
 
 A failure is an :class:`LLMError` with a short message for a human. No retries
-and no fallback model: a silent retry loop is the failure mode to design
-against on a slow CPU, not to implement.
+or fallback inside the transport. The coding profile handles provider selection.
 """
 
+import http.client
 import ipaddress
 import json
 import re
 import time
 import urllib.error
 import urllib.request
+from email.utils import parsedate_to_datetime
 from urllib.parse import urlsplit
 from dataclasses import dataclass
 from typing import Iterator, Protocol
 
 from .config import LLMConfig
 
-__all__ = ["ChatModel", "LLMError", "OpenAIChat", "Truncated", "health"]
+__all__ = ["ChatModel", "LLMError", "OpenAIChat", "ProviderUnavailable", "Truncated", "health"]
 
 
 class LLMError(ValueError):
     """The model could not be reached, or its reply could not be used."""
+
+
+class ProviderUnavailable(LLMError):
+    """A request can be retried with a different provider."""
+
+    def __init__(self, message: str, *, retry_after: float | None = None) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
+class ToolCallRejected(ProviderUnavailable):
+    """A provider discarded its own malformed tool-call generation."""
 
 
 class Truncated(LLMError):
@@ -66,9 +79,14 @@ class OpenAIChat:
     last_usage: dict | None = None
     last_seconds: float = 0.0
     loopback_only: bool = False
+    no_redirect: bool = False
 
     def _open(self, request):
         if not self.loopback_only:
+            if self.no_redirect:
+                return urllib.request.build_opener(_NoRedirect()).open(
+                    request, timeout=self.config.timeout
+                )
             return urllib.request.urlopen(request, timeout=self.config.timeout)
         try:
             url = urlsplit(self.config.base_url)
@@ -108,23 +126,10 @@ class OpenAIChat:
         }
 
     def complete(self, *, system: str, user: str, temperature: float | None = None) -> str:
-        started = time.monotonic()
         payload = self._payload(system, user, stream=False)
         if temperature is not None:
             payload["temperature"] = temperature
-        request = self._request(payload)
-        try:
-            with self._open(request) as response:
-                body = json.loads(response.read().decode("utf-8"))
-        except urllib.error.HTTPError as exc:
-            raise LLMError(_http_message(exc, self.config.base_url)) from exc
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
-            raise LLMError(_reach_message(exc, self.config.base_url)) from exc
-        except json.JSONDecodeError as exc:
-            raise LLMError("the model server sent something that is not JSON") from exc
-        finally:
-            self.last_seconds = time.monotonic() - started
-
+        body = self.request_completion(payload)
         try:
             choice = body["choices"][0]
             content = choice["message"].get("content") or ""
@@ -136,6 +141,40 @@ class OpenAIChat:
                 f"the reply was cut off at {self.config.max_tokens} tokens"
             )
         return _THINK.sub("", content).strip()
+
+    def request_completion(self, payload: dict) -> dict:
+        """Buffer a completion before returning it to an agent runtime."""
+        started = time.monotonic()
+        request = self._request(payload)
+        try:
+            with self._open(request) as response:
+                body = json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            with exc:
+                if exc.code in (402, 408, 429) or 500 <= exc.code <= 599:
+                    raise ProviderUnavailable(
+                        _http_message(exc, self.config.base_url), retry_after=_retry_after(exc.headers.get("Retry-After"))
+                    ) from exc
+                if exc.code == 400 and payload.get("tools"):
+                    try:
+                        problem = json.loads(exc.read(32768)).get("error", {})
+                    except (ValueError, AttributeError):
+                        problem = {}
+                    if isinstance(problem, dict) and (
+                        problem.get("code") == "tool_use_failed" or "failed_generation" in problem
+                    ):
+                        raise ToolCallRejected("the provider could not form a valid tool call") from exc
+                raise LLMError(_http_message(exc, self.config.base_url)) from exc
+        except (urllib.error.URLError, OSError, http.client.HTTPException) as exc:
+            raise ProviderUnavailable(_reach_message(exc, self.config.base_url)) from exc
+        except (json.JSONDecodeError, UnicodeError) as exc:
+            raise ProviderUnavailable("the model server sent an unreadable response") from exc
+        finally:
+            self.last_seconds = time.monotonic() - started
+
+        if not isinstance(body, dict):
+            raise ProviderUnavailable("the model server sent an invalid completion")
+        return body
 
     def stream(self, *, system: str, user: str) -> Iterator[str]:
         """Yield text as it arrives. For plain chat, where waiting is the UX."""
@@ -211,6 +250,17 @@ def health(config: LLMConfig, *, timeout: float = 3.0) -> tuple[bool, str]:
     if names:
         return True, "serving " + ", ".join(names[:3])
     return True, "answering"
+
+
+def _retry_after(value: str | None) -> float | None:
+    if not value:
+        return None
+    if value.isdecimal():
+        return float(value)
+    try:
+        return max(0.0, parsedate_to_datetime(value).timestamp() - time.time())
+    except (TypeError, ValueError, OverflowError, OSError):
+        return None
 
 
 def _http_message(exc: urllib.error.HTTPError, url: str) -> str:
