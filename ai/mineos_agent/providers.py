@@ -64,6 +64,8 @@ PRESETS: dict[str, Preset] = {
     "openai": Preset(CHAT, "https://api.openai.com/v1", ("OPENAI_API_KEY",)),
     "openai-responses": Preset(RESPONSES, "https://api.openai.com/v1", ("OPENAI_API_KEY",)),
     "openrouter": Preset(CHAT, "https://openrouter.ai/api/v1", ("OPENROUTER_API_KEY",)),
+    "zai": Preset(CHAT, "https://api.z.ai/api/paas/v4", ("ZAI_API_KEY", "Z_AI_API_KEY"),
+                  model="glm-4.7-flash"),
     "groq": Preset(CHAT, "https://api.groq.com/openai/v1", ("GROQ_API_KEY",)),
     "deepseek": Preset(CHAT, "https://api.deepseek.com/v1", ("DEEPSEEK_API_KEY",)),
     "together": Preset(CHAT, "https://api.together.xyz/v1", ("TOGETHER_API_KEY",)),
