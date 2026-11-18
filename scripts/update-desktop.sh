@@ -35,7 +35,7 @@ packages=(
     light-locker ffmpeg gir1.2-gtk-3.0 gir1.2-wnck-3.0 gir1.2-gstreamer-1.0 gstreamer1.0-gtk3
     gstreamer1.0-libav python3-cairo python3-gi-cairo python3-requests
     desktop-file-utils x11-xserver-utils x11-utils dconf-cli fonts-inter arc-theme papirus-icon-theme
-    gir1.2-atspi-2.0 xdotool tesseract-ocr tesseract-ocr-eng python3-pil
+    gir1.2-atspi-2.0 xdotool tesseract-ocr tesseract-ocr-eng python3-pil python3-opencv
 )
 missing=()
 for package in "${packages[@]}"; do
@@ -66,7 +66,7 @@ done
 backup="$(mktemp -d "$state_dir/desktop-backup.XXXXXXXX")"
 sudo cp -a /opt/ai/desktop "$backup/desktop"
 mkdir -p "$backup/assistant" "$backup/config"
-assistant_files=(jarvis_gui.py artifacts.py research.py screen_context.py desktop_actions.py mineos_agent/llm.py)
+assistant_files=(jarvis_gui.py artifacts.py research.py screen_context.py desktop_actions.py camera.py camera_vision.py camera_overlay.py mineos_agent/llm.py)
 for file in "${assistant_files[@]}"; do
     if [[ -f "/opt/ai/$file" ]]; then
         install -D -m 644 "/opt/ai/$file" "$backup/assistant/$file"
@@ -92,7 +92,7 @@ tar --exclude='__pycache__' --exclude='*.pyc' -C "$source_dir/desktop" -cf - . |
     sudo tar --no-same-owner -C "$stage" -xf -
 sudo find "$stage" -type d -exec chmod 755 {} +
 sudo chmod 755 "$stage/"*.sh
-sudo install -m 644 "$source_dir/ai/agent/"{artifacts,research,screen_context,desktop_actions}.py /opt/ai/
+sudo install -m 644 "$source_dir/ai/agent/"{artifacts,research,screen_context,desktop_actions,camera,camera_vision,camera_overlay}.py /opt/ai/
 sudo install -m 644 "$source_dir/ai/mineos_agent/llm.py" /opt/ai/mineos_agent/llm.py
 sudo install -m 755 "$source_dir/ai/agent/jarvis_gui.py" /opt/ai/jarvis_gui.py
 sudo mv -- /opt/ai/desktop "$stage.old"
@@ -125,6 +125,39 @@ sudo rm -rf -- "$stage.old"
 trap - EXIT
 if [[ "$(cat /etc/X11/default-display-manager 2>/dev/null || true)" == /usr/sbin/lightdm ]]; then
     sudo bash "$source_dir/branding/install-login.sh"
+fi
+
+camera_model=/usr/share/mineos/models/camera
+camera_assets=(nanodet.onnx palm.onnx pose.onnx yolox-nano.onnx NanoDet-LICENSE MediaPipe-Pose-LICENSE YOLOX-LICENSE)
+camera_assets_missing=false
+for file in "${camera_assets[@]}"; do
+    if [[ ! -s "$camera_model/$file" ]]; then
+        camera_assets_missing=true
+        break
+    fi
+done
+if "$camera_assets_missing"; then
+    model_stage="$(mktemp -d)"
+    if bash "$source_dir/ai/fetch-camera-model.sh" "$model_stage/camera"; then
+        for file in "${camera_assets[@]}"; do
+            sudo install -D -m 644 "$model_stage/camera/$file" "$camera_model/$file"
+        done
+    else
+        printf '%s\n' 'Camera installed. Run this updater again to download the offline object detector.' >&2
+    fi
+    rm -rf -- "$model_stage"
+fi
+
+vision_model=/usr/share/mineos/models/screen-vision
+if [[ -x /opt/llama.cpp/llama-mtmd-cli && ( ! -s "$vision_model/model.gguf" || ! -s "$vision_model/projector.gguf" ) ]]; then
+    model_stage="$(mktemp -d)"
+    if bash "$source_dir/ai/fetch-screen-vision.sh" "$model_stage/screen-vision"; then
+        sudo install -D -m 644 "$model_stage/screen-vision/model.gguf" "$vision_model/model.gguf"
+        sudo install -D -m 644 "$model_stage/screen-vision/projector.gguf" "$vision_model/projector.gguf"
+    else
+        printf '%s\n' 'Run this updater again to download the offline visual question model.' >&2
+    fi
+    rm -rf -- "$model_stage"
 fi
 
 printf '%s\n' 'MineOS desktop update installed. Reopen Settings and Assistant to load the new version.'

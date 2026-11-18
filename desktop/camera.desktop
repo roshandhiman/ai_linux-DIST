@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Camera
+Exec=/usr/bin/python3 /opt/ai/camera.py
+Icon=camera-photo
+Terminal=false
+Categories=AudioVideo;Video;
+StartupNotify=true

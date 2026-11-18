@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=AI Camera
+Exec=/usr/bin/python3 /opt/ai/camera.py --ai
+Icon=camera-web
+Terminal=false
+Categories=AudioVideo;Video;
+StartupNotify=true

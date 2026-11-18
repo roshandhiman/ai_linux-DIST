@@ -125,6 +125,10 @@ for app in xfce-settings-manager xfce-backdrop-settings xfce-ui-settings; do
 done
 install -m 644 "$SOURCE/desktop/companion.desktop" "$ROOTFS/usr/share/applications/org.mineos.Companion.desktop"
 install -m 644 "$SOURCE/desktop/ai.desktop" "$ROOTFS/usr/share/applications/org.mineos.Assistant.desktop"
+install -m 644 "$SOURCE/desktop/camera.desktop" "$ROOTFS/usr/share/applications/org.mineos.Camera.desktop"
+install -m 644 "$SOURCE/desktop/ai-camera.desktop" "$ROOTFS/usr/share/applications/org.mineos.AICamera.desktop"
+install -d "$ROOTFS/usr/share/mineos/models"
+bash "$SOURCE/ai/fetch-camera-model.sh" "$ROOTFS/usr/share/mineos/models/camera"
 SESSION_XML="$ROOTFS/etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-session.xml"
 sed -i '0,/<property name="Count" type="int" value="5"\//s//<property name="Count" type="int" value="2"\//' "$SESSION_XML"
 grep -q '<property name="Count" type="int" value="2"/>' "$SESSION_XML"

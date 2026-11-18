@@ -38,6 +38,12 @@ ENTRY
 cp "$DESKTOP_DIR/launcher.desktop" "$DATA/applications/org.mineos.Apps.desktop"
 cp "$DESKTOP_DIR/settings.desktop" "$DATA/applications/org.mineos.Settings.desktop"
 cp "$DESKTOP_DIR/companion.desktop" "$DATA/applications/org.mineos.Companion.desktop"
+for camera_entry in "camera:Camera" "ai-camera:AICamera"; do
+    desktop_file="$DESKTOP_DIR/${camera_entry%:*}.desktop"
+    if [[ -f "$desktop_file" ]]; then
+        install -m 644 "$desktop_file" "$DATA/applications/org.mineos.${camera_entry#*:}.desktop"
+    fi
+done
 printf '[PlankDockItemPreferences]\nLauncher=file://%s\n' "$DATA/applications/org.mineos.Settings.desktop" > "$CONFIG/plank/dock1/launchers/mineos-settings.dockitem"
 printf '[PlankDockItemPreferences]\nLauncher=file://%s\n' "$DATA/applications/org.mineos.Assistant.desktop" > "$CONFIG/plank/dock1/launchers/mineos-assistant.dockitem"
 for app in thunar firefox-esr xfce4-terminal org.xfce.mousepad; do

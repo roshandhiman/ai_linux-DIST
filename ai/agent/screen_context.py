@@ -126,17 +126,18 @@ def readable_text(image):
     return alternative if len(alternative) > len(text) else text
 
 
-def visual_description(image, model_dir=VISION_DIR, *, question=""):
+def visual_description(image, model_dir=VISION_DIR, *, question="", prompt=None, max_tokens=100, image_max_tokens=None):
     model = model_dir / "model.gguf"
     projector = model_dir / "projector.gguf"
     if not (VISION_CLI.is_file() and model.is_file() and projector.is_file()):
         return ""
-    prompt = (
+    prompt = prompt or (
         "Describe the visible content of this image in one short sentence. "
         "Include distinct objects and their colors. Do not guess or repeat yourself."
     )
     if question:
         prompt += f" Focus on the visual details needed to answer this question: {question[:400]}"
+    image_options = ["--image-max-tokens", str(image_max_tokens)] if image_max_tokens else []
     fd = os.memfd_create("mineos-screen")
     try:
         with os.fdopen(os.dup(fd), "wb") as sink:
@@ -145,8 +146,8 @@ def visual_description(image, model_dir=VISION_DIR, *, question=""):
         result = subprocess.run(
             [str(VISION_CLI), "-m", str(model), "--mmproj", str(projector),
              "--image", f"/proc/self/fd/{fd}", "-p", prompt,
-             "-c", "2048", "-n", "100", "-t", "3", "--temp", "0.1",
-             "--no-warmup"],
+             "-c", "2048", "-n", str(max_tokens), "-t", "3", "--temp", "0.1",
+             "--no-warmup", *image_options],
             pass_fds=(fd,), stdin=subprocess.DEVNULL, capture_output=True, text=True,
             timeout=65, check=True,
         )
