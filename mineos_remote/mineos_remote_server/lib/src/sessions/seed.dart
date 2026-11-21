@@ -11,21 +11,25 @@ Future<int> seedDemoSessions(Session session, {DateTime? now}) async {
 
   await session.db.transaction((transaction) async {
     for (final spec in demoRecordings) {
-      final startedAt = clock.subtract(Duration(minutes: spec.startedMinutesAgo));
+      final startedAt = clock.subtract(
+        Duration(minutes: spec.startedMinutesAgo),
+      );
       var at = startedAt;
       final steps = <AgentStep>[];
       for (var i = 0; i < spec.steps.length; i++) {
         final s = spec.steps[i];
         at = at.add(Duration(milliseconds: s.durationMs));
-        steps.add(AgentStep(
-          sessionId: 0, // set below, once the session has an id
-          index: i + 1,
-          kind: StepKind.fromJson(s.kind),
-          title: s.title,
-          detail: s.detail,
-          durationMs: s.durationMs,
-          createdAt: at,
-        ));
+        steps.add(
+          AgentStep(
+            sessionId: 0, // set below, once the session has an id
+            index: i + 1,
+            kind: StepKind.fromJson(s.kind),
+            title: s.title,
+            detail: s.detail,
+            durationMs: s.durationMs,
+            createdAt: at,
+          ),
+        );
       }
       final stored = await AgentSession.db.insertRow(
         session,

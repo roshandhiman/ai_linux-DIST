@@ -64,7 +64,8 @@ const demoProvider = 'local';
 const demoRecordings = <SessionSpec>[
   // a) RUNNING: a long task. The replay loops it so the demo never goes dead.
   SessionSpec(
-    task: 'Audit ~/Projects/acme-site, find the 5 largest files, summarise '
+    task:
+        'Audit ~/Projects/acme-site, find the 5 largest files, summarise '
         'each, and draft a cleanup report',
     status: 'running',
     route: 'TASK 0.50 via rules',
@@ -243,7 +244,8 @@ const demoRecordings = <SessionSpec>[
 
   // b) AWAITING_APPROVAL: paused at the real y/N prompt before a file write.
   SessionSpec(
-    task: "Summarise this week's meeting notes in ~/Documents/meetings into "
+    task:
+        "Summarise this week's meeting notes in ~/Documents/meetings into "
         '~/Documents/weekly-summary.md',
     status: 'awaitingApproval',
     route: 'TASK 0.50 via rules',
@@ -326,7 +328,8 @@ const demoRecordings = <SessionSpec>[
     status: 'done',
     route: 'TASK 0.50 via rules',
     outcome: 'answered',
-    answer: 'The biggest is ~/Downloads/vendor-contract-2026.pdf (18.4 MB). '
+    answer:
+        'The biggest is ~/Downloads/vendor-contract-2026.pdf (18.4 MB). '
         'You have 9 PDFs in Downloads, 41.7 MB in total.',
     startedMinutesAgo: 38,
     steps: [
@@ -386,7 +389,8 @@ const demoRecordings = <SessionSpec>[
     status: 'failed',
     route: 'TASK 0.50 via rules',
     outcome: 'stuck',
-    answer: 'I kept hitting the same problem, so I stopped: the agent does '
+    answer:
+        'I kept hitting the same problem, so I stopped: the agent does '
         'not run anything as root; ask the user to run it themselves '
         '(line 1).',
     startedMinutesAgo: 87,

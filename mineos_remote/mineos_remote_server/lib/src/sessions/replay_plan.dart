@@ -12,8 +12,9 @@ import '../generated/protocol.dart';
 /// session live from two phones" looks like.
 class ReplayPlan {
   ReplayPlan(List<AgentStep> steps, {this.speed = 1.0})
-      : steps = List.unmodifiable(
-            [...steps]..sort((a, b) => a.index.compareTo(b.index))) {
+    : steps = List.unmodifiable(
+        [...steps]..sort((a, b) => a.index.compareTo(b.index)),
+      ) {
     var at = 0;
     for (final step in this.steps) {
       at += delayBeforeMs(step);

@@ -39,22 +39,29 @@ void main() {
       expect(all.map((s) => s.modelName).toSet(), {'qwen2.5-1.5b-instruct'});
     });
 
-    test('get() of a finished session returns all its steps in order',
-        () async {
-      final done = (await endpoints.sessions.list(sessionBuilder))
-          .firstWhere((s) => s.status == SessionStatus.done);
-      final detail = await endpoints.sessions.get(sessionBuilder, done.id!);
-      expect(detail.steps, hasLength(done.stepCount));
-      expect(detail.steps.map((s) => s.index),
-          List.generate(done.stepCount, (i) => i + 1));
-    });
+    test(
+      'get() of a finished session returns all its steps in order',
+      () async {
+        final done = (await endpoints.sessions.list(
+          sessionBuilder,
+        )).firstWhere((s) => s.status == SessionStatus.done);
+        final detail = await endpoints.sessions.get(sessionBuilder, done.id!);
+        expect(detail.steps, hasLength(done.stepCount));
+        expect(
+          detail.steps.map((s) => s.index),
+          List.generate(done.stepCount, (i) => i + 1),
+        );
+      },
+    );
 
     test('watch() of a done session streams every step in order, then '
         'finishes', () async {
-      final done = (await endpoints.sessions.list(sessionBuilder))
-          .firstWhere((s) => s.status == SessionStatus.done);
-      final events =
-          await endpoints.sessions.watch(sessionBuilder, done.id!, 0).toList();
+      final done = (await endpoints.sessions.list(
+        sessionBuilder,
+      )).firstWhere((s) => s.status == SessionStatus.done);
+      final events = await endpoints.sessions
+          .watch(sessionBuilder, done.id!, 0)
+          .toList();
       expect(events.first.type, ReplayEventType.restart);
       expect(events.last.type, ReplayEventType.finished);
       final indices = [
@@ -64,29 +71,36 @@ void main() {
       expect(indices, List.generate(done.stepCount, (i) => i + 1));
     });
 
-    test('watch() of an awaiting session holds at the approval request',
-        () async {
-      final paused = (await endpoints.sessions.list(sessionBuilder))
-          .firstWhere((s) => s.status == SessionStatus.awaitingApproval);
-      final events = await endpoints.sessions
-          .watch(sessionBuilder, paused.id!, 0)
-          .toList();
-      final steps = [
-        for (final e in events)
-          if (e.type == ReplayEventType.step) e.step!,
-      ];
-      expect(steps.last.kind, StepKind.approvalRequest);
-      expect(events.last.type, ReplayEventType.holding);
-    });
+    test(
+      'watch() of an awaiting session holds at the approval request',
+      () async {
+        final paused = (await endpoints.sessions.list(
+          sessionBuilder,
+        )).firstWhere((s) => s.status == SessionStatus.awaitingApproval);
+        final events = await endpoints.sessions
+            .watch(sessionBuilder, paused.id!, 0)
+            .toList();
+        final steps = [
+          for (final e in events)
+            if (e.type == ReplayEventType.step) e.step!,
+        ];
+        expect(steps.last.kind, StepKind.approvalRequest);
+        expect(events.last.type, ReplayEventType.holding);
+      },
+    );
 
     test('watch() of a running session loops, in order each time', () async {
-      final running = (await endpoints.sessions.list(sessionBuilder))
-          .firstWhere((s) => s.status == SessionStatus.running);
+      final running = (await endpoints.sessions.list(
+        sessionBuilder,
+      )).firstWhere((s) => s.status == SessionStatus.running);
       // Collect until the third restart: at least one complete loop.
       var restarts = 0;
       final loops = <List<int>>[];
-      await for (final e
-          in endpoints.sessions.watch(sessionBuilder, running.id!, 0)) {
+      await for (final e in endpoints.sessions.watch(
+        sessionBuilder,
+        running.id!,
+        0,
+      )) {
         if (e.type == ReplayEventType.restart) {
           restarts++;
           if (restarts == 3) break;

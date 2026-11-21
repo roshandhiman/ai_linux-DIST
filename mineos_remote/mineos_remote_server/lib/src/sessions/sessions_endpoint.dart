@@ -20,9 +20,11 @@ class SessionsEndpoint extends Endpoint {
     final sessions = await AgentSession.db.find(session);
     final result = <AgentSession>[];
     for (final s in sessions) {
-      result.add(s.status == SessionStatus.running
-          ? _live(s, await _plan(session, s.id!))
-          : s);
+      result.add(
+        s.status == SessionStatus.running
+            ? _live(s, await _plan(session, s.id!))
+            : s,
+      );
     }
     result.sort((a, b) => b.startedAt.compareTo(a.startedAt));
     return result;
@@ -82,8 +84,10 @@ class SessionsEndpoint extends Endpoint {
     // Running: loop on the shared clock.
     while (true) {
       final where = plan.position(nowMs());
-      final startedAt =
-          DateTime.fromMillisecondsSinceEpoch(where.cycleStartMs, isUtc: true);
+      final startedAt = DateTime.fromMillisecondsSinceEpoch(
+        where.cycleStartMs,
+        isUtc: true,
+      );
       yield ReplayEvent(
         type: ReplayEventType.restart,
         cycle: where.cycle,
@@ -92,7 +96,10 @@ class SessionsEndpoint extends Endpoint {
       var i = plan.revealedAt(where.positionMs);
       for (final step in plan.steps.take(i)) {
         yield ReplayEvent(
-            type: ReplayEventType.step, cycle: where.cycle, step: step);
+          type: ReplayEventType.step,
+          cycle: where.cycle,
+          step: step,
+        );
       }
       for (; i < plan.steps.length; i++) {
         final step = plan.steps[i];
@@ -101,7 +108,10 @@ class SessionsEndpoint extends Endpoint {
         }
         await _sleep(where.cycleStartMs + plan.revealAtMs[i] - nowMs());
         yield ReplayEvent(
-            type: ReplayEventType.step, cycle: where.cycle, step: step);
+          type: ReplayEventType.step,
+          cycle: where.cycle,
+          step: step,
+        );
       }
       // The recording ends while the agent is still working: keep the
       // "thinking" indicator up until the loop starts again.
@@ -115,10 +125,10 @@ class SessionsEndpoint extends Endpoint {
   }
 
   ReplayEvent _thinking(AgentStep step, {int cycle = 0}) => ReplayEvent(
-        type: ReplayEventType.thinking,
-        cycle: cycle,
-        label: step.title,
-      );
+    type: ReplayEventType.thinking,
+    cycle: cycle,
+    label: step.title,
+  );
 
   Future<void> _sleep(int ms) =>
       ms > 0 ? Future.delayed(Duration(milliseconds: ms)) : Future.value();
@@ -144,14 +154,17 @@ class SessionsEndpoint extends Endpoint {
   AgentSession _live(AgentSession s, ReplayPlan plan) {
     final where = plan.position(nowMs());
     final revealed = plan.revealedAt(where.positionMs);
-    final startedAt =
-        DateTime.fromMillisecondsSinceEpoch(where.cycleStartMs, isUtc: true);
+    final startedAt = DateTime.fromMillisecondsSinceEpoch(
+      where.cycleStartMs,
+      isUtc: true,
+    );
     return s.copyWith(
       startedAt: startedAt,
       updatedAt: revealed == 0
           ? startedAt
-          : startedAt
-              .add(Duration(milliseconds: plan.revealAtMs[revealed - 1])),
+          : startedAt.add(
+              Duration(milliseconds: plan.revealAtMs[revealed - 1]),
+            ),
       stepCount: revealed,
     );
   }

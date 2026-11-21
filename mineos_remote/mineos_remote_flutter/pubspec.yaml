@@ -29,6 +29,7 @@ dependencies:
   cupertino_icons: ^1.0.5
   flutter:
     sdk: flutter
+  flutter_riverpod: ^3.5.0
   google_fonts: ^8.1.0
   mineos_remote_client:
     path: ../mineos_remote_client
