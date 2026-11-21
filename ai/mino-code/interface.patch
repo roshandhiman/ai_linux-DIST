@@ -1,0 +1,352 @@
+diff --git a/cli/src/cli-args.ts b/cli/src/cli-args.ts
+index c338ac8..24e6f98 100644
+--- a/cli/src/cli-args.ts
++++ b/cli/src/cli-args.ts
+@@ -52,8 +52,8 @@ export function parseArgs({
+   if (isFreebuff) {
+     // Freebuff: simplified CLI - no prompt args, no agent override, no clear-logs
+     program
+-      .name('freebuff')
+-      .description('Freebuff - Free AI coding assistant')
++      .name('mino-code')
++      .description('Mino Code - Coding assistant powered by Freebuff')
+       .version(version, '-v, --version', 'Print the CLI version')
+       .option(
+         '--continue [conversation-id]',
+diff --git a/cli/src/components/chat-header.tsx b/cli/src/components/chat-header.tsx
+index ab40f88..7919ad1 100644
+--- a/cli/src/components/chat-header.tsx
++++ b/cli/src/components/chat-header.tsx
+@@ -1,10 +1,8 @@
+-import { memo, useState } from 'react'
++import { memo } from 'react'
+ 
+ import { useLogo } from '../hooks/use-logo'
+-import { useSheenAnimation } from '../hooks/use-sheen-animation'
+ import { useTerminalDimensions } from '../hooks/use-terminal-dimensions'
+ import { useTheme } from '../hooks/use-theme'
+-import { IS_FREEBUFF } from '../utils/constants'
+ import { openFileAtPath } from '../utils/open-file'
+ import { formatCwd } from '../utils/path-helpers'
+ import { getLogoAccentColor, getLogoBlockColor } from '../utils/theme-system'
+@@ -12,63 +10,28 @@ import { TerminalLink } from './terminal-link'
+ 
+ export const ChatHeader = memo(function ChatHeader({
+   projectRoot,
+-  animationEnabled,
+ }: {
+   projectRoot: string
+   animationEnabled: boolean
+ }) {
+-  const { contentMaxWidth, terminalWidth } = useTerminalDimensions()
++  const { contentMaxWidth } = useTerminalDimensions()
+   const theme = useTheme()
+-  const [sheenPosition, setSheenPosition] = useState(0)
+-  const blockColor = getLogoBlockColor(theme.name)
+-  const accentColor = getLogoAccentColor(theme.name)
+-  const { applySheenToChar } = useSheenAnimation({
+-    enabled: animationEnabled,
+-    logoColor: theme.foreground,
+-    accentColor,
+-    blockColor,
+-    terminalWidth,
+-    sheenPosition,
+-    setSheenPosition,
+-  })
+-  const { component: logoComponent } = useLogo({
++  const { component: logo } = useLogo({
+     availableWidth: contentMaxWidth,
+-    accentColor,
+-    blockColor,
+-    applySheenToChar,
++    accentColor: getLogoAccentColor(theme.name),
++    blockColor: getLogoBlockColor(theme.name),
++    maxHeight: 5,
+   })
+ 
+   return (
+-    <box
+-      style={{
+-        flexDirection: 'column',
+-        gap: 0,
+-        paddingLeft: 1,
+-        paddingRight: 1,
+-      }}
+-    >
+-      <box
+-        style={{
+-          flexDirection: 'column',
+-          marginBottom: 1,
+-          marginTop: 2,
+-        }}
+-      >
+-        {logoComponent}
+-      </box>
+-      <text style={{ wrapMode: 'word', marginBottom: 1, fg: theme.foreground }}>
+-        {IS_FREEBUFF ? 'Freebuff' : 'Codebuff'} will run commands on your behalf
+-        to help you build.
++    <box style={{ flexDirection: 'column', paddingLeft: 1, paddingRight: 1, gap: 1, marginTop: 1 }}>
++      <box style={{ flexDirection: 'column' }}>{logo}</box>
++      <text style={{ fg: theme.muted, wrapMode: 'word' }}>
++        <TerminalLink text={formatCwd(projectRoot)} color={theme.primary} inline={true}
++          underlineOnHover={true} onActivate={() => openFileAtPath(projectRoot)} />
+       </text>
+-      <text style={{ wrapMode: 'word', marginBottom: 1, fg: theme.foreground }}>
+-        Directory{' '}
+-        <TerminalLink
+-          text={formatCwd(projectRoot)}
+-          color={theme.muted}
+-          inline={true}
+-          underlineOnHover={true}
+-          onActivate={() => openFileAtPath(projectRoot)}
+-        />
++      <text style={{ fg: theme.muted, wrapMode: 'word', marginBottom: 1 }}>
++        Powered by Freebuff · /help for commands
+       </text>
+     </box>
+   )
+diff --git a/cli/src/components/login-modal.tsx b/cli/src/components/login-modal.tsx
+index 325ab27..a246053 100644
+--- a/cli/src/components/login-modal.tsx
++++ b/cli/src/components/login-modal.tsx
+@@ -251,6 +251,8 @@ export const LoginModal = ({
+   const { component: logoComponent } = useLogo({
+     availableWidth: contentMaxWidth,
+     applySheenToChar,
++    accentColor,
++    blockColor,
+     textColor: theme.foreground,
+   })
+ 
+@@ -305,13 +307,16 @@ export const LoginModal = ({
+           key="codebuff-logo"
+           style={{
+             flexDirection: 'column',
+-            alignItems: contentMaxWidth < 40 ? 'center' : 'flex-start',
++            alignItems: 'flex-start',
+             marginTop: headerMarginTop,
+             marginBottom: headerMarginBottom,
+             flexShrink: 0,
+           }}
+         >
+           {logoComponent}
++          <text style={{ fg: theme.muted, marginTop: 1, wrapMode: 'word' }}>
++            Mino Code · Sign in with your Freebuff account
++          </text>
+         </box>
+ 
+         {/* Loading state */}
+diff --git a/cli/src/components/top-banner.tsx b/cli/src/components/top-banner.tsx
+index b33201d..0210cf2 100644
+--- a/cli/src/components/top-banner.tsx
++++ b/cli/src/components/top-banner.tsx
+@@ -56,7 +56,7 @@ const TOP_BANNER_REGISTRY: Record<NonNullable<TopBannerType>, BannerConfig> = {
+       return (
+         <>
+           <text style={{ wrapMode: 'word', fg: textColor }}>
+-            You started {IS_FREEBUFF ? 'Freebuff' : 'Codebuff'} in a subdirectory of a git repo.
++            You started {IS_FREEBUFF ? 'Mino Code' : 'Codebuff'} in a subdirectory of a git repo.
+           </text>
+           {gitRoot && onSwitchToGitRoot ? (
+             <TerminalLink
+diff --git a/cli/src/hooks/use-logo.tsx b/cli/src/hooks/use-logo.tsx
+index 3d49746..8b8cd00 100644
+--- a/cli/src/hooks/use-logo.tsx
++++ b/cli/src/hooks/use-logo.tsx
+@@ -65,7 +65,7 @@ export const useLogo = ({
+   availableWidth,
+   applySheenToChar,
+   textColor,
+-  accentColor = '#9EFC62',
++  accentColor = '#A7DCCB',
+   blockColor = '#ffffff',
+   maxHeight,
+ }: UseLogoOptions): LogoResult => {
+@@ -74,16 +74,16 @@ export const useLogo = ({
+   const ASCII_LOGO_LINES = 6
+   const rawLogoString = useMemo(() => {
+     if (maxHeight != null && maxHeight < ASCII_LOGO_LINES) {
+-      return IS_FREEBUFF ? 'FREEBUFF' : 'CODEBUFF'
++      return IS_FREEBUFF ? 'MINO CODE' : 'CODEBUFF'
+     }
+     if (availableWidth >= 70) return LOGO
+     if (availableWidth >= 20) return LOGO_SMALL
+-    return IS_FREEBUFF ? 'FREEBUFF' : 'CODEBUFF'
++    return IS_FREEBUFF ? 'MINO CODE' : 'CODEBUFF'
+   }, [availableWidth, maxHeight])
+ 
+   // Format text block for plain text contexts (chat messages, etc.)
+   const textBlock = useMemo(() => {
+-    if (rawLogoString === 'CODEBUFF' || rawLogoString === 'FREEBUFF') {
++    if (rawLogoString === 'CODEBUFF' || rawLogoString === 'MINO CODE') {
+       return '' // Don't show ASCII art for text-only variant in plain text contexts
+     }
+     // Parse and format for plain text display
+@@ -95,8 +95,8 @@ export const useLogo = ({
+   // Format component for React contexts (login modal, etc.)
+   const component = useMemo(() => {
+     // Text-only variant for very narrow widths
+-    if (rawLogoString === 'CODEBUFF' || rawLogoString === 'FREEBUFF') {
+-      const brandName = IS_FREEBUFF ? 'Freebuff' : 'Codebuff'
++    if (rawLogoString === 'CODEBUFF' || rawLogoString === 'MINO CODE') {
++      const brandName = IS_FREEBUFF ? 'Mino Code' : 'Codebuff'
+       // When we collapsed to text purely to fit a short terminal (not because
+       // the terminal is narrow), keep it to the bare brand name — "Freebuff
+       // CLI" reads as filler in that already-cramped space.
+diff --git a/cli/src/login/plain-login.ts b/cli/src/login/plain-login.ts
+index 575b13d..6bd3774 100644
+--- a/cli/src/login/plain-login.ts
++++ b/cli/src/login/plain-login.ts
+@@ -25,7 +25,7 @@ export async function runPlainLogin(): Promise<void> {
+   const fingerprintId = await getFingerprintId()
+ 
+   console.log()
+-  console.log(bold(IS_FREEBUFF ? 'Freebuff Login' : 'Codebuff Login'))
++  console.log(bold(IS_FREEBUFF ? 'Mino Code · Freebuff sign-in' : 'Codebuff Login'))
+   console.log()
+   console.log('Generating login URL...')
+ 
+@@ -110,7 +110,7 @@ export async function runPlainLogin(): Promise<void> {
+       ),
+     )
+     console.log()
+-    const cliName = IS_FREEBUFF ? 'freebuff' : 'codebuff'
++    const cliName = IS_FREEBUFF ? 'mino-code' : 'codebuff'
+     console.log('You can now run ' + cyan(cliName) + ' to start.')
+     process.exit(0)
+   } else if (result.status === 'timeout') {
+diff --git a/cli/src/utils/freebuff-wordmark.ts b/cli/src/utils/freebuff-wordmark.ts
+index 0213299..1ff0d23 100644
+--- a/cli/src/utils/freebuff-wordmark.ts
++++ b/cli/src/utils/freebuff-wordmark.ts
+@@ -1,17 +1,9 @@
+-/** Terminal rendering of the two F polygons and Outfit 600 lettering from
+- * freebuff/web/src/components/landing/brand/FreebuffLogo.tsx.
+- * Half-block cells preserve the wordmark proportions at two terminal widths.
+- * Kept as text so the CLI needs neither a font nor an image renderer at runtime.
+- */
+-export const FREEBUFF_WORDMARK = `███████████                        ██                 ▄████  ▄██
+-███▀▀▀▀▀▀▀▀                        ██                 ██    ██▀
+-███ █████  ██████ ▄█████   ▄████▄  ██████▄  ██   ██ ████████████
+-███ ███▀▀  ██▀   ███▄▄▄██ ██▄▄▄███ ██   ▀██ ██   ██   ██    ██
+-███ ███    ███   ███▀▀▀▀▀ ██▀▀▀▀▀  ██▄  ▄██ ██▄  ██   ██    ██
+-███ ██▀    ██▀    ▀█████   ▀████▀  ██████▀   ▀████▀   ██    ██`
++// Mino Code wordmark. The Freebuff service and agent runtime remain upstream.
++export const FREEBUFF_WORDMARK = `███  ███  ██  ███  ██   ████
++████████  ██  ████ ██  ██  ██
++██ ██ ██  ██  ██ ████  ██  ██
++██    ██  ██  ██  ███   ████
++              C O D E`
+ 
+-export const FREEBUFF_WORDMARK_COMPACT = `███████               █           ███ ██
+-██▀███▀▄▄▄  ▄▄    ▄▄  █▄▄▄  ▄  ▄ ██▄▄▄█▄
+-██████ ██▀ █▀▀█▄▄█▀██ █▀▀█▄▀█ ██▀██▀▀▀█▀
+-████   ██  █▀▀▀▀██▀▀▀ █  ██▀█ ██ ██   █
+-████   █▀  ▀███  ███  ████  ███▀ ██   █`
++export const FREEBUFF_WORDMARK_COMPACT = `╭─ Mino Code ─╮
++╰─────────────╯`
+diff --git a/cli/src/utils/theme-system.ts b/cli/src/utils/theme-system.ts
+index cfa93f4..c5d85fd 100644
+--- a/cli/src/utils/theme-system.ts
++++ b/cli/src/utils/theme-system.ts
+@@ -99,9 +99,9 @@ export function getLogoAccentColor(
+   const isTruecolor = supportsTruecolor(env)
+   // The primary green color - 'lime' is CSS bright green
+   if (themeName === 'dark') {
+-    return isTruecolor ? '#9EFC62' : 'lime'
++    return isTruecolor ? '#A7DCCB' : 'lime'
+   }
+-  return isTruecolor ? '#65A83E' : 'green'
++  return isTruecolor ? '#217A68' : 'green'
+ }
+ 
+ const IDE_THEME_INFERENCE = {
+@@ -712,12 +712,12 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
+   dark: {
+     name: 'dark',
+     // Core semantic colors
+-    primary: '#9EFC62',
+-    secondary: '#a3aed0',
++    primary: '#A7DCCB',
++    secondary: '#B9ABD9',
+     success: '#22c55e',
+     error: '#ef4444',
+-    warning: '#FFA500',
+-    info: '#9EFC62',
++    warning: '#E9BE89',
++    info: '#A7DCCB',
+     link: '#3B82F6',
+     directory: '#9CA3AF',
+ 
+@@ -725,18 +725,18 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
+     foreground: '#f1f5f9',
+     background: 'transparent',
+     muted: '#acb3bf',
+-    border: '#536175',
+-    surface: '#202327',
+-    surfaceHover: '#334155',
++    border: '#586473',
++    surface: '#202830',
++    surfaceHover: '#2E3A45',
+ 
+     // Context-specific
+     aiLine: '#6b7280',
+-    userLine: '#9EFC62',
++    userLine: '#A7DCCB',
+ 
+     // Agent backgrounds
+     agentToggleHeaderBg: '#f97316',
+     agentToggleExpandedBg: '#1d4ed8',
+-    agentFocusedBg: '#334155',
++    agentFocusedBg: '#2E3A45',
+     agentContentBg: '#000000',
+     inputFg: '#f5f5f5',
+     inputFocusedFg: '#ffffff',
+@@ -760,15 +760,15 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
+       inlineCodeFg: '#FF8534',
+       codeTextFg: '#f1f5f9',
+       headingFg: {
+-        1: '#facc15',
+-        2: '#facc15',
+-        3: '#facc15',
+-        4: '#facc15',
+-        5: '#facc15',
+-        6: '#facc15',
++        1: '#B9ABD9',
++        2: '#B9ABD9',
++        3: '#B9ABD9',
++        4: '#B9ABD9',
++        5: '#B9ABD9',
++        6: '#B9ABD9',
+       },
+-      listBulletFg: '#a3aed0',
+-      blockquoteBorderFg: '#334155',
++      listBulletFg: '#B9ABD9',
++      blockquoteBorderFg: '#2E3A45',
+       blockquoteTextFg: '#e2e8f0',
+       dividerFg: '#283042',
+       codeMonochrome: false,
+@@ -777,12 +777,12 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
+   light: {
+     name: 'light',
+     // Core semantic colors
+-    primary: '#65A83E',
++    primary: '#217A68',
+     secondary: '#6b7280',
+     success: '#059669',
+     error: '#ef4444',
+     warning: '#F59E0B',
+-    info: '#65A83E',
++    info: '#217A68',
+     link: '#2563EB',
+     directory: '#6B7280',
+ 
+@@ -796,7 +796,7 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
+ 
+     // AI/User context
+     aiLine: '#6b7280',
+-    userLine: '#65A83E',
++    userLine: '#217A68',
+ 
+     // Agent context
+     agentToggleHeaderBg: '#ea580c',
