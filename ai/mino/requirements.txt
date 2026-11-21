@@ -1,5 +1,6 @@
 faster-whisper==1.2.1
 piper-tts==1.4.2
+onnxruntime==1.32.0
 pocketsphinx==5.1.1
 webrtcvad-wheels==2.0.14
 yt-dlp[default]==2026.10.26

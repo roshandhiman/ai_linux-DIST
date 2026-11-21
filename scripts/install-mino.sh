@@ -51,5 +51,9 @@ if [[ "${MINO_SKIP_MODELS:-0}" != 1 ]]; then
 fi
 systemctl --user daemon-reload
 systemctl --user enable mino.service
-if [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then mino session-start; fi
+if systemctl --user is-active --quiet mino.service; then
+    systemctl --user restart mino.service
+elif [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
+    mino session-start
+fi
 printf '%s\n' 'Mino installed. Say Mino or hold Ctrl+Alt+Space in the X11 desktop.'
