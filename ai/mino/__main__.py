@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import sys
+import shutil
 from pathlib import Path
 
 from .config import LANGUAGES, SIZES, Settings, load
@@ -28,6 +29,12 @@ def approve_cli(title, detail):
 
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "code":
+        binary = shutil.which("mino-code")
+        if not binary:
+            print("Install Mino Code with scripts/install-mino-code.sh.", file=sys.stderr)
+            return 1
+        os.execv(binary, [binary, *sys.argv[2:]])
     p = argparse.ArgumentParser(prog="mino", description="Speak to your MineOS assistant.")
     p.add_argument("--once", action="store_true", help="Run a text request in this process")
     p.add_argument("--speak", action="store_true", help="Speak the response in the desktop service")
