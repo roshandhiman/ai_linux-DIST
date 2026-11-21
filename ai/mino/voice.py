@@ -271,13 +271,15 @@ class Capture:
                         self.child = None
                         retry_at = time.monotonic() + 4
                         self.warn("The microphone is unavailable. Check your input device and try again.")
-                    if self.child and started is None and not wake:
+                    monitor_audio = wake or started is not None or (
+                        self.echo.source and self.is_speaking())
+                    if self.child and not monitor_audio:
                         selector.unregister(self.child.stdout)
                         stop_child(self.child)
                         self.child.wait(timeout=2)
                         self.child.stdout.close()
                         self.child = None
-                    if not self.child and (wake or started is not None) and time.monotonic() >= retry_at:
+                    if not self.child and monitor_audio and time.monotonic() >= retry_at:
                         try:
                             args = ["parec", "--raw", "--format=s16le", "--rate=16000", "--channels=1",
                                     "--latency-msec=30", "--client-name=Mino"]
@@ -311,7 +313,10 @@ class Capture:
                         del audio[:FRAME_BYTES]
                         voiced = vad.is_speech(frame, RATE)
                         pre.append(frame)
-                        if started is None and self.is_speaking():
+                        playing = self.is_speaking()
+                        if not playing:
+                            interrupts = 0
+                        if started is None and playing:
                             if not self.echo.source:
                                 continue
                             interrupts = interrupts + 1 if voiced else 0
