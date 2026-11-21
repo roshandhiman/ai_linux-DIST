@@ -1,6 +1,6 @@
 # Mino voice assistant
 
-Mino is the local-first desktop assistant for MineOS on Debian 13 and Plasma/X11. Say “Mino” or hold **Ctrl + Alt + Space**, speak, and release. The overlay shows when Mino is listening, working, or speaking. On PipeWire with echo cancellation enabled, speaking over the reply interrupts playback. The shortcut can also stop playback and start a new request.
+Mino is the local-first desktop assistant for MineOS on Debian 13 and Plasma/X11. Click the microphone beside the pixel companion and speak when **Listening…** appears. You can also say “Mino” or hold **Ctrl + Alt + Space**, speak, and release. On PipeWire with echo cancellation enabled, speaking over the reply interrupts playback.
 
 ## Audit
 

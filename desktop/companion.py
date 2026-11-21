@@ -29,6 +29,8 @@ def surface(window):
 
 
 class Pet(Gtk.Window):
+    MIC_SIZE = 32
+
     def __init__(self):
         super().__init__(type=Gtk.WindowType.POPUP)
         surface(self)
@@ -52,6 +54,30 @@ class Pet(Gtk.Window):
         screen = self.get_screen()
         self.screen_signals = [screen.connect(signal, self.reposition) for signal in ("monitors-changed", "size-changed")]
         self.connect("destroy", self.dispose)
+        self.controls = Gtk.Fixed()
+        self.add(self.controls)
+        self.controls.show()
+        self.mic = Gtk.Button.new_from_icon_name("audio-input-microphone-symbolic", Gtk.IconSize.MENU)
+        self.mic.set_name("mino-mic")
+        self.mic.set_size_request(self.MIC_SIZE, self.MIC_SIZE)
+        self.mic.set_focus_on_click(False)
+        self.mic.set_tooltip_text("Talk to Mino")
+        self.mic.get_accessible().set_name("Talk to Mino")
+        self.mic.connect("clicked", self.open_voice)
+        self.controls.put(self.mic, 0, 0)
+        self.mic.show()
+        style = Gtk.CssProvider()
+        style.load_from_data(b"""
+            #mino-mic {
+                min-width: 0; min-height: 0; padding: 0; border-radius: 16px;
+                color: #bae9c4; background: #293647; border: 1px solid #826072;
+                box-shadow: none;
+            }
+            #mino-mic:hover { color: #fff1d2; background: #3c5360; }
+            #mino-mic:active { color: #293647; background: #bae9c4; }
+        """)
+        self.mic.get_style_context().add_provider(style, Gtk.STYLE_PROVIDER_PRIORITY_USER)
+        self.voice_command = None
         self.origin = self.load_position()
         self.position = None
         self.held = None
@@ -113,14 +139,21 @@ class Pet(Gtk.Window):
             region = cairo.Region()
             for box in companion_art.hit_boxes(self.size):
                 region.union(cairo.RectangleInt(*box))
+            x, y = self.mic_position()
+            region.union(cairo.RectangleInt(x, y, self.MIC_SIZE, self.MIC_SIZE))
             self.input_shape_combine_region(region)
             if not self.get_screen().is_composited():
                 self.shape_combine_region(region)
+
+    def mic_position(self):
+        tile, inset = companion_art.dimensions(self.size)
+        return self.size - self.MIC_SIZE, max(0, inset + 6 * tile - self.MIC_SIZE)
 
     def configure(self, visible, motion, size):
         self.motion = motion
         if self.size != size:
             self.size = size
+            self.controls.move(self.mic, *self.mic_position())
             self.resize(size, size)
             self.shape()
         self.reposition()
@@ -157,6 +190,7 @@ class Pet(Gtk.Window):
         if event.button == 3:
             menu = Gtk.Menu()
             for title, action in (
+                ("Talk to Mino", self.open_voice),
                 ("Open Assistant", self.open_chat),
                 ("Companion Settings", self.open_settings),
                 ("Reset Position", self.reset_position),
@@ -202,6 +236,35 @@ class Pet(Gtk.Window):
         chat = Path(__file__).resolve().parent.parent / "jarvis_gui.py"
         subprocess.Popen(["python3", str(chat)])
 
+    def open_voice(self, *_):
+        if self.voice_command is not None:
+            return
+        try:
+            self.voice_command = Gio.Subprocess.new(
+                ["mino", "listen"], Gio.SubprocessFlags.STDOUT_SILENCE | Gio.SubprocessFlags.STDERR_PIPE
+            )
+            self.voice_command.communicate_utf8_async(None, None, self.voice_finished)
+        except GLib.Error:
+            self.voice_error("Install the Mino voice assistant to use the mic button.")
+
+    def voice_finished(self, process, result):
+        self.voice_command = None
+        try:
+            _, _, error = process.communicate_utf8_finish(result)
+            if process.get_successful():
+                return
+            message = (error or "").strip()
+        except GLib.Error:
+            message = ""
+        self.voice_error(message or "Start the Mino voice service and try again.")
+
+    def voice_error(self, message):
+        dialog = Gtk.MessageDialog(message_type=Gtk.MessageType.ERROR, buttons=Gtk.ButtonsType.CLOSE,
+                                   text="Could not start Mino voice")
+        dialog.format_secondary_text(message)
+        dialog.connect("response", lambda window, _: window.destroy())
+        dialog.show()
+
     def open_settings(self, *_):
         settings = Path(__file__).with_name("settings.py")
         subprocess.Popen(["python3", str(settings), "assistant"])
@@ -218,7 +281,7 @@ class Pet(Gtk.Window):
         cr.set_operator(cairo.OPERATOR_OVER)
         self.drawn_face = self.face()
         companion_art.draw(cr, self.size, self.drawn_face)
-        return True
+        return False
 
 
 class LiveWallpaper(Gtk.Window):
