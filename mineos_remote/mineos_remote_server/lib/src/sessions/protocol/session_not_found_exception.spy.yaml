@@ -1,0 +1,4 @@
+### Thrown when a session id does not exist.
+exception: SessionNotFoundException
+fields:
+  message: String

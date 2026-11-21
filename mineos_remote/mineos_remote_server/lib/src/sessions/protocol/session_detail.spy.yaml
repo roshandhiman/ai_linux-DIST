@@ -1,0 +1,5 @@
+### A session and the steps revealed so far.
+class: SessionDetail
+fields:
+  session: AgentSession
+  steps: List<AgentStep>
