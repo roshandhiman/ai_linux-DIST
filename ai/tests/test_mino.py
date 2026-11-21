@@ -23,6 +23,7 @@ class MinoTest(unittest.TestCase):
 
     def test_common_requests_skip_the_model(self):
         self.assertEqual(direct("Mino, open V S Code."), ("open_app", {"name": "VS Code"}))
+        self.assertEqual(direct("Now open VS Code"), ("open_app", {"name": "VS Code"}))
         self.assertEqual(direct("create a file notes dot txt and write hello."),
                          ("create_file", {"path": "notes.txt", "text": "hello"}))
         self.assertEqual(direct("open https://example.com"), ("open_url", {"url": "https://example.com"}))

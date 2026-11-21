@@ -72,7 +72,8 @@ EXPLAIN = re.compile(rf"explain|{EXPLAIN_HINDI}|why.*error", re.I)
 def direct(text):
     """Return a one-tool plan for common requests without a model call."""
     text = WAKE.sub("", text.strip()).strip()
-    norm = text.rstrip("?!").strip()
+    norm = re.sub(r"^(?:(?:now|please|ab|अब|कृपया)[,\s]+)+", "", text, flags=re.I)
+    norm = norm.rstrip("?!").strip()
     if re.fullmatch(rf"(?:isko |ise |इसको |इसे )?(?:{EXPLAIN_HINDI})", norm, re.I):
         return "read_screen", {}
     if re.search(r"स्क्रीन|\bscreen\b|\bisko\b|इसको|इसे", norm, re.I) and EXPLAIN.search(norm):
