@@ -36,8 +36,8 @@ bun_path="$work/bun-$bun_os-$bun_arch"
 chmod +x "$bun_path/bun"
 export PATH="$bun_path:$PATH"
 cd "$work/source"
-git apply --check "$project/ai/mino-code/interface.patch"
-git apply "$project/ai/mino-code/interface.patch"
+git apply --unidiff-zero --check "$project/ai/mino-code/interface.patch"
+git apply --unidiff-zero "$project/ai/mino-code/interface.patch"
 bun install --frozen-lockfile --ignore-scripts
 # Public production endpoints follow upstream freebuff/e2e/README.md.
 # The free CLI does not embed web billing or analytics credentials.
