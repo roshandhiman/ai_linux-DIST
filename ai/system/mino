@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+install=/opt/mino/current
+python="$install/venv/bin/python"
+if [ ! -x "$python" ]; then
+    printf '%s\n' 'Mino is not installed. Run scripts/install-mino.sh from the MineOS checkout.' >&2
+    exit 1
+fi
+export PYTHONPATH="$install/lib:/opt/ai"
+export PYTHONNOUSERSITE=1
+export PYTHONDONTWRITEBYTECODE=1
+export PATH="$install/venv/bin:$PATH"
+exec "$python" -m mino "$@"

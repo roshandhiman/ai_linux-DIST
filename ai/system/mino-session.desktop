@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Mino Voice Service
+Exec=/usr/local/bin/mino session-start
+Terminal=false
+NoDisplay=true

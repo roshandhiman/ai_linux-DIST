@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Mino Voice Settings
+Comment=Configure MineOS voice and wake word
+Exec=/usr/local/bin/mino settings
+Icon=audio-input-microphone
+Terminal=false
+Categories=Settings;
