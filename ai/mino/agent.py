@@ -283,7 +283,7 @@ class Mino:
             speak(sentences[-1])
         return " ".join(sentences), reference
 
-    def respond(self, text, speak=lambda sentence: None):
+    def respond(self, text, speak=lambda sentence: None, cancelled=lambda: False):
         """Execute one validated plan. Speech callbacks can precede slow reference launches."""
         text = text[:2400].strip()
         if not text:
@@ -291,6 +291,8 @@ class Mino:
         name = None
         try:
             name, args = direct(text) or self.plan(text)
+            if cancelled():
+                return "Stopped.", None
             if name == "reply":
                 reply = args["text"][:1800]
             else:

@@ -1,5 +1,6 @@
 import json
 import tempfile
+import subprocess
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -8,9 +9,27 @@ from mineos_agent.os_api import ApiError
 from mino.agent import Mino, Tool, direct
 from mino.config import Settings
 from mino.desk import SOURAV_CHANNEL, SOURAV_FEED, Desktop
+from mino.voice import Recognizer
 
 
 class MinoTest(unittest.TestCase):
+    def test_stalled_speech_is_killed_and_reaped(self):
+        child = Mock()
+        child.communicate.side_effect = [subprocess.TimeoutExpired("recognizer", 12), (b"", b"")]
+        recognizer = Recognizer(Settings())
+        with patch("mino.voice.subprocess.Popen", return_value=child), self.assertRaises(RuntimeError):
+            recognizer.transcribe(b"\0" * 640)
+        child.kill.assert_called_once()
+        self.assertEqual(child.communicate.call_count, 2)
+        self.assertIsNone(recognizer.process)
+
+    def test_cancelled_model_reply_never_executes_tools(self):
+        agent = Mino(self.desk, self.settings)
+        with patch.object(Mino, "plan", return_value=("create_file", {"path": "late.txt"})):
+            reply, tool = agent.respond("a new document please", cancelled=lambda: True)
+        self.assertEqual(reply, "Stopped.")
+        self.assertFalse((self.docs / "late.txt").exists())
+
     def setUp(self):
         work = tempfile.TemporaryDirectory()
         self.addCleanup(work.cleanup)

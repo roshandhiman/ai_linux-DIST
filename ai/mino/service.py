@@ -28,7 +28,7 @@ class Runtime:
         self.ui = ui
         self.settings = settings
         self.activity = threading.Lock()
-        self.audio_jobs = threading.BoundedSemaphore(2)
+        self.audio_jobs = threading.BoundedSemaphore(1)
         self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="mino")
         self.echo = Echo()
         self.echo.start()
@@ -64,33 +64,39 @@ class Runtime:
             self.activity.release()
 
     def listen(self, held=False):
+        self.cancel()
         self.capture.arm(held)
 
     def release(self):
         self.capture.release()
 
     def cancel(self):
+        self.recognizer.cancel()
         self.capture.cancel()
         self.speaker.cancel()
         self.ui.show("idle")
 
     def submit_audio(self, pcm):
+        if self.activity.locked():
+            return
         if self.audio_jobs.acquire(blocking=False):
             self.pool.submit(self.voice_request, pcm)
 
     def voice_request(self, pcm):
+        generation = self.speaker.generation
         try:
             with self.activity:
                 self.ui.show("thinking")
                 text = self.recognizer.transcribe(pcm)
+                if generation != self.speaker.generation:
+                    return
                 if not WAKE.sub("", text).strip():
-                    self.ui.show("idle")
+                    self.ui.show("error", "I didn't catch that. Click the mic and try again.")
                     return
                 self.answer(text, True)
         except Exception as exc:
-            self.warn(f"Couldn't process speech: {exc}")
-            self.speaker.say("I couldn't process that. Check Mino's microphone and model settings.",
-                             self.speaker.generation)
+            if generation == self.speaker.generation:
+                self.warn(f"Couldn't process speech: {exc}")
         finally:
             self.audio_jobs.release()
 
@@ -106,7 +112,15 @@ class Runtime:
                 emitted = True
                 self.speaker.say(reply, generation)
             return True
-        reply, tool = self.agent.respond(text, say)
+        try:
+            reply, tool = self.agent.respond(
+                text, say, cancelled=lambda: generation != self.speaker.generation)
+        except Exception as exc:
+            self.warn(f"Couldn't complete the request: {exc}")
+            return {"error": "Mino couldn't finish that request. Please try again."}
+        finally:
+            if not emitted and generation == self.speaker.generation:
+                self.ui.show("idle")
         if not emitted and generation == self.speaker.generation:
             self.ui.show("idle")
         return {"reply": reply, "tool": tool}
@@ -138,6 +152,7 @@ class Runtime:
             self.activity.release()
 
     def close(self):
+        self.recognizer.cancel()
         self.capture.close()
         self.speaker.close()
         self.echo.close()
@@ -189,6 +204,7 @@ def serve():
         os.umask(old)
     config, issue = load()
     worker = Runtime(ui, config)
+    ui.on_stop = worker.cancel
     server.runtime = worker
     thread = threading.Thread(target=server.serve_forever, daemon=True, name="mino-ipc")
     thread.start()

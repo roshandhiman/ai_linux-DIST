@@ -20,22 +20,43 @@ class Overlay:
         self.last_detail = ""
         self.state = "idle"
         self.generation = 0
+        self.on_stop = lambda: self._show("idle", "")
+        self.expiry = 0
         self.window = Gtk.Window(type=Gtk.WindowType.POPUP)
         self.window.set_decorated(False)
         self.window.set_accept_focus(False)
         self.window.set_keep_above(True)
+        self.window.set_resizable(False)
+        self.window.set_skip_taskbar_hint(True)
+        self.window.set_skip_pager_hint(True)
         self.window.set_name("mino")
         box = Gtk.Box(spacing=10)
         box.set_border_width(12)
-        label = self.label = Gtk.Label(xalign=0)
+        label = self.label = Gtk.Label(xalign=0, yalign=.5)
+        label.set_name("mino-status")
         label.set_line_wrap(True)
-        label.set_max_width_chars(50)
+        label.set_max_width_chars(42)
         box.pack_start(label, True, True, 0)
+        self.stop_button = Gtk.Button.new_from_icon_name("process-stop-symbolic", Gtk.IconSize.MENU)
+        self.stop_button.set_name("mino-stop")
+        self.stop_button.set_tooltip_text("Stop Mino")
+        self.stop_button.get_accessible().set_name("Stop Mino")
+        self.stop_button.set_focus_on_click(False)
+        self.stop_button.connect("clicked", lambda *_: self.on_stop())
+        box.pack_start(self.stop_button, False, False, 0)
         self.window.add(box)
         css = Gtk.CssProvider()
-        css.load_from_data(b"#mino {background: #171a22; color: #e8ecf7; border: 1px solid #566b9e; border-radius: 12px;}")
+        css.load_from_data(b"""
+            #mino {background: #20252e; color: #f1f3f7; border: 1px solid #526474;
+                   border-radius: 12px; min-width: 0; min-height: 0;}
+            #mino-status {color: #f1f3f7; padding: 0; margin: 0; min-height: 0;}
+            #mino-stop {color: #bae9c4; background: #303b48; border-radius: 16px;
+                        padding: 6px; margin: 0; min-width: 16px; min-height: 16px;}
+            #mino-stop:hover {background: #4a596c;}
+        """)
         Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), css,
-                                                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+                                                 Gtk.STYLE_PROVIDER_PRIORITY_USER)
+        self.window.connect("size-allocate", self.place)
         self.last_settings = None
 
     def show(self, state, detail=""):
@@ -45,21 +66,40 @@ class Overlay:
         self.state = state
         self.generation += 1
         generation = self.generation
+        if self.expiry:
+            self.GLib.source_remove(self.expiry)
+            self.expiry = 0
         if state == "idle":
             self.window.hide()
             return False
         self.label.set_text(f"Mino  ·  {LABELS.get(state, state)}" + (f"\n{detail[:430]}" if detail else ""))
-        screen = self.window.get_screen()
+        self.window.show_all()
+        self.window.resize(1, 1)
+        self.place()
+        if state in ("listening", "thinking", "speaking"):
+            self.expiry = self.GLib.timeout_add_seconds(
+                {"listening": 14, "thinking": 25, "speaking": 60}[state],
+                self.expire, generation)
+        elif state == "error":
+            self.expiry = self.GLib.timeout_add_seconds(7, self.expire, generation)
+        return False
+
+    def expire(self, generation):
+        self.expiry = 0
+        if generation == self.generation:
+            if self.state == "error":
+                self._show("idle", "")
+            else:
+                self.on_stop()
+        return False
+
+    def place(self, *_):
         display = self.window.get_display()
         monitor = display.get_primary_monitor() or display.get_monitor(0)
         if monitor:
             bounds = monitor.get_workarea()
-            width, height = self.window.get_preferred_size()[1].width, self.window.get_preferred_size()[1].height
-            self.window.move(bounds.x + (bounds.width - width) // 2, bounds.y + bounds.height - height - 72)
-        if screen:
-            self.window.show_all()
-        if state == "error":
-            self.GLib.timeout_add_seconds(7, lambda: self._show("idle", "") if generation == self.generation else False)
+            width, height = self.window.get_size()
+            self.window.move(bounds.x + (bounds.width - width) // 2, bounds.y + bounds.height - height - 24)
         return False
 
     def approve(self, title, detail):

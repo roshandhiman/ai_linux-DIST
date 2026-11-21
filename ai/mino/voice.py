@@ -10,6 +10,10 @@ import subprocess
 import threading
 import time
 import wave
+import sys
+import json
+import tempfile
+from dataclasses import asdict
 from collections import deque
 from pathlib import Path
 
@@ -73,7 +77,7 @@ class Wake:
             self.detector = Model(wakeword_models=[str(Path(path).expanduser())], inference_framework="onnx")
         else:
             from pocketsphinx import Decoder
-            self.decoder = Decoder(lm=None, loglevel="ERROR", kws_threshold=1e-30,
+            self.decoder = Decoder(lm=None, loglevel="ERROR", kws_threshold=1e-19,
                                    samprate=RATE)
             if not self.decoder.lookup_word("mino"):
                 self.decoder.add_word("mino", "M IY N OW", True)
@@ -113,6 +117,37 @@ class Recognizer:
     def __init__(self, settings):
         self.settings = settings
         self.model = None
+        self.process = None
+
+    def cancel(self):
+        if self.process is not None and self.process.poll() is None:
+            self.process.kill()
+
+    def transcribe(self, pcm):
+        # Native inference can stall. Keep it outside the desktop service so
+        # Stop and the deadline can actually interrupt the computation.
+        command = (
+            "import sys,json; from mino.config import Settings; "
+            "from mino.voice import Recognizer; "
+            "settings=Settings(**json.loads(sys.stdin.buffer.readline())); "
+            "print(Recognizer(settings)._transcribe(sys.stdin.buffer.read()))"
+        )
+        payload = json.dumps(asdict(self.settings)).encode() + b"\n" + pcm
+        with tempfile.TemporaryFile() as errors:
+            child = subprocess.Popen([sys.executable, "-c", command], stdin=subprocess.PIPE,
+                                     stdout=subprocess.PIPE, stderr=errors)
+            self.process = child
+            try:
+                output, _ = child.communicate(payload, timeout=12)
+                if child.returncode:
+                    raise RuntimeError("Speech recognition stopped. Please try a shorter phrase.")
+                return output.decode("utf-8").strip()
+            except subprocess.TimeoutExpired as exc:
+                child.kill()
+                child.communicate()
+                raise RuntimeError("Speech recognition took too long. Try a shorter phrase or the tiny model.") from exc
+            finally:
+                self.process = None
 
     def model_path(self):
         preferred = model_dir() / f"whisper-{self.settings.stt_size}"
@@ -132,7 +167,7 @@ class Recognizer:
                                       local_files_only=True)
         return self.model
 
-    def transcribe(self, pcm):
+    def _transcribe(self, pcm):
         import numpy as np
         audio = np.frombuffer(pcm, dtype="<i2").astype(np.float32) / 32768
         model = self.load()
@@ -143,7 +178,9 @@ class Recognizer:
                                        hotwords=None if language == "hi" else "Mino, VS Code", **kwargs)
         if language is None and info.language not in ("en", "hi"):
             words, _ = model.transcribe(audio, language="hi", **kwargs)
-        return " ".join(part.text.strip() for part in words).strip()
+        return " ".join(part.text.strip() for part in words
+                        if part.no_speech_prob < .8 and part.avg_logprob > -1
+                        and part.compression_ratio < 2.4).strip()
 
 
 class Echo:
