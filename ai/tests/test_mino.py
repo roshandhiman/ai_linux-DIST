@@ -38,6 +38,17 @@ class MinoTest(unittest.TestCase):
             with self.subTest(args=args), self.assertRaises(ValueError):
                 tool(args)
 
+    def test_model_uses_the_tool_schema_and_excludes_terminal(self):
+        agent = Mino(self.desk, self.settings)
+        with patch.object(type(agent.local_model), "request_completion",
+                          return_value={"choices": [{"message": {"content":
+                                        '{"tool":"open_app","args":{"name":"Firefox"}}'}}]}) as request:
+            self.assertEqual(agent.plan("Start Firefox when you can."), ("open_app", {"name": "Firefox"}))
+        forms = request.call_args.args[0]["response_format"]["schema"]["anyOf"]
+        tools = {form["properties"]["tool"]["const"]: form for form in forms if "tool" in form["properties"]}
+        self.assertNotIn("terminal", tools)
+        self.assertEqual(tools["open_app"]["properties"]["args"]["required"], ["name"])
+
     def test_create_and_overwrite_approval(self):
         app = Mino(self.desk, self.settings)
         reply, name = app.respond("create a file notes.txt and write hello")
