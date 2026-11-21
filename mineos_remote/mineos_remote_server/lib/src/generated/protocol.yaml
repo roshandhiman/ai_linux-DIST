@@ -15,3 +15,7 @@ jwtRefresh:
   - refreshAccessToken:
 greeting:
   - hello:
+sessions:
+  - list:
+  - get:
+  - watch:

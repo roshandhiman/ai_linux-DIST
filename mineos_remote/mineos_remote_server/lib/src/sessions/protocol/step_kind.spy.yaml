@@ -1,0 +1,16 @@
+### What one step of an agent session is.
+enum: StepKind
+serialized: byName
+values:
+  ### The router's decision for the request.
+  - plan
+  ### A call to the local model (the slow part on a CPU).
+  - modelCall
+  ### A sandboxed run of the code the model wrote.
+  - toolCall
+  ### The agent's y/N prompt before it changes anything.
+  - approvalRequest
+  ### The turn's outcome and answer.
+  - result
+  ### A refused or failed block.
+  - error

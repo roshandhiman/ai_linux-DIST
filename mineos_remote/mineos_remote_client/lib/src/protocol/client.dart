@@ -14,6 +14,12 @@ import 'dart:async' as _ida;
 import 'package:http/http.dart' as _i85jenna;
 import 'package:mineos_remote_client/src/protocol/greetings/greeting.dart'
     as _ir109s3h;
+import 'package:mineos_remote_client/src/protocol/sessions/protocol/agent_session.dart'
+    as _ifclqx5t;
+import 'package:mineos_remote_client/src/protocol/sessions/protocol/replay_event.dart'
+    as _i8zjy4z5;
+import 'package:mineos_remote_client/src/protocol/sessions/protocol/session_detail.dart'
+    as _ie6dkyjn;
 import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
     as _iacc;
 import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
@@ -365,6 +371,58 @@ class EndpointGreeting extends _isc.EndpointRef {
       );
 }
 
+/// Read-only access to the recorded MineOS agent sessions, for anonymous
+/// demo viewers. Everything served here is a replay of a recording, and the
+/// app labels it "Demo replay".
+/// {@category Endpoint}
+class EndpointSessions extends _isc.EndpointRef {
+  EndpointSessions(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'sessions';
+
+  /// All sessions, newest first.
+  _ida.Future<List<_ifclqx5t.AgentSession>> list() =>
+      caller.callServerEndpoint<List<_ifclqx5t.AgentSession>>(
+        'sessions',
+        'list',
+        {},
+      );
+
+  /// One session and the steps revealed so far.
+  _ida.Future<_ie6dkyjn.SessionDetail> get(int sessionId) =>
+      caller.callServerEndpoint<_ie6dkyjn.SessionDetail>(
+        'sessions',
+        'get',
+        {'sessionId': sessionId},
+      );
+
+  /// Replays a session step by step.
+  ///
+  /// Every call starts with a `restart` event, then any catch-up steps
+  /// (instantly), then the remaining steps with their delays. A running
+  /// session follows a shared clock and loops forever; [resumeFrom] is
+  /// ignored for it. Any other session starts its replay at step 1, sends
+  /// the first [resumeFrom] steps at once (for a client that reconnects),
+  /// and ends with `holding` (paused at the approval prompt) or `finished`.
+  _ida.Stream<_i8zjy4z5.ReplayEvent> watch(
+    int sessionId,
+    int resumeFrom,
+  ) =>
+      caller.callStreamingServerEndpoint<
+        _ida.Stream<_i8zjy4z5.ReplayEvent>,
+        _i8zjy4z5.ReplayEvent
+      >(
+        'sessions',
+        'watch',
+        {
+          'sessionId': sessionId,
+          'resumeFrom': resumeFrom,
+        },
+        {},
+      );
+}
+
 class Modules {
   Modules(Client client) {
     serverpod_auth_idp = _iaic.Caller(client);
@@ -406,6 +464,7 @@ class Client extends _isc.ServerpodClientShared {
     emailIdp = EndpointEmailIdp(this);
     jwtRefresh = EndpointJwtRefresh(this);
     greeting = EndpointGreeting(this);
+    sessions = EndpointSessions(this);
     modules = Modules(this);
   }
 
@@ -415,6 +474,8 @@ class Client extends _isc.ServerpodClientShared {
 
   late final EndpointGreeting greeting;
 
+  late final EndpointSessions sessions;
+
   late final Modules modules;
 
   @override
@@ -422,6 +483,7 @@ class Client extends _isc.ServerpodClientShared {
     'emailIdp': emailIdp,
     'jwtRefresh': jwtRefresh,
     'greeting': greeting,
+    'sessions': sessions,
   };
 
   @override

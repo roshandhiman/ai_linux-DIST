@@ -18,6 +18,7 @@ import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
 import '../auth/email_idp_endpoint.dart' as _iuc1hd5t;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
 import '../greetings/greeting_endpoint.dart' as _il624ik7;
+import '../sessions/sessions_endpoint.dart' as _iojy61cx;
 
 class Endpoints extends _is.EndpointDispatch {
   @override
@@ -48,6 +49,12 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'greeting',
+          null,
+        ),
+      'sessions': _iojy61cx.SessionsEndpoint()
+        ..initialize(
+          server,
+          'sessions',
           null,
         ),
     };
@@ -367,6 +374,68 @@ class Endpoints extends _is.EndpointDispatch {
                     session,
                     params['name'],
                   ),
+        ),
+      },
+    );
+    connectors['sessions'] = _is.EndpointConnector(
+      name: 'sessions',
+      endpoint: endpoints['sessions']!,
+      methodConnectors: {
+        'list': _is.MethodConnector(
+          name: 'list',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['sessions'] as _iojy61cx.SessionsEndpoint)
+                  .list(session),
+        ),
+        'get': _is.MethodConnector(
+          name: 'get',
+          params: {
+            'sessionId': _is.ParameterDescription(
+              name: 'sessionId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['sessions'] as _iojy61cx.SessionsEndpoint).get(
+                    session,
+                    params['sessionId'],
+                  ),
+        ),
+        'watch': _is.MethodStreamConnector(
+          name: 'watch',
+          params: {
+            'sessionId': _is.ParameterDescription(
+              name: 'sessionId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'resumeFrom': _is.ParameterDescription(
+              name: 'resumeFrom',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          streamParams: {},
+          returnType: _is.MethodStreamReturnType.streamType,
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+                Map<String, Stream> streamParams,
+              ) => (endpoints['sessions'] as _iojy61cx.SessionsEndpoint).watch(
+                session,
+                params['sessionId'],
+                params['resumeFrom'],
+              ),
         ),
       },
     );

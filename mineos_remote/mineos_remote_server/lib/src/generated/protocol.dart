@@ -11,6 +11,8 @@
 // ignore_for_file: dead_code, unnecessary_type_check
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+import 'package:mineos_remote_server/src/generated/sessions/protocol/agent_session.dart'
+    as _izegx9o3;
 import 'package:serverpod/protocol.dart' as _isp;
 import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
@@ -18,7 +20,23 @@ import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
 import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
     as _iais;
 import 'greetings/greeting.dart' as _izw8z7ou;
+import 'sessions/protocol/agent_session.dart' as _ily1njrg;
+import 'sessions/protocol/agent_step.dart' as _iz8epg7c;
+import 'sessions/protocol/replay_event.dart' as _ihiy6y4r;
+import 'sessions/protocol/replay_event_type.dart' as _iopknbbc;
+import 'sessions/protocol/session_detail.dart' as _i8keovzz;
+import 'sessions/protocol/session_not_found_exception.dart' as _i7i6f2iv;
+import 'sessions/protocol/session_status.dart' as _i2buyk6g;
+import 'sessions/protocol/step_kind.dart' as _iv7b1hh6;
 export 'greetings/greeting.dart';
+export 'sessions/protocol/agent_session.dart';
+export 'sessions/protocol/agent_step.dart';
+export 'sessions/protocol/replay_event.dart';
+export 'sessions/protocol/replay_event_type.dart';
+export 'sessions/protocol/session_detail.dart';
+export 'sessions/protocol/session_not_found_exception.dart';
+export 'sessions/protocol/session_status.dart';
+export 'sessions/protocol/step_kind.dart';
 
 class Protocol extends _is.DatabaseSerializationManager
     implements _is.DatabaseProtocolDeserializationProvider {
@@ -34,14 +52,43 @@ class Protocol extends _is.DatabaseSerializationManager
         this,
         types: const [
           _is.getType<_izw8z7ou.Greeting>,
+          _is.getType<_ily1njrg.AgentSession>,
+          _is.getType<_iz8epg7c.AgentStep>,
+          _is.getType<_ihiy6y4r.ReplayEvent>,
+          _is.getType<_iopknbbc.ReplayEventType>,
+          _is.getType<_i8keovzz.SessionDetail>,
+          _is.getType<_i7i6f2iv.SessionNotFoundException>,
+          _is.getType<_i2buyk6g.SessionStatus>,
+          _is.getType<_iv7b1hh6.StepKind>,
           _is.getType<_izw8z7ou.Greeting?>,
+          _is.getType<_ily1njrg.AgentSession?>,
+          _is.getType<_iz8epg7c.AgentStep?>,
+          _is.getType<_ihiy6y4r.ReplayEvent?>,
+          _is.getType<_iopknbbc.ReplayEventType?>,
+          _is.getType<_i8keovzz.SessionDetail?>,
+          _is.getType<_i7i6f2iv.SessionNotFoundException?>,
+          _is.getType<_i2buyk6g.SessionStatus?>,
+          _is.getType<_iv7b1hh6.StepKind?>,
+          _is.getType<List<_iz8epg7c.AgentStep>>,
+          _is.getType<List<_iz8epg7c.AgentStep>?>,
+          _is.getType<List<_izegx9o3.AgentSession>>,
         ],
         modules: const [
           _iais.Protocol.new,
           _iacs.Protocol.new,
           _isp.Protocol.new,
         ],
-        classNames: const ['Greeting'],
+        classNames: const [
+          'Greeting',
+          'AgentSession',
+          'AgentStep',
+          'ReplayEvent',
+          'ReplayEventType',
+          'SessionDetail',
+          'SessionNotFoundException',
+          'SessionStatus',
+          'StepKind',
+        ],
       );
 
   static List<_isp.TableDefinition> get targetTableDefinitions => [
@@ -51,7 +98,195 @@ class Protocol extends _is.DatabaseSerializationManager
     ..._isp.Protocol.targetTableDefinitions,
   ];
 
-  static List<_isp.TableDefinition> get _ownTableDefinitions => [];
+  static List<_isp.TableDefinition> get _ownTableDefinitions => [
+    _isp.TableDefinition(
+      name: 'agent_session',
+      dartName: 'AgentSession',
+      schema: 'public',
+      module: 'mineos_remote',
+      columns: [
+        _isp.ColumnDefinition(
+          name: 'id',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int?',
+          columnDefault: 'serial',
+        ),
+        _isp.ColumnDefinition(
+          name: 'task',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isp.ColumnDefinition(
+          name: 'status',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'protocol:SessionStatus',
+        ),
+        _isp.ColumnDefinition(
+          name: 'modelName',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isp.ColumnDefinition(
+          name: 'provider',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isp.ColumnDefinition(
+          name: 'isLocal',
+          columnType: _isp.ColumnType.boolean,
+          isNullable: false,
+          dartType: 'bool',
+        ),
+        _isp.ColumnDefinition(
+          name: 'route',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isp.ColumnDefinition(
+          name: 'outcome',
+          columnType: _isp.ColumnType.text,
+          isNullable: true,
+          dartType: 'String?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'answer',
+          columnType: _isp.ColumnType.text,
+          isNullable: true,
+          dartType: 'String?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'startedAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: false,
+          dartType: 'DateTime',
+        ),
+        _isp.ColumnDefinition(
+          name: 'updatedAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: false,
+          dartType: 'DateTime',
+        ),
+        _isp.ColumnDefinition(
+          name: 'stepCount',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+        ),
+      ],
+      foreignKeys: [],
+      indexes: [
+        _isp.IndexDefinition(
+          indexName: 'agent_session_started_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'startedAt',
+            ),
+          ],
+          type: 'btree',
+          isUnique: false,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
+    _isp.TableDefinition(
+      name: 'agent_step',
+      dartName: 'AgentStep',
+      schema: 'public',
+      module: 'mineos_remote',
+      columns: [
+        _isp.ColumnDefinition(
+          name: 'id',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int?',
+          columnDefault: 'serial',
+        ),
+        _isp.ColumnDefinition(
+          name: 'sessionId',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+        ),
+        _isp.ColumnDefinition(
+          name: 'index',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+        ),
+        _isp.ColumnDefinition(
+          name: 'kind',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'protocol:StepKind',
+        ),
+        _isp.ColumnDefinition(
+          name: 'title',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isp.ColumnDefinition(
+          name: 'detail',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isp.ColumnDefinition(
+          name: 'durationMs',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+        ),
+        _isp.ColumnDefinition(
+          name: 'createdAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: false,
+          dartType: 'DateTime',
+        ),
+      ],
+      foreignKeys: [
+        _isp.ForeignKeyDefinition(
+          constraintName: 'agent_step_fk_0',
+          columns: ['sessionId'],
+          referenceTable: 'agent_session',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isp.ForeignKeyAction.noAction,
+          onDelete: _isp.ForeignKeyAction.noAction,
+          matchType: null,
+        ),
+      ],
+      indexes: [
+        _isp.IndexDefinition(
+          indexName: 'agent_step_session_index_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'sessionId',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'index',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
+  ];
 
   static String? getClassNameFromObjectJson(dynamic data) =>
       _is.ProtocolDeserialization.readClassName(data);
@@ -80,8 +315,82 @@ class Protocol extends _is.DatabaseSerializationManager
     if (t == _izw8z7ou.Greeting) {
       return _izw8z7ou.Greeting.fromJson(data) as T;
     }
+    if (t == _ily1njrg.AgentSession) {
+      return _ily1njrg.AgentSession.fromJson(data) as T;
+    }
+    if (t == _iz8epg7c.AgentStep) {
+      return _iz8epg7c.AgentStep.fromJson(data) as T;
+    }
+    if (t == _ihiy6y4r.ReplayEvent) {
+      return _ihiy6y4r.ReplayEvent.fromJson(data) as T;
+    }
+    if (t == _iopknbbc.ReplayEventType) {
+      return _iopknbbc.ReplayEventType.fromJson(data) as T;
+    }
+    if (t == _i8keovzz.SessionDetail) {
+      return _i8keovzz.SessionDetail.fromJson(data) as T;
+    }
+    if (t == _i7i6f2iv.SessionNotFoundException) {
+      return _i7i6f2iv.SessionNotFoundException.fromJson(data) as T;
+    }
+    if (t == _i2buyk6g.SessionStatus) {
+      return _i2buyk6g.SessionStatus.fromJson(data) as T;
+    }
+    if (t == _iv7b1hh6.StepKind) {
+      return _iv7b1hh6.StepKind.fromJson(data) as T;
+    }
     if (t == _is.getType<_izw8z7ou.Greeting?>()) {
       return (data != null ? _izw8z7ou.Greeting.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_ily1njrg.AgentSession?>()) {
+      return (data != null ? _ily1njrg.AgentSession.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_iz8epg7c.AgentStep?>()) {
+      return (data != null ? _iz8epg7c.AgentStep.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_ihiy6y4r.ReplayEvent?>()) {
+      return (data != null ? _ihiy6y4r.ReplayEvent.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_iopknbbc.ReplayEventType?>()) {
+      return (data != null ? _iopknbbc.ReplayEventType.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_i8keovzz.SessionDetail?>()) {
+      return (data != null ? _i8keovzz.SessionDetail.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_i7i6f2iv.SessionNotFoundException?>()) {
+      return (data != null
+              ? _i7i6f2iv.SessionNotFoundException.fromJson(data)
+              : null)
+          as T;
+    }
+    if (t == _is.getType<_i2buyk6g.SessionStatus?>()) {
+      return (data != null ? _i2buyk6g.SessionStatus.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_iv7b1hh6.StepKind?>()) {
+      return (data != null ? _iv7b1hh6.StepKind.fromJson(data) : null) as T;
+    }
+    if (t == List<_iz8epg7c.AgentStep>) {
+      return (data as List)
+              .map((e) => deserialize<_iz8epg7c.AgentStep>(e))
+              .toList()
+          as T;
+    }
+    if (t == _is.getType<List<_iz8epg7c.AgentStep>?>()) {
+      return (data != null
+              ? (data as List)
+                    .map((e) => deserialize<_iz8epg7c.AgentStep>(e))
+                    .toList()
+              : null)
+          as T;
+    }
+    if (t == List<_izegx9o3.AgentSession>) {
+      return (data as List)
+              .map((e) => deserialize<_izegx9o3.AgentSession>(e))
+              .toList()
+          as T;
     }
     final modules = deserializationMetadata.modulesForDeserialization(
       t,
@@ -99,6 +408,14 @@ class Protocol extends _is.DatabaseSerializationManager
   static String? getClassNameForType(Type type) {
     return switch (type) {
       _izw8z7ou.Greeting => 'Greeting',
+      _ily1njrg.AgentSession => 'AgentSession',
+      _iz8epg7c.AgentStep => 'AgentStep',
+      _ihiy6y4r.ReplayEvent => 'ReplayEvent',
+      _iopknbbc.ReplayEventType => 'ReplayEventType',
+      _i8keovzz.SessionDetail => 'SessionDetail',
+      _i7i6f2iv.SessionNotFoundException => 'SessionNotFoundException',
+      _i2buyk6g.SessionStatus => 'SessionStatus',
+      _iv7b1hh6.StepKind => 'StepKind',
       _ => null,
     };
   }
@@ -118,6 +435,22 @@ class Protocol extends _is.DatabaseSerializationManager
     switch (data) {
       case _izw8z7ou.Greeting():
         return 'Greeting';
+      case _ily1njrg.AgentSession():
+        return 'AgentSession';
+      case _iz8epg7c.AgentStep():
+        return 'AgentStep';
+      case _ihiy6y4r.ReplayEvent():
+        return 'ReplayEvent';
+      case _iopknbbc.ReplayEventType():
+        return 'ReplayEventType';
+      case _i8keovzz.SessionDetail():
+        return 'SessionDetail';
+      case _i7i6f2iv.SessionNotFoundException():
+        return 'SessionNotFoundException';
+      case _i2buyk6g.SessionStatus():
+        return 'SessionStatus';
+      case _iv7b1hh6.StepKind():
+        return 'StepKind';
     }
     className = _iais.Protocol().getClassNameForObject(data);
     if (className != null) {
@@ -146,6 +479,30 @@ class Protocol extends _is.DatabaseSerializationManager
     }
     if (dataClassName == 'Greeting') {
       return deserialize<_izw8z7ou.Greeting>(data['data']);
+    }
+    if (dataClassName == 'AgentSession') {
+      return deserialize<_ily1njrg.AgentSession>(data['data']);
+    }
+    if (dataClassName == 'AgentStep') {
+      return deserialize<_iz8epg7c.AgentStep>(data['data']);
+    }
+    if (dataClassName == 'ReplayEvent') {
+      return deserialize<_ihiy6y4r.ReplayEvent>(data['data']);
+    }
+    if (dataClassName == 'ReplayEventType') {
+      return deserialize<_iopknbbc.ReplayEventType>(data['data']);
+    }
+    if (dataClassName == 'SessionDetail') {
+      return deserialize<_i8keovzz.SessionDetail>(data['data']);
+    }
+    if (dataClassName == 'SessionNotFoundException') {
+      return deserialize<_i7i6f2iv.SessionNotFoundException>(data['data']);
+    }
+    if (dataClassName == 'SessionStatus') {
+      return deserialize<_i2buyk6g.SessionStatus>(data['data']);
+    }
+    if (dataClassName == 'StepKind') {
+      return deserialize<_iv7b1hh6.StepKind>(data['data']);
     }
     if (dataClassName.startsWith('serverpod_auth_idp.')) {
       return _iais.Protocol().deserializeByClassName({
@@ -192,6 +549,12 @@ class Protocol extends _is.DatabaseSerializationManager
       if (table != null) {
         return table;
       }
+    }
+    switch (t) {
+      case _ily1njrg.AgentSession:
+        return _ily1njrg.AgentSession.t;
+      case _iz8epg7c.AgentStep:
+        return _iz8epg7c.AgentStep.t;
     }
     return null;
   }

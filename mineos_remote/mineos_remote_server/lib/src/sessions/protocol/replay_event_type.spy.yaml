@@ -1,0 +1,14 @@
+### The kinds of event a replay stream sends.
+enum: ReplayEventType
+serialized: byName
+values:
+  ### The replay starts (again). The client clears its timeline.
+  - restart
+  ### One step is revealed.
+  - step
+  ### The agent is waiting on the model; label says for what.
+  - thinking
+  ### The agent is paused at its approval prompt. The stream ends.
+  - holding
+  ### The recording is over. The stream ends.
+  - finished
