@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 from mineos_agent.os_api import ApiError
 from mino.agent import Mino, Tool, direct
 from mino.config import Settings
-from mino.desk import SOURAV_CHANNEL, Desktop
+from mino.desk import SOURAV_CHANNEL, SOURAV_FEED, Desktop
 
 
 class MinoTest(unittest.TestCase):
@@ -27,6 +27,7 @@ class MinoTest(unittest.TestCase):
                          ("create_file", {"path": "notes.txt", "text": "hello"}))
         self.assertEqual(direct("open https://example.com"), ("open_url", {"url": "https://example.com"}))
         self.assertEqual(direct("isko samjhao"), ("read_screen", {}))
+        self.assertEqual(direct("Mino, meri screen-deko aur ise samjau."), ("read_screen", {}))
         self.assertEqual(direct("ab isse close kar do"), ("close_app", {}))
 
     def test_arguments_are_explicit_and_typed(self):
@@ -93,11 +94,31 @@ class MinoTest(unittest.TestCase):
         entries = {"entries": [{"id": "abcdefghijk", "live_status": "is_upcoming"},
                                {"id": "01234567890", "title": "New vlog"},
                                {"id": "zyxwvutsrqp", "title": "Old vlog"}]}
-        with patch("mino.desk.accomplish", return_value=json.dumps(entries).encode()) as lookup, \
+        with patch("mino.desk.accomplish", side_effect=[ApiError("Unavailable"), json.dumps(entries).encode()]) as lookup, \
                 patch.object(Desktop, "url") as opened:
             self.assertEqual(self.desk.media("Sourav Joshi latest vlog"), "Opening New vlog.")
         self.assertEqual(lookup.call_args.args[0][-1], SOURAV_CHANNEL + "/videos")
         opened.assert_called_once_with("https://www.youtube.com/watch?v=01234567890")
+
+    def test_sourav_feed_supplies_latest_video_without_yt_dlp(self):
+        feed = """<feed xmlns="http://www.w3.org/2005/Atom"
+                   xmlns:yt="http://www.youtube.com/xml/schemas/2015">
+                   <entry><yt:videoId>abcdefghijk</yt:videoId><title>Old vlog</title>
+                     <published>2026-11-20T10:00:00Z</published></entry>
+                   <entry><yt:videoId>01234567890</yt:videoId><title>New vlog</title>
+                     <published>2026-11-21T10:00:00Z</published></entry>
+                   </feed>"""
+        with patch("mino.desk.accomplish", return_value=feed.encode()) as fetch, \
+                patch.object(Desktop, "url") as opened:
+            self.assertEqual(self.desk.media("Sourav Joshi latest vlog"), "Opening New vlog.")
+        self.assertEqual(fetch.call_args.args[0][-1], SOURAV_FEED)
+        opened.assert_called_once_with("https://www.youtube.com/watch?v=01234567890")
+
+    def test_hinglish_screen_explanation_uses_hindi_speech(self):
+        with patch.object(Desktop, "read_screen", return_value="Permission denied"):
+            reply, name = Mino(self.desk, self.settings).respond("isko samjhao")
+        self.assertEqual(name, "read_screen")
+        self.assertIn("अनुमति", reply)
 
     def test_app_launch_and_close_followup(self):
         with patch.object(Desktop, "_desktop_entries",

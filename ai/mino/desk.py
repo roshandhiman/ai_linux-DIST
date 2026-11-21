@@ -11,11 +11,15 @@ import subprocess
 import tempfile
 from pathlib import Path
 from urllib.parse import quote_plus, urlsplit
+from xml.etree import ElementTree
 
 from mineos_agent.coding import CodingApi
 from mineos_agent.os_api import ApiError, NO_ROOT
 
 SOURAV_CHANNEL = "https://www.youtube.com/@souravjoshivlogs7028"
+SOURAV_FEED = "https://www.youtube.com/feeds/videos.xml?channel_id=UCjvgGbPPn-FgYeguc5nxG4A"
+YOUTUBE_XML = {"atom": "http://www.w3.org/2005/Atom", "yt": "http://www.youtube.com/xml/schemas/2015"}
+VIDEO_ID = re.compile(r"[A-Za-z0-9_-]{11}")
 VISION = Path("/usr/share/mineos/models/screen-vision")
 
 
@@ -192,20 +196,40 @@ class Desktop(CodingApi):
         self.url("https://www.google.com/search?q=" + quote_plus(query))
         return "Opening browser search results."
 
-    def media(self, query):
-        # Use the channel's uploads feed, which is already newest first.
-        known = re.search(r"sourav\s+joshi", query, re.IGNORECASE) or "सौरव जोशी" in query
-        mode = SOURAV_CHANNEL + "/videos" if known else f"ytsearch5:{query}"
+    def latest_sourav(self):
         try:
-            data = json.loads(accomplish(
-                ["yt-dlp", "--ignore-config", "--flat-playlist", "--playlist-end", "5",
-                 "--dump-single-json", "--skip-download", "--socket-timeout", "5", "--", mode], 12))
-            entries = data.get("entries", []) if isinstance(data, dict) else []
-            match = next((item for item in entries if isinstance(item, dict) and
-                          re.fullmatch(r"[A-Za-z0-9_-]{11}", str(item.get("id", ""))) and
-                          item.get("live_status") != "is_upcoming"), None)
-        except (ApiError, ValueError, TypeError):
-            match = None
+            raw = accomplish(["curl", "--disable", "--fail", "--silent", "--max-time", "4",
+                              "--max-filesize", "131072", SOURAV_FEED], 4.5)
+            root = ElementTree.fromstring(raw)
+        except (ApiError, ElementTree.ParseError):
+            return None
+        uploads = []
+        for entry in root.findall("atom:entry", YOUTUBE_XML):
+            video_id = entry.findtext("yt:videoId", "", YOUTUBE_XML)
+            title = entry.findtext("atom:title", "", YOUTUBE_XML)
+            published = entry.findtext("atom:published", "", YOUTUBE_XML)
+            if VIDEO_ID.fullmatch(video_id) and "#shorts" not in title.casefold():
+                uploads.append((published, video_id, title))
+        if not uploads:
+            return None
+        _, video_id, title = max(uploads)
+        return {"id": video_id, "title": title}
+
+    def media(self, query):
+        known = re.search(r"s(?:ou|au)rav\s+joshi", query, re.IGNORECASE) or "सौरव जोशी" in query
+        mode = SOURAV_CHANNEL + "/videos" if known else f"ytsearch5:{query}"
+        match = self.latest_sourav() if known else None
+        if not match:
+            try:
+                data = json.loads(accomplish(
+                    ["yt-dlp", "--ignore-config", "--flat-playlist", "--playlist-end", "5",
+                     "--dump-single-json", "--skip-download", "--socket-timeout", "4", "--", mode], 8))
+                entries = (data.get("entries") or []) if isinstance(data, dict) else []
+                match = next((item for item in entries if isinstance(item, dict) and
+                              VIDEO_ID.fullmatch(str(item.get("id", ""))) and
+                              item.get("live_status") != "is_upcoming"), None)
+            except (ApiError, ValueError, TypeError):
+                pass
         if match:
             self.url("https://www.youtube.com/watch?v=" + match["id"])
             return f"Opening {match.get('title') or 'the latest video'}."

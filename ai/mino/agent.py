@@ -65,21 +65,22 @@ FILE = r'(?:"([^"]+)"|([^\s]+?\.[\w-]{1,10}))'
 WAKE = re.compile(r"^(?:(?:hey\s+)?(?:mino|meeno|me no|मीनो|मिनो)\b)[,.:!?\s]*", re.I)
 OPEN = r"(?:open|launch|start|खोलो|खोलें)"
 FILE_SUFFIX = re.compile(r"\.[a-z0-9_-]{1,10}$", re.I)
-EXPLAIN = re.compile(r"explain|samjha(?:o|do)|samjhao|समझा(?:ओ| दो)|समझाएं|why.*error", re.I)
+EXPLAIN_HINDI = r"samjha?(?:a?[ou]| ?do|iye)|समझा(?:ओ| दो|इए)|समझाएं"
+EXPLAIN = re.compile(rf"explain|{EXPLAIN_HINDI}|why.*error", re.I)
 
 
 def direct(text):
     """Return a one-tool plan for common requests without a model call."""
     text = WAKE.sub("", text.strip()).strip()
     norm = text.rstrip("?!").strip()
-    if re.fullmatch(r"(?:isko )?samjha(?:o| do)|समझा(?:ओ| दो)|समझाएं", norm, re.I):
+    if re.fullmatch(rf"(?:isko |ise |इसको |इसे )?(?:{EXPLAIN_HINDI})", norm, re.I):
         return "read_screen", {}
     if re.search(r"स्क्रीन|\bscreen\b|\bisko\b|इसको|इसे", norm, re.I) and EXPLAIN.search(norm):
         return "read_screen", {}
     if re.match(r"^(?:read|capture|show)\s+(?:(?:my|the)\s+)?screen\b", norm, re.I):
         return "read_screen", {}
-    if re.search(r"(?:^|\s)(?:screen|स्क्रीन)(?:\s|$)", norm, re.I) and re.search(
-            r"dekho|dikhao|देखो|दिखाओ", norm, re.I):
+    if re.search(r"\b(?:screen|स्क्रीन)\b", norm, re.I) and re.search(
+            r"dekho|deko|dikhao|देखो|दिखाओ", norm, re.I):
         return "read_screen", {}
     if re.match(r"^(?:ab\s+)?(?:isse\s+)?close\b|^अब .*बंद|बंद कर दो$", norm, re.I):
         return "close_app", {}
@@ -149,18 +150,37 @@ def model_pair(settings):
     return build_model(optional), model
 
 
-def simple_error(evidence):
+def simple_error(evidence, question=""):
+    hindi = re.search(EXPLAIN_HINDI, question, re.I) is not None
     rules = (
-        (r"modulenotfounderror|no module named", "Python cannot find a module in this environment. Check your interpreter and install the dependency there.", "https://docs.python.org/3/tutorial/modules.html"),
-        (r"permission denied|permissionerror", "This operation lacks permission. Check the file owner and permissions for the path in the error.", "https://www.gnu.org/software/coreutils/manual/html_node/Mode-Structure.html"),
-        (r"syntaxerror|indentationerror", "The program has a syntax or indentation error. Start with the reported line and the line just above it.", "https://docs.python.org/3/tutorial/errors.html"),
-        (r"command not found", "The shell could not find that command. Check the spelling or install its package.", "https://www.gnu.org/software/bash/manual/html_node/Command-Search-and-Execution.html"),
-        (r"enoent|no such file", "The file or directory was not found. Check the spelling and the current working directory.", "https://docs.python.org/3/library/pathlib.html"),
-        (r"address already in use|eaddrinuse", "Another process is using that port. Check which program is listening or choose a different port.", "https://man7.org/linux/man-pages/man2/bind.2.html"),
+        (r"modulenotfounderror|no module named",
+         "Python cannot find a module in this environment. Check your interpreter and install the dependency there.",
+         "पाइथन को इस एनवायरनमेंट में ज़रूरी मॉड्यूल नहीं मिला। सही इंटरप्रेटर चुनें और उसी में मॉड्यूल इंस्टॉल करें।",
+         "https://docs.python.org/3/tutorial/modules.html"),
+        (r"permission denied|permissionerror",
+         "This operation lacks permission. Check the file owner and permissions for the path in the error.",
+         "इस काम के लिए अनुमति नहीं मिली। एरर में दी गई फ़ाइल का मालिक और उसकी अनुमतियाँ जाँचें।",
+         "https://www.gnu.org/software/coreutils/manual/html_node/Mode-Structure.html"),
+        (r"syntaxerror|indentationerror",
+         "The program has a syntax or indentation error. Start with the reported line and the line just above it.",
+         "कोड लिखने के तरीके या इंडेंटेशन में गलती है। एरर में बताई गई लाइन और उसके ठीक ऊपर की लाइन जाँचें।",
+         "https://docs.python.org/3/tutorial/errors.html"),
+        (r"command not found",
+         "The shell could not find that command. Check the spelling or install its package.",
+         "टर्मिनल को यह कमांड नहीं मिली। कमांड की स्पेलिंग जाँचें या उसका पैकेज इंस्टॉल करें।",
+         "https://www.gnu.org/software/bash/manual/html_node/Command-Search-and-Execution.html"),
+        (r"enoent|no such file",
+         "The file or directory was not found. Check the spelling and the current working directory.",
+         "फ़ाइल या फ़ोल्डर नहीं मिला। नाम की स्पेलिंग और मौजूदा फ़ोल्डर जाँचें।",
+         "https://docs.python.org/3/library/pathlib.html"),
+        (r"address already in use|eaddrinuse",
+         "Another process is using that port. Check which program is listening or choose a different port.",
+         "यह पोर्ट किसी दूसरे प्रोग्राम के इस्तेमाल में है। उस प्रोग्राम को जाँचें या कोई दूसरा पोर्ट चुनें।",
+         "https://man7.org/linux/man-pages/man2/bind.2.html"),
     )
-    for pattern, reply, reference in rules:
+    for pattern, english, translation, reference in rules:
         if re.search(pattern, evidence, re.I):
-            return reply, reference
+            return translation if hindi else english, reference
     return None
 
 
@@ -196,7 +216,7 @@ class Mino:
         raise ValueError("Expected a tool or a reply.")
 
     def explain(self, evidence, question, speak=None):
-        result = simple_error(evidence)
+        result = simple_error(evidence, question)
         if result:
             reply, reference = result
             if speak:

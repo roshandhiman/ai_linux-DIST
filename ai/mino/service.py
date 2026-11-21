@@ -28,6 +28,7 @@ class Runtime:
         self.ui = ui
         self.settings = settings
         self.activity = threading.Lock()
+        self.audio_jobs = threading.BoundedSemaphore(2)
         self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="mino")
         self.echo = Echo()
         self.echo.start()
@@ -48,16 +49,19 @@ class Runtime:
         self.ui.show("error", message)
 
     def reload(self, settings):
-        if self.activity.locked():
+        if not self.activity.acquire(blocking=False):
             self.warn("Settings saved. They will apply when Mino next starts.")
             return
-        self.capture.close()
-        self.speaker.close()
-        self.settings = settings
-        self.desk.settings = settings
-        self.recognizer = Recognizer(settings)
-        self.agent = Mino(self.desk, settings)
-        self.start_voice()
+        try:
+            self.capture.close()
+            self.speaker.close()
+            self.settings = settings
+            self.desk.settings = settings
+            self.recognizer = Recognizer(settings)
+            self.agent = Mino(self.desk, settings)
+            self.start_voice()
+        finally:
+            self.activity.release()
 
     def listen(self, held=False):
         self.capture.arm(held)
@@ -71,23 +75,24 @@ class Runtime:
         self.ui.show("idle")
 
     def submit_audio(self, pcm):
-        if self.activity.acquire(blocking=False):
+        if self.audio_jobs.acquire(blocking=False):
             self.pool.submit(self.voice_request, pcm)
 
     def voice_request(self, pcm):
         try:
-            self.ui.show("thinking")
-            text = self.recognizer.transcribe(pcm)
-            if not WAKE.sub("", text).strip():
-                self.ui.show("idle")
-                return
-            self.answer(text, True)
+            with self.activity:
+                self.ui.show("thinking")
+                text = self.recognizer.transcribe(pcm)
+                if not WAKE.sub("", text).strip():
+                    self.ui.show("idle")
+                    return
+                self.answer(text, True)
         except Exception as exc:
-            self.warn(f"Couldn't transcribe speech: {exc}")
-            self.speaker.say("I couldn't recognize the speech. Check Mino's microphone and model settings.",
+            self.warn(f"Couldn't process speech: {exc}")
+            self.speaker.say("I couldn't process that. Check Mino's microphone and model settings.",
                              self.speaker.generation)
         finally:
-            self.activity.release()
+            self.audio_jobs.release()
 
     def answer(self, text, speak=False):
         generation = self.speaker.generation

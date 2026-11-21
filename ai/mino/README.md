@@ -41,7 +41,7 @@ Open **Mino Voice Settings** from the app menu or run mino settings. Choose Auto
 
 Settings are stored in ~/.config/mineos/mino.json. Mino defaults to faster-whisper on CPU with int8 weights and Piper for English and Hindi. If a larger speech model is missing, it uses the downloaded tiny model. eSpeak NG provides speech if the selected Piper voice is missing or fails. Set MINO_KOKORO=1 at install time for optional English Kokoro. Use mino models kokoro to fetch its weights. Set MINO_OPENWAKEWORD=1 when installing to use your own trained Mino model. Wake sensitivity varies with the microphone and background noise.
 
-The common desktop commands, OCR, recognition, and speech run on-device. General requests use the existing MineOS loopback model. Hosted planning receives the current request after you enable it, while file reads and screen explanations stay local. Web search, reference pages, and YouTube require connectivity. Mino uses the uploads page for Sourav Joshi Vlogs and opens it directly if YouTube blocks automated lookup.
+The common desktop commands, OCR, recognition, and speech run on-device. General requests use the existing MineOS loopback model. Hosted planning receives the current request after you enable it, while file reads and screen explanations stay local. Web search, reference pages, and YouTube require connectivity. Mino checks the official YouTube feed for Sourav Joshi Vlogs and opens the uploads page if the lookup is unavailable.
 
 On Wayland, use a compositor shortcut bound to mino listen. Screen capture requires a compositor compatible with grim and slurp. The X11 shortcut, focused-window capture, and close-window follow-ups are tested on the MineOS target.
 
