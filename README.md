@@ -2,6 +2,10 @@
 
 MineOS is a Debian 13–based Linux desktop with built-in AI tools for everyday work. The terminal assistant and AI Camera can run locally on the CPU. MineOS also includes a coding IDE, desktop search, system settings, and live wallpapers.
 
+## MineOS Remote phone app
+
+The Flutter Android and web MVP replays four recorded agent sessions through a Serverpod backend. See [setup, Android build and hosting instructions](mineos_remote/README.md). Live phone approvals are planned for a later version.
+
 ## Get MineOS
 
 - **Try the live system.** Download the matching architecture from [GitHub Releases](https://github.com/roshandhiman/ai_linux-DIST/releases/latest). Choose ARM64 for Apple Silicon VMs such as Parallels, or AMD64 for Intel and AMD systems. When a release splits the ISO into parts, follow its instructions to join the files and verify the SHA-256 checksum.

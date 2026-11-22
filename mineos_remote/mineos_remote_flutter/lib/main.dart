@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'client.dart';
-import 'src/providers.dart';
 import 'src/sessions_screen.dart';
 import 'src/theme.dart';
 
@@ -14,7 +13,6 @@ void main() async {
   await initializeClient();
   runApp(
     ProviderScope(
-      overrides: [clientProvider.overrideWithValue(client)],
       child: const MineosRemoteApp(),
     ),
   );

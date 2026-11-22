@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:mineos_remote_client/mineos_remote_client.dart';
 import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 import 'package:serverpod_flutter/serverpod_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // When you are running the app on a physical device, you need to set the
 // server URL to the IP address of your computer. You can find the IP
@@ -22,11 +23,18 @@ final serverUrl = getServerUrl();
 /// production servers.
 /// In a larger app, you may want to use the dependency injection of your choice
 /// instead of using a global client object. This is just a simple example.
-late final Client client;
+late Client client;
+
+const serverUrlPreference = 'mineos.serverUrl';
+
+Client createClient(String url) => Client(url)
+  ..connectivityMonitor = FlutterConnectivityMonitor()
+  ..authSessionManager = FlutterAuthSessionManager();
 
 Future<void> initializeClient() async {
-  client = Client(await serverUrl)
-    ..connectivityMonitor = FlutterConnectivityMonitor()
-    ..authSessionManager = FlutterAuthSessionManager();
+  final preferences = await SharedPreferences.getInstance();
+  client = createClient(
+    preferences.getString(serverUrlPreference) ?? await serverUrl,
+  );
   unawaited(client.auth.initialize());
 }

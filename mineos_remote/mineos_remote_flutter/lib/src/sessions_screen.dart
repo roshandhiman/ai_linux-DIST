@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mineos_remote_client/mineos_remote_client.dart';
 
 import 'about_screen.dart';
+import 'connection_screen.dart';
 import 'providers.dart';
 import 'session_detail_screen.dart';
 import 'theme.dart';
@@ -51,7 +52,13 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
           ],
         ),
         actions: [
-          const DemoReplayChip(),
+          IconButton(
+            tooltip: 'Server connection',
+            icon: const Icon(Icons.settings_outlined, size: 20),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const ConnectionScreen()),
+            ),
+          ),
           IconButton(
             tooltip: 'About',
             icon: const Icon(Icons.info_outline, size: 20),
@@ -133,9 +140,17 @@ class _ListHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(top: 4, bottom: 2),
-    child: Text(
-      'Recorded sessions from a MineOS machine',
-      style: mono(size: 11.5, color: Palette.faint),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const DemoReplayChip(),
+        const SizedBox(height: 10),
+        Text(
+          'Recorded sessions from a MineOS machine',
+          style: mono(size: 12, color: Palette.muted),
+        ),
+        const SizedBox(height: 4),
+      ],
     ),
   );
 }

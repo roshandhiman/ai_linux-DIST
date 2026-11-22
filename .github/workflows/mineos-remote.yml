@@ -1,0 +1,54 @@
+name: MineOS Remote app
+
+on:
+  push:
+    branches: [main]
+    paths: ['mineos_remote/**', '.github/workflows/mineos-remote.yml']
+  pull_request:
+    paths: ['mineos_remote/**', '.github/workflows/mineos-remote.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mineos_remote
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.50.1'
+          cache: true
+      - run: flutter pub get
+      - run: dart run tool/init_local_secrets.dart
+      - run: flutter analyze --no-fatal-infos
+      - name: Backend and gateway tests
+        run: dart test
+        working-directory: mineos_remote/mineos_remote_server
+      - name: Flutter connection tests
+        run: flutter test test/connection_test.dart
+        working-directory: mineos_remote/mineos_remote_flutter
+      - name: Build Android APK
+        env:
+          SERVER_URL: ${{ vars.MINEOS_REMOTE_SERVER_URL }}
+        run: flutter build apk --release --dart-define="SERVER_URL=$SERVER_URL"
+        working-directory: mineos_remote/mineos_remote_flutter
+      - name: Build web
+        env:
+          SERVER_URL: ${{ vars.MINEOS_REMOTE_SERVER_URL }}
+        run: flutter build web --release --dart-define="SERVER_URL=$SERVER_URL"
+        working-directory: mineos_remote/mineos_remote_flutter
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mineos-remote-android-and-web
+          path: |
+            mineos_remote/mineos_remote_flutter/build/app/outputs/flutter-apk/app-release.apk
+            mineos_remote/mineos_remote_flutter/build/web/

@@ -2,11 +2,38 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mineos_remote_client/mineos_remote_client.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../client.dart' as connection;
 
 /// The one generated Serverpod client, created in main().
-final clientProvider = Provider<Client>(
-  (ref) => throw UnimplementedError('clientProvider is overridden in main()'),
+final clientProvider = NotifierProvider<BackendConnection, Client>(
+  BackendConnection.new,
 );
+
+class BackendConnection extends Notifier<Client> {
+  @override
+  Client build() => connection.client;
+
+  /// Keep the current connection until the replacement passes a real API call.
+  Future<void> connect(String url) async {
+    final next = connection.createClient(url);
+    try {
+      await next.sessions.list().timeout(const Duration(seconds: 12));
+      final preferences = await SharedPreferences.getInstance();
+      if (!await preferences.setString(connection.serverUrlPreference, url)) {
+        throw StateError('Could not save the server address. Please retry.');
+      }
+    } catch (_) {
+      next.close();
+      rethrow;
+    }
+    final previous = state;
+    connection.client = next;
+    state = next;
+    previous.close();
+  }
+}
 
 /// Home screen: every session, newest first.
 final sessionsProvider = FutureProvider.autoDispose<List<AgentSession>>(
@@ -32,6 +59,7 @@ class TimelineState {
     this.startedAt,
     this.error,
     this.retryInSeconds,
+    this.usingPolling = false,
   });
 
   final List<AgentStep> steps;
@@ -47,6 +75,7 @@ class TimelineState {
   final DateTime? startedAt;
   final String? error;
   final int? retryInSeconds;
+  final bool usingPolling;
 
   AgentStep? get approval {
     for (final s in steps.reversed) {
@@ -63,6 +92,7 @@ class TimelineState {
     DateTime? Function()? startedAt,
     String? Function()? error,
     int? Function()? retryInSeconds,
+    bool? usingPolling,
   }) => TimelineState(
     steps: steps ?? this.steps,
     phase: phase ?? this.phase,
@@ -73,6 +103,7 @@ class TimelineState {
     retryInSeconds: retryInSeconds != null
         ? retryInSeconds()
         : this.retryInSeconds,
+    usingPolling: usingPolling ?? this.usingPolling,
   );
 }
 
@@ -86,11 +117,17 @@ class TimelineNotifier extends Notifier<TimelineState> {
   StreamSubscription<ReplayEvent>? _sub;
   Timer? _retryTimer;
   Timer? _countdown;
+  Timer? _pollTimer;
+  bool _polling = false;
   int _failures = 0;
 
   @override
   TimelineState build() {
-    ref.onDispose(_stop);
+    ref.watch(clientProvider);
+    ref.onDispose(() {
+      _stop();
+      _pollTimer?.cancel();
+    });
     // Connect after build() has returned its first state.
     scheduleMicrotask(_connect);
     return const TimelineState();
@@ -124,6 +161,8 @@ class TimelineNotifier extends Notifier<TimelineState> {
 
   void _onEvent(ReplayEvent e) {
     if (!ref.mounted) return;
+    _pollTimer?.cancel();
+    _pollTimer = null;
     _failures = 0;
     switch (e.type) {
       case ReplayEventType.restart:
@@ -138,6 +177,7 @@ class TimelineNotifier extends Notifier<TimelineState> {
           thinking: () => null,
           error: () => null,
           retryInSeconds: () => null,
+          usingPolling: false,
         );
       case ReplayEventType.step:
         final step = e.step!;
@@ -164,6 +204,11 @@ class TimelineNotifier extends Notifier<TimelineState> {
 
   void _dropped(Object error) {
     if (!ref.mounted) return;
+    _pollTimer ??= Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => _snapshot(),
+    );
+    unawaited(_snapshot());
     _sub = null;
     _failures++;
     final seconds = [1, 2, 4, 8, 15][(_failures - 1).clamp(0, 4)];
@@ -185,6 +230,40 @@ class TimelineNotifier extends Notifier<TimelineState> {
     });
     _retryTimer?.cancel();
     _retryTimer = Timer(Duration(seconds: seconds), _connect);
+  }
+
+  /// Some temporary hosts drop WebSockets. Keep real server data visible
+  /// over HTTP while retrying the streaming transport in the background.
+  Future<void> _snapshot() async {
+    if (!ref.mounted || _polling) return;
+    _polling = true;
+    try {
+      final result = await ref
+          .read(clientProvider)
+          .sessions
+          .get(sessionId)
+          .timeout(const Duration(seconds: 10));
+      if (!ref.mounted || _pollTimer == null) return;
+      state = TimelineState(
+        steps: result.steps,
+        phase: switch (result.session.status) {
+          SessionStatus.running => StreamPhase.live,
+          SessionStatus.awaitingApproval => StreamPhase.holding,
+          SessionStatus.done || SessionStatus.failed => StreamPhase.finished,
+        },
+        startedAt: result.session.startedAt.toLocal(),
+        usingPolling: true,
+      );
+    } catch (_) {
+      if (ref.mounted) {
+        state = state.copyWith(
+          phase: StreamPhase.reconnecting,
+          usingPolling: false,
+        );
+      }
+    } finally {
+      _polling = false;
+    }
   }
 
   /// "Retry now" in the reconnect banner.

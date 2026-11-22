@@ -37,7 +37,10 @@ Unknown ids throw `SessionNotFoundException`.
 Needs Flutter (3.50+) and the Serverpod CLI 4.1.2. No Docker: the dev and test databases are embedded Postgres.
 
 ```
-cd mineos_remote/mineos_remote_server
+cd mineos_remote
+flutter pub get
+dart run tool/init_local_secrets.dart
+cd mineos_remote_server
 serverpod start            # server + embedded Postgres + the Flutter app; migrations apply on start
 ```
 
@@ -53,9 +56,36 @@ cd ../mineos_remote_flutter && flutter analyze
 
 The demo sessions are seeded on first start. Restarting never duplicates them.
 
-## Deploying (not done yet)
+## Android MVP
 
-Planned: `serverpod cloud auth login`, then `serverpod cloud launch` with the database enabled, then `serverpod cloud deploy`. When the server serves the app, `/assets/assets/config.json` gives the app the server's own public API URL, so no URL is hard-coded. No secrets are in Git: `config/passwords.yaml` is ignored, and production secrets go in Serverpod Cloud's secret store.
+The same Flutter UI runs on Android. Install the Android SDK, then build:
+
+```bash
+cd mineos_remote/mineos_remote_flutter
+flutter build apk --release --dart-define=SERVER_URL=https://YOUR_API_HOST/
+```
+
+The output is `build/app/outputs/flutter-apk/app-release.apk`. This is a demo APK signed with the scaffold's debug key, not a Play Store release. Internet permission is enabled in the release manifest. In the app, open **Server connection**, enter a hosted HTTPS API root, then **Test and connect**. The address is saved only after a successful sessions API call. A phone cannot reach the laptop through `localhost`.
+
+If a temporary host drops WebSockets, the timeline falls back to real Serverpod HTTP snapshots every two seconds while the stream reconnects.
+
+The root GitHub Actions workflow builds Android and web artifacts on changes to this project. Configure `MINEOS_REMOTE_SERVER_URL` as a repository variable to supply its default API address. The older workflows inside `mineos_remote/.github/` are scaffold examples and are not discovered by GitHub from this nested directory.
+
+## Temporary demo hosting
+
+When a temporary public demo has been explicitly approved, start the Serverpod runner, note its API port, and run from `mineos_remote/`:
+
+```bash
+dart run tool/demo_gateway.dart http://127.0.0.1:API_PORT/
+# In another terminal, using the official Cloudflare CLI:
+cloudflared tunnel --url http://127.0.0.1:54600 --protocol http2
+```
+
+Tunnel the gateway, never the full Serverpod API. It checks the four public fixture identities, limits HTTP to sessions.list/get, limits WebSocket frames to sessions.watch for those four IDs, forwards no credentials, and blocks all authentication, storage and Insights routes. Build web/Android with the resulting HTTPS URL as `SERVER_URL`. Only the app frontend is static-hosted; the backend remains the real local Serverpod service. This demo stops working when the laptop, runner, gateway or tunnel stops. A restarted tunnel may get a new address; change the API URL in app Settings.
+
+## Permanent deployment (account login required)
+
+Run `serverpod cloud auth login`, then `serverpod cloud launch` with the database enabled, then `serverpod cloud deploy`. When the server serves the app, `/assets/assets/config.json` gives the app the server's own public API URL, so no URL is hard-coded. No secrets are in Git: `config/passwords.yaml` is ignored, and production secrets go in Serverpod Cloud's secret store.
 
 ## Next round: live mode
 

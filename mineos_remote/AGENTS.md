@@ -48,4 +48,10 @@ If the user asks you to test the app:
 
 The app is launched from `mineos_remote_flutter/lib/driver.dart`, which starts the Flutter driver extension with text entry emulation turned off so the app stays usable by hand. To let the driver type, set `enableTextEntryEmulation: true` there and `hot_restart` the app.
 
-IMPORTANT: After building the first version of the app, update this AGENTS.md file with information about the app we're building. KEEP the info about the MCP server and the checklist. Remove this paragraph.
+## MineOS Remote MVP
+
+The app displays the four public recorded MineOS sessions and streams their replay timelines. Keep the Demo replay labels and disabled approval controls: this version does not control a real machine. The Android release has internet permission, and Settings lets users test and save a different HTTPS API server without reinstalling. Initialize ignored local secrets from the workspace root with `dart run tool/init_local_secrets.dart` before first startup.
+
+For an explicitly authorized temporary public demo, `tool/demo_gateway.dart` binds only to loopback port 54600 and permits only the four fixture IDs through sessions.list/get/watch. Never expose the raw API or Insights ports as a substitute. The frontend can be built with `--dart-define=SERVER_URL=https://<demo-api>/`. Temporary tunnel URLs require the laptop, runner, gateway and tunnel to stay running. Production deployment remains Serverpod Cloud.
+
+The root workflow `.github/workflows/mineos-remote.yml` tests the backend/gateway and Flutter connection validation, and uploads Android APK and web artifacts. It uses the optional repository variable `MINEOS_REMOTE_SERVER_URL`; URLs can also be changed in app Settings. Local release APKs use the scaffold's debug signing configuration for demo installation; configure production signing before a store release.

@@ -84,6 +84,14 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _Header(session: session, timeline: timeline),
+                    if (timeline.usingPolling)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        child: Text(
+                          'Refreshing every 2 seconds · replay stream reconnecting',
+                          style: mono(size: 12, color: Palette.accent),
+                        ),
+                      ),
                     if (timeline.phase == StreamPhase.reconnecting)
                       _ReconnectBanner(
                         timeline: timeline,
