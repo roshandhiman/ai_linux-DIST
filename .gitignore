@@ -58,6 +58,12 @@ env/
 *~
 .DS_Store
 Thumbs.db
+
+# ---- Web Frontend ------------------------------------------------------
+web/node_modules/
+web/.next/
+web/out/
+
 Desktop.ini
 
 # ---- Logs --------------------------------------------------------------

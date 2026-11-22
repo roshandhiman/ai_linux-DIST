@@ -33,13 +33,13 @@ Open **Camera** or **AI Camera** from Applications. The two modes share one wind
 | Mode | What you can do |
 | --- | --- |
 | **Camera** | Pick a webcam, take JPG photos, record silent AVI video, or open a local image or video. Captures go to the **MineOS Camera** folder in Pictures. |
-| **AI Camera** | See labeled boxes for recognized objects such as people, bottles, and phones. See a skeleton overlay for visible body joints. Use **Ask** for questions about objects, clothing colors, or counts in the current frame. |
+| **AI Camera** | See labeled boxes for recognized objects such as people, bottles, and phones. See a skeleton overlay for visible body joints. Recognized items are labeled automatically. |
 
 Live webcam frames are mirrored left to right. MineOS corrects reversed red and blue channels for the built-in MacBook camera forwarded by Parallels. The preview, captures, and AI all receive the corrected live frames.
 
-OpenCV runs NanoDet for common objects and MediaPipe for hands and body joints. YOLOX-Nano checks closer crops around hands to help recognize small held objects. Live detection runs on a background worker so preview rendering can continue. For general visual questions, the camera can use the local SmolVLM2 model when installed.
+OpenCV supplies fast boxes and MediaPipe body joints. The offline Florence-2 detector adds more specific labels and can name items outside the fast detector’s fixed class list. Analysis runs in the background while the preview keeps playing.
 
-The detectors recognize a fixed set of common objects. Labels and pose estimates can be missed when something is cropped, obscured, or hard to see. A whole-video count reports the highest count in up to 12 sampled frames.
+Accuracy depends on lighting, focus, and whether the object is clearly visible. Moving or heavily obscured objects may receive a more general label or be missed.
 
 ## Terminal assistant and IDE
 
@@ -120,3 +120,49 @@ sudo bash scripts/build-iso.sh /absolute/path/to/MineOS.iso
 To bundle the offline language, routing, and general vision models, first run `bash ai/fetch-offline-ai.sh /absolute/path/mineos-ai`. Then pass that directory as `MINEOS_AI_DIR` to the builder.
 
 ARM64 images use UEFI. AMD64 images support UEFI and legacy BIOS. The live bootloader is unsigned, so configure Secure Boot accordingly. GitHub Actions builds both architectures and runs an AMD64 boot test. [ISO build workflow](https://github.com/roshandhiman/ai_linux-DIST/actions/workflows/build-iso.yml)
+
+## Mino Deal Review — public CUAD demo
+
+Run `ai dealreview` or `mino dealreview` to open the native review window.
+Paste a request and choose **Generate review**. The window reads the original
+20 public PDFs, verifies their hashes and quoted pages, calculates notice dates,
+and previews the full Markdown draft. **Save report** approves local Markdown
+and HTML output in `~/DealRoom`; **View saved report** opens the readable report.
+The app never sends a report or document to a model or search provider.
+
+This is a reviewed CUAD demonstration for a **31 March 2027** closing. It uses
+reviewed clause annotations and a dated external-research snapshot, rather than
+claiming new legal inference or fresh online verification. Changed PDFs or
+mismatched quotations stop generation. Other contracts/closing dates require a
+new review. Unverified facts and `NOT FOUND - human review` items remain marked.
+
+Install on the existing Debian MineOS desktop:
+
+```bash
+bash scripts/install-dealreview.sh --download-demo
+ai dealreview
+```
+
+The explicit download prepares only the 20 reviewed public PDFs and checks their
+SHA-256 hashes. An already prepared `~/DealRoom/Contracts` needs no download.
+No ISO build or model download is involved.
+
+Prompt for the graphical Mino assistant or `ai "..."`:
+
+```text
+Prepare the CUAD red-flag due diligence demo in ~/DealRoom for the buyer,
+closing on 31 March 2027. Review all 20 contracts with exact quotations,
+page references, risks and calculated deadlines. Mark missing clauses
+NOT FOUND - human review. Preview before saving.
+```
+
+For a terminal recording or a read-only verification:
+
+```bash
+ai dealreview --cli
+ai dealreview --check --json
+```
+
+The terminal asks before saving; `--check` generates and validates in memory
+without writing a report. Research queries in the output are the historical
+preparation log, not searches issued by this offline run.

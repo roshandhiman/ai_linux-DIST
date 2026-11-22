@@ -1,0 +1,227 @@
+diff --git a/cli/src/cli-args.ts b/cli/src/cli-args.ts
+index c338ac8..24e6f98 100644
+--- a/cli/src/cli-args.ts
++++ b/cli/src/cli-args.ts
+@@ -55,2 +55,2 @@ export function parseArgs({
+-      .name('freebuff')
+-      .description('Freebuff - Free AI coding assistant')
++      .name('mino-code')
++      .description('Mino Code - Coding assistant powered by Freebuff')
+diff --git a/cli/src/components/chat-header.tsx b/cli/src/components/chat-header.tsx
+index ab40f88..7919ad1 100644
+--- a/cli/src/components/chat-header.tsx
++++ b/cli/src/components/chat-header.tsx
+@@ -1 +1 @@
+-import { memo, useState } from 'react'
++import { memo } from 'react'
+@@ -4 +3,0 @@ import { useLogo } from '../hooks/use-logo'
+-import { useSheenAnimation } from '../hooks/use-sheen-animation'
+@@ -7 +5,0 @@ import { useTheme } from '../hooks/use-theme'
+-import { IS_FREEBUFF } from '../utils/constants'
+@@ -15 +12,0 @@ export const ChatHeader = memo(function ChatHeader({
+-  animationEnabled,
+@@ -20 +17 @@ export const ChatHeader = memo(function ChatHeader({
+-  const { contentMaxWidth, terminalWidth } = useTerminalDimensions()
++  const { contentMaxWidth } = useTerminalDimensions()
+@@ -22,13 +19 @@ export const ChatHeader = memo(function ChatHeader({
+-  const [sheenPosition, setSheenPosition] = useState(0)
+-  const blockColor = getLogoBlockColor(theme.name)
+-  const accentColor = getLogoAccentColor(theme.name)
+-  const { applySheenToChar } = useSheenAnimation({
+-    enabled: animationEnabled,
+-    logoColor: theme.foreground,
+-    accentColor,
+-    blockColor,
+-    terminalWidth,
+-    sheenPosition,
+-    setSheenPosition,
+-  })
+-  const { component: logoComponent } = useLogo({
++  const { component: logo } = useLogo({
+@@ -36,3 +21,3 @@ export const ChatHeader = memo(function ChatHeader({
+-    accentColor,
+-    blockColor,
+-    applySheenToChar,
++    accentColor: getLogoAccentColor(theme.name),
++    blockColor: getLogoBlockColor(theme.name),
++    maxHeight: 5,
+@@ -42,20 +27,5 @@ export const ChatHeader = memo(function ChatHeader({
+-    <box
+-      style={{
+-        flexDirection: 'column',
+-        gap: 0,
+-        paddingLeft: 1,
+-        paddingRight: 1,
+-      }}
+-    >
+-      <box
+-        style={{
+-          flexDirection: 'column',
+-          marginBottom: 1,
+-          marginTop: 2,
+-        }}
+-      >
+-        {logoComponent}
+-      </box>
+-      <text style={{ wrapMode: 'word', marginBottom: 1, fg: theme.foreground }}>
+-        {IS_FREEBUFF ? 'Freebuff' : 'Codebuff'} will run commands on your behalf
+-        to help you build.
++    <box style={{ flexDirection: 'column', paddingLeft: 1, paddingRight: 1, gap: 1, marginTop: 1 }}>
++      <box style={{ flexDirection: 'column' }}>{logo}</box>
++      <text style={{ fg: theme.muted, wrapMode: 'word' }}>
++        <TerminalLink text={formatCwd(projectRoot)} color={theme.primary} inline={true}
++          underlineOnHover={true} onActivate={() => openFileAtPath(projectRoot)} />
+@@ -63,9 +33,2 @@ export const ChatHeader = memo(function ChatHeader({
+-      <text style={{ wrapMode: 'word', marginBottom: 1, fg: theme.foreground }}>
+-        Directory{' '}
+-        <TerminalLink
+-          text={formatCwd(projectRoot)}
+-          color={theme.muted}
+-          inline={true}
+-          underlineOnHover={true}
+-          onActivate={() => openFileAtPath(projectRoot)}
+-        />
++      <text style={{ fg: theme.muted, wrapMode: 'word', marginBottom: 1 }}>
++        Powered by Freebuff · /help for commands
+diff --git a/cli/src/components/login-modal.tsx b/cli/src/components/login-modal.tsx
+index 325ab27..a246053 100644
+--- a/cli/src/components/login-modal.tsx
++++ b/cli/src/components/login-modal.tsx
+@@ -253,0 +254,2 @@ export const LoginModal = ({
++    accentColor,
++    blockColor,
+@@ -308 +310 @@ export const LoginModal = ({
+-            alignItems: contentMaxWidth < 40 ? 'center' : 'flex-start',
++            alignItems: 'flex-start',
+@@ -314,0 +317,3 @@ export const LoginModal = ({
++          <text style={{ fg: theme.muted, marginTop: 1, wrapMode: 'word' }}>
++            Mino Code · Sign in with your Freebuff account
++          </text>
+diff --git a/cli/src/components/top-banner.tsx b/cli/src/components/top-banner.tsx
+index b33201d..0210cf2 100644
+--- a/cli/src/components/top-banner.tsx
++++ b/cli/src/components/top-banner.tsx
+@@ -59 +59 @@ const TOP_BANNER_REGISTRY: Record<NonNullable<TopBannerType>, BannerConfig> = {
+-            You started {IS_FREEBUFF ? 'Freebuff' : 'Codebuff'} in a subdirectory of a git repo.
++            You started {IS_FREEBUFF ? 'Mino Code' : 'Codebuff'} in a subdirectory of a git repo.
+diff --git a/cli/src/hooks/use-logo.tsx b/cli/src/hooks/use-logo.tsx
+index 3d49746..8b8cd00 100644
+--- a/cli/src/hooks/use-logo.tsx
++++ b/cli/src/hooks/use-logo.tsx
+@@ -68 +68 @@ export const useLogo = ({
+-  accentColor = '#9EFC62',
++  accentColor = '#A7DCCB',
+@@ -77 +77 @@ export const useLogo = ({
+-      return IS_FREEBUFF ? 'FREEBUFF' : 'CODEBUFF'
++      return IS_FREEBUFF ? 'MINO CODE' : 'CODEBUFF'
+@@ -81 +81 @@ export const useLogo = ({
+-    return IS_FREEBUFF ? 'FREEBUFF' : 'CODEBUFF'
++    return IS_FREEBUFF ? 'MINO CODE' : 'CODEBUFF'
+@@ -86 +86 @@ export const useLogo = ({
+-    if (rawLogoString === 'CODEBUFF' || rawLogoString === 'FREEBUFF') {
++    if (rawLogoString === 'CODEBUFF' || rawLogoString === 'MINO CODE') {
+@@ -98,2 +98,2 @@ export const useLogo = ({
+-    if (rawLogoString === 'CODEBUFF' || rawLogoString === 'FREEBUFF') {
+-      const brandName = IS_FREEBUFF ? 'Freebuff' : 'Codebuff'
++    if (rawLogoString === 'CODEBUFF' || rawLogoString === 'MINO CODE') {
++      const brandName = IS_FREEBUFF ? 'Mino Code' : 'Codebuff'
+diff --git a/cli/src/login/plain-login.ts b/cli/src/login/plain-login.ts
+index 575b13d..6bd3774 100644
+--- a/cli/src/login/plain-login.ts
++++ b/cli/src/login/plain-login.ts
+@@ -28 +28 @@ export async function runPlainLogin(): Promise<void> {
+-  console.log(bold(IS_FREEBUFF ? 'Freebuff Login' : 'Codebuff Login'))
++  console.log(bold(IS_FREEBUFF ? 'Mino Code · Freebuff sign-in' : 'Codebuff Login'))
+@@ -113 +113 @@ export async function runPlainLogin(): Promise<void> {
+-    const cliName = IS_FREEBUFF ? 'freebuff' : 'codebuff'
++    const cliName = IS_FREEBUFF ? 'mino-code' : 'codebuff'
+diff --git a/cli/src/utils/freebuff-wordmark.ts b/cli/src/utils/freebuff-wordmark.ts
+index 0213299..1ff0d23 100644
+--- a/cli/src/utils/freebuff-wordmark.ts
++++ b/cli/src/utils/freebuff-wordmark.ts
+@@ -1,11 +1,6 @@
+-/** Terminal rendering of the two F polygons and Outfit 600 lettering from
+- * freebuff/web/src/components/landing/brand/FreebuffLogo.tsx.
+- * Half-block cells preserve the wordmark proportions at two terminal widths.
+- * Kept as text so the CLI needs neither a font nor an image renderer at runtime.
+- */
+-export const FREEBUFF_WORDMARK = `███████████                        ██                 ▄████  ▄██
+-███▀▀▀▀▀▀▀▀                        ██                 ██    ██▀
+-███ █████  ██████ ▄█████   ▄████▄  ██████▄  ██   ██ ████████████
+-███ ███▀▀  ██▀   ███▄▄▄██ ██▄▄▄███ ██   ▀██ ██   ██   ██    ██
+-███ ███    ███   ███▀▀▀▀▀ ██▀▀▀▀▀  ██▄  ▄██ ██▄  ██   ██    ██
+-███ ██▀    ██▀    ▀█████   ▀████▀  ██████▀   ▀████▀   ██    ██`
++// Mino Code wordmark. The Freebuff service and agent runtime remain upstream.
++export const FREEBUFF_WORDMARK = `███  ███  ██  ███  ██   ████
++████████  ██  ████ ██  ██  ██
++██ ██ ██  ██  ██ ████  ██  ██
++██    ██  ██  ██  ███   ████
++              C O D E`
+@@ -13,5 +8,2 @@ export const FREEBUFF_WORDMARK = `███████████
+-export const FREEBUFF_WORDMARK_COMPACT = `███████               █           ███ ██
+-██▀███▀▄▄▄  ▄▄    ▄▄  █▄▄▄  ▄  ▄ ██▄▄▄█▄
+-██████ ██▀ █▀▀█▄▄█▀██ █▀▀█▄▀█ ██▀██▀▀▀█▀
+-████   ██  █▀▀▀▀██▀▀▀ █  ██▀█ ██ ██   █
+-████   █▀  ▀███  ███  ████  ███▀ ██   █`
++export const FREEBUFF_WORDMARK_COMPACT = `╭─ Mino Code ─╮
++╰─────────────╯`
+diff --git a/cli/src/utils/theme-system.ts b/cli/src/utils/theme-system.ts
+index cfa93f4..c5d85fd 100644
+--- a/cli/src/utils/theme-system.ts
++++ b/cli/src/utils/theme-system.ts
+@@ -102 +102 @@ export function getLogoAccentColor(
+-    return isTruecolor ? '#9EFC62' : 'lime'
++    return isTruecolor ? '#A7DCCB' : 'lime'
+@@ -104 +104 @@ export function getLogoAccentColor(
+-  return isTruecolor ? '#65A83E' : 'green'
++  return isTruecolor ? '#217A68' : 'green'
+@@ -715,2 +715,2 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
+-    primary: '#9EFC62',
+-    secondary: '#a3aed0',
++    primary: '#A7DCCB',
++    secondary: '#B9ABD9',
+@@ -719,2 +719,2 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
+-    warning: '#FFA500',
+-    info: '#9EFC62',
++    warning: '#E9BE89',
++    info: '#A7DCCB',
+@@ -728,3 +728,3 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
+-    border: '#536175',
+-    surface: '#202327',
+-    surfaceHover: '#334155',
++    border: '#586473',
++    surface: '#202830',
++    surfaceHover: '#2E3A45',
+@@ -734 +734 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
+-    userLine: '#9EFC62',
++    userLine: '#A7DCCB',
+@@ -739 +739 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
+-    agentFocusedBg: '#334155',
++    agentFocusedBg: '#2E3A45',
+@@ -763,6 +763,6 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
+-        1: '#facc15',
+-        2: '#facc15',
+-        3: '#facc15',
+-        4: '#facc15',
+-        5: '#facc15',
+-        6: '#facc15',
++        1: '#B9ABD9',
++        2: '#B9ABD9',
++        3: '#B9ABD9',
++        4: '#B9ABD9',
++        5: '#B9ABD9',
++        6: '#B9ABD9',
+@@ -770,2 +770,2 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
+-      listBulletFg: '#a3aed0',
+-      blockquoteBorderFg: '#334155',
++      listBulletFg: '#B9ABD9',
++      blockquoteBorderFg: '#2E3A45',
+@@ -780 +780 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
+-    primary: '#65A83E',
++    primary: '#217A68',
+@@ -785 +785 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
+-    info: '#65A83E',
++    info: '#217A68',
+@@ -799 +799 @@ const DEFAULT_CHAT_THEMES: Record<ThemeName, ChatTheme> = {
+-    userLine: '#65A83E',
++    userLine: '#217A68',

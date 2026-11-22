@@ -1,0 +1,15 @@
+[Unit]
+Description=Mino voice assistant
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/mino daemon
+Restart=on-failure
+RestartSec=4
+NoNewPrivileges=yes
+UMask=0077
+Environment=OMP_NUM_THREADS=2
+
+[Install]
+WantedBy=graphical-session.target

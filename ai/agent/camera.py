@@ -18,10 +18,13 @@ gi.require_versions({"Gtk": "3.0", "Gdk": "3.0", "GdkPixbuf": "2.0"})
 from gi.repository import Gdk, GdkPixbuf, Gio, GLib, Gtk
 
 from camera_overlay import LiveVision, POSE_LINKS
-from camera_vision import CameraVision, MODEL
+from camera_scene import SceneDetector, available, fingerprint, merge_boxes, scene_distance
+from camera_vision import MODEL
 
 LIVE_INTERVAL = .18
 OVERLAY_MAX_AGE = .65
+SCENE_CHANGE = 8
+SCENE_REFRESH = 3.0
 BOX_COLORS = {
     "person": (.31, .87, .92),
     "bottle": (.40, .94, .68),
@@ -37,7 +40,6 @@ window.mineos-camera { background-color: #181b22; color: #ecedf4; }
 .mineos-camera .view { background: #0d0f14; color: #cacdd9; }
 .mineos-camera .tools { background: #222632; padding: 8px 12px; }
 .mineos-camera label.status { color: #c4c8d6; }
-.mineos-camera .answer { background: #222632; padding: 10px 12px; border-radius: 8px; }
 """
 
 
@@ -185,11 +187,17 @@ class CameraWindow(Gtk.ApplicationWindow):
         self.displayed = None
         self.pixbuf = None
         self.reported = None
-        self.analysis = ThreadPoolExecutor(max_workers=1, thread_name_prefix="camera-vision")
-        self.vision = CameraVision()
-        self.job = None
         self.live_queue = ThreadPoolExecutor(max_workers=1, thread_name_prefix="camera-overlay")
         self.live_vision = LiveVision()
+        self.scene_queue = ThreadPoolExecutor(max_workers=1, thread_name_prefix="camera-scene")
+        self.scene_detector = None
+        self.scene_job = None
+        self.scene_frame = None
+        self.scene_marks = None
+        self.scene_boxes = []
+        self.scene_next = 0.0
+        self.scene_updated = 0.0
+        self.scene_available = available()
         self.live_job = None
         self.live_last_frame = None
         self.live_next = 0
@@ -239,25 +247,6 @@ class CameraWindow(Gtk.ApplicationWindow):
         controls.pack_start(self.status, True, True, 0)
         root.pack_start(controls, False, False, 0)
 
-        self.ai = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, margin=12)
-        self.answer = Gtk.Label(xalign=0, wrap=True, selectable=True)
-        self.answer.get_style_context().add_class("answer")
-        self.answer_scroll = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
-        self.answer_scroll.set_propagate_natural_height(True)
-        self.answer_scroll.set_max_content_height(130)
-        self.answer_scroll.add(self.answer)
-        self.ai.pack_start(self.answer_scroll, False, False, 0)
-        ask_row = Gtk.Box(spacing=8)
-        self.ask = Gtk.Entry(placeholder_text="Ask about this frame")
-        self.ask.set_max_length(400)
-        self.ask.connect("activate", self.analyze)
-        ask_row.pack_start(self.ask, True, True, 0)
-        self.submit = Gtk.Button(label="Ask")
-        self.submit.get_style_context().add_class("suggested-action")
-        self.submit.connect("clicked", self.analyze)
-        ask_row.pack_start(self.submit, False, False, 0)
-        self.ai.pack_start(ask_row, False, False, 0)
-        root.pack_start(self.ai, False, False, 0)
         self.connect("destroy", self.on_destroy)
 
         self.show_all()
@@ -272,11 +261,8 @@ class CameraWindow(Gtk.ApplicationWindow):
         self.modes.set_visible_child_name(mode)
 
     def mode_changed(self, *_):
-        if not hasattr(self, "ai"):
-            return
-        self.ai.set_visible(self.is_ai_mode())
-        self.reset_overlay()
-        self.answer_scroll.set_visible(bool(self.answer.get_text()))
+        if hasattr(self, "view"):
+            self.reset_overlay()
 
     def change_source(self, path, kind):
         old = self.stream
@@ -285,8 +271,6 @@ class CameraWindow(Gtk.ApplicationWindow):
         self.stream = Stream(path, kind, self.capture_lock) if path else None
         self.displayed = self.pixbuf = self.reported = None
         self.reset_overlay()
-        self.answer.set_text("")
-        self.answer_scroll.hide()
         self.status.set_text("")
         self.placeholder.set_text("Opening…" if path else "Camera off")
         self.placeholder.show()
@@ -317,6 +301,9 @@ class CameraWindow(Gtk.ApplicationWindow):
         self.live_last_frame = self.live_result = None
         self.live_next = 0
         self.live_error = False
+        self.scene_frame = self.scene_marks = None
+        self.scene_boxes = []
+        self.scene_next = self.scene_updated = 0.0
         self.view.queue_draw()
 
     def update_overlay(self, frame, now):
@@ -325,7 +312,7 @@ class CameraWindow(Gtk.ApplicationWindow):
         if self.live_result and frame is not self.live_last_frame and now - self.live_result_time > OVERLAY_MAX_AGE:
             self.live_result = None
             self.view.queue_draw()
-        if self.live_job or self.job or frame is self.live_last_frame or now < self.live_next:
+        if self.live_job or frame is self.live_last_frame or now < self.live_next:
             return
         if not MODEL.is_file():
             self.live_error = True
@@ -355,6 +342,51 @@ class CameraWindow(Gtk.ApplicationWindow):
         self.view.queue_draw()
         return False
 
+    def update_scene(self, frame, now):
+        if not self.is_ai_mode() or frame is None or not self.scene_available:
+            return
+        marks = fingerprint(frame)
+        distance = scene_distance(self.scene_marks, marks) if self.scene_marks is not None else None
+        if distance is not None and distance > SCENE_CHANGE and self.scene_boxes:
+            self.scene_boxes = []
+            self.view.queue_draw()
+        if self.scene_job or frame is self.scene_frame or now < self.scene_next:
+            return
+        if distance is not None and distance < 2.0 and now - self.scene_updated < SCENE_REFRESH:
+            return
+        self.scene_frame = frame
+        generation = self.live_generation
+        self.scene_job = self.scene_queue.submit(self.detect_scene, frame)
+        self.scene_job.add_done_callback(
+            lambda future: GLib.idle_add(self.show_scene, future, generation, marks)
+        )
+
+    def detect_scene(self, frame):
+        if self.scene_detector is None:
+            self.scene_detector = SceneDetector()
+        return self.scene_detector.detect(frame)
+
+    def show_scene(self, future, generation, marks):
+        self.scene_job = None
+        if self.closed:
+            return False
+        try:
+            boxes = future.result()
+        except Exception:
+            LOG.exception("Could not run the scene detector")
+            self.scene_available = False
+            self.status.set_text("Detailed detection unavailable.")
+            return False
+        if generation != self.live_generation or self.displayed is None:
+            return False
+        self.scene_updated = time.monotonic()
+        self.scene_next = self.scene_updated + .45
+        if scene_distance(marks, fingerprint(self.displayed)) <= SCENE_CHANGE:
+            self.scene_marks = marks
+            self.scene_boxes = boxes
+            self.view.queue_draw()
+        return False
+
     def draw(self, widget, context):
         if not self.pixbuf:
             return False
@@ -367,18 +399,19 @@ class CameraWindow(Gtk.ApplicationWindow):
         Gdk.cairo_set_source_pixbuf(context, self.pixbuf, 0, 0)
         context.paint()
         context.restore()
-        if self.live_result and self.is_ai_mode():
+        if self.is_ai_mode() and (self.live_result or self.scene_boxes):
             self.draw_overlay(context, width * scale, height * scale)
         return False
 
     def draw_overlay(self, context, width, height):
         result = self.live_result
-        sx, sy = width / result.size[0], height / result.size[1]
+        source_width, source_height = result.size if result else self.displayed.shape[1::-1]
+        sx, sy = width / source_width, height / source_height
         context.rectangle(0, 0, width, height)
         context.clip()
         context.set_line_width(2)
         context.set_source_rgba(.31, .87, .92, .93)
-        for points in result.poses:
+        for points in result.poses if result else ():
             for a, b in POSE_LINKS:
                 if points[a] is None or points[b] is None:
                     continue
@@ -395,7 +428,7 @@ class CameraWindow(Gtk.ApplicationWindow):
 
         context.select_font_face("Sans", 0, 1)
         context.set_font_size(13)
-        for label, (x, y, w, h) in result.boxes:
+        for label, (x, y, w, h) in merge_boxes(result.boxes if result else (), self.scene_boxes):
             x, y, w, h = x * sx, y * sy, w * sx, h * sy
             color = BOX_COLORS.get(label, FALLBACK_BOX_COLOR)
             context.set_source_rgb(*color)
@@ -427,7 +460,9 @@ class CameraWindow(Gtk.ApplicationWindow):
                 GLib.Bytes.new(rgb.tobytes()), GdkPixbuf.Colorspace.RGB, False, 8, width, height, width * 3)
             self.placeholder.hide()
             self.view.queue_draw()
-        self.update_overlay(frame, time.monotonic())
+        now = time.monotonic()
+        self.update_overlay(frame, now)
+        self.update_scene(frame, now)
         issue = stream.error if stream else ""
         if issue and issue != self.reported:
             self.reported = issue
@@ -453,7 +488,6 @@ class CameraWindow(Gtk.ApplicationWindow):
             self.set_icon(self.record, "media-playback-stop-symbolic" if recording else "media-record-symbolic")
         if playing_file:
             self.set_icon(self.play, "media-playback-start-symbolic" if stream.pause.is_set() or stream.ended else "media-playback-pause-symbolic")
-        self.submit.set_sensitive(frame is not None and self.job is None)
         return True
 
     @staticmethod
@@ -508,36 +542,13 @@ class CameraWindow(Gtk.ApplicationWindow):
         else:
             stream.pause.set()
 
-    def analyze(self, *_):
-        question = self.ask.get_text().strip()
-        frame = self.displayed
-        if not question or frame is None or self.job is not None:
-            return
-        source = self.stream
-        self.answer.set_text("Analyzing…")
-        self.answer_scroll.show()
-        self.submit.set_sensitive(False)
-        clip = source.path if source.kind == "video" else None
-        self.job = self.analysis.submit(self.vision.answer, frame, question, clip)
-        self.job.add_done_callback(lambda future: GLib.idle_add(self.show_answer, future, source))
-
-    def show_answer(self, future, source):
-        self.job = None
-        if not self.closed and source is self.stream:
-            try:
-                self.answer.set_text(future.result())
-            except Exception:
-                LOG.exception("Camera analysis failed")
-                self.answer.set_text("Couldn’t analyze this frame.")
-        return False
-
     def on_destroy(self, *_):
         self.closed = True
         GLib.source_remove(self.timer)
         if self.stream:
             self.stream.stop.set()
-        self.analysis.shutdown(wait=False, cancel_futures=True)
         self.live_queue.shutdown(wait=False, cancel_futures=True)
+        self.scene_queue.shutdown(wait=False, cancel_futures=True)
 
 
 class CameraApp(Gtk.Application):

@@ -12,6 +12,8 @@ import sys
 import os
 import json
 import re
+import shutil
+import time
 
 DESKTOP = Path(__file__).resolve().parent / "desktop"
 
@@ -97,6 +99,14 @@ def handle_action(text):
     if low in volume_actions:
         subprocess.run(["pactl"] + volume_actions[low], check=True, capture_output=True, timeout=5)
         return {"mute": "Audio muted.", "unmute": "Audio unmuted.", "volume up": "Volume increased by 5%.", "volume down": "Volume decreased by 5%."}[low]
+    if shutil.which("mino") and re.match(
+            r"^(?:mino[, ]+|please\s+)?(?:play|bajao|चलाओ|open|launch|start|create|make a file|"
+            r"read|write|replace|move|delete|trash|find files|close|ab isse close)\b", low):
+        result = subprocess.run(["mino", "--json", text], capture_output=True, text=True, timeout=22)
+        if result.stdout.strip():
+            response = json.loads(result.stdout)
+            return response.get("reply") or response.get("error") or "Mino couldn't complete that request."
+        return "Mino is unavailable. Click the mic again or restart Mino Voice from Settings."
     return None
 
 
@@ -107,9 +117,12 @@ def ask_ollama(history, tokens=384, on_chunk=None):
     """
     config = load_config()
     config.llm.model = current_model()
-    config.llm.timeout = 75
+    config.llm.timeout = 18
     chunks = []
+    started = time.monotonic()
     for piece in OpenAIChat(config.llm).stream_messages(history, max_tokens=tokens):
+        if time.monotonic() - started > 20:
+            break
         chunks.append(piece)
         if on_chunk:
             on_chunk("".join(chunks))
@@ -458,7 +471,15 @@ class AssistantWindow(Gtk.ApplicationWindow):
         self.progress.set_text("Working…")
         self.add_message("user", text)
         self.history.append({"role": "user", "content": text})
-        if action:
+        try:
+            from dealreview.intent import matches as deal_review_request
+            deal_review = deal_review_request(text)
+        except ImportError:
+            deal_review = False
+        if deal_review:
+            snapshot = [dict(message) for message in self.history]
+            threading.Thread(target=self.worker, args=(text, snapshot, mode), daemon=True).start()
+        elif action:
             threading.Thread(target=self.prepare_plan, args=(action,), daemon=True).start()
         elif source or self.private_session or NOTE_REQUEST.search(text):
             self.begin_private_chat()
@@ -612,6 +633,8 @@ class AssistantWindow(Gtk.ApplicationWindow):
                 reply = "".join(pieces).strip() or "The local model returned an empty response."
         except (LLMError, OSError, ValueError) as error:
             reply = f"Couldn’t complete this offline. {error}"
+        except Exception:
+            reply = "Mino couldn't finish this request. Please try again."
         GLib.idle_add(self.finish_private, reply, context, suggestion)
 
     def finish_private(self, reply, context, suggestion):
@@ -738,8 +761,19 @@ class AssistantWindow(Gtk.ApplicationWindow):
         sources = []
         artifact = None
         try:
-            request = requested_artifact(text, history) if mode != "Web" else None
-            if request:
+            try:
+                from dealreview.intent import matches as deal_review_request
+                deal_review = deal_review_request(text)
+            except ImportError:
+                deal_review = False
+            request = requested_artifact(text, history) if mode != "Web" and not deal_review else None
+            if deal_review:
+                binary = shutil.which("mino-review")
+                if not binary:
+                    raise ValueError("Install Deal Review with scripts/install-dealreview.sh.")
+                launch([binary, "--gui", "--autorun", "--prompt", text])
+                reply = "Opened the public CUAD review. The review window checks the PDFs, calculates deadlines and previews the draft before saving."
+            elif request:
                 filename, folder, specification = request
                 GLib.idle_add(self.update_progress, "Preparing file…")
                 kind = Path(filename).suffix[1:]
@@ -787,6 +821,8 @@ class AssistantWindow(Gtk.ApplicationWindow):
                      if mode == "Web" else "Could not connect to the selected local model.")
         except (OSError, subprocess.SubprocessError, KeyError, ValueError) as error:
             reply = f"Could not complete the request: {error}"
+        except Exception:
+            reply = "Mino couldn't finish this request. Please try again."
         GLib.idle_add(self.finish, reply, sources, artifact)
 
     def finish(self, reply, sources, artifact):

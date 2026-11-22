@@ -56,6 +56,111 @@ cd ../mineos_remote_flutter && flutter analyze
 
 The demo sessions are seeded on first start. Restarting never duplicates them.
 
+## Deployed
+
+Serverpod Cloud project **`mineos-remote`** (starter plan, with a database). `mineos_remote_server/scloud.yaml` links the server folder to it, so the cloud commands below need no `--project`.
+
+| What | URL |
+| --- | --- |
+| App (open this on a phone) | https://mineos-remote.serverpod.space/ |
+| API | https://mineos-remote.api.serverpod.space/ |
+| Insights | https://mineos-remote.insights.serverpod.space/ |
+
+The server serves the Flutter web app itself. `/assets/assets/config.json` gives the app the server's own public API URL, so no URL is hard-coded.
+
+## For teammates: improve the Flutter app and deploy
+
+### One-time setup
+
+1. Install Flutter 3.50+ and the Serverpod CLI 4.1.2, following [docs.flutter.dev](https://docs.flutter.dev/get-started/install) and [docs.serverpod.dev](https://docs.serverpod.dev/). Check with `flutter --version` and `serverpod version`.
+   - Windows: if a command is "not recognised", its `bin` folder isn't on your PATH yet. Add it under *Edit environment variables for your account*, then open a **new** terminal (restart VS Code completely; a new tab inside it keeps the old PATH).
+2. Get the code and fetch the packages:
+   ```
+   git fetch
+   git checkout main
+   cd mineos_remote/mineos_remote_server && dart pub get
+   cd ../mineos_remote_flutter && flutter pub get
+   ```
+3. Deploy access:
+   - The project owner invites you once: `serverpod cloud project user invite <your email>`.
+   - Then, from `mineos_remote_server`, run `serverpod cloud auth login`. It opens a browser.
+   - You don't need `project link`, because `scloud.yaml` is already in Git.
+
+### Where to change things
+
+| To change | Edit |
+| --- | --- |
+| Screens | `mineos_remote_flutter/lib/src/sessions_screen.dart`, `session_detail_screen.dart`, `about_screen.dart` |
+| Timeline cards, shared widgets | `mineos_remote_flutter/lib/src/step_card.dart`, `widgets.dart` |
+| Data loading, the live stream, reconnect | `mineos_remote_flutter/lib/src/providers.dart` |
+| Theme, colours, fonts | `mineos_remote_flutter/lib/src/theme.dart` |
+| Which server the app talks to | `mineos_remote_flutter/lib/client.dart` (don't hard-code the production URL; the deployed app reads `config.json`) |
+| Demo data | `mineos_remote_server/lib/src/sessions/demo_recordings.dart` |
+
+Ground rules:
+
+- Keep the **Demo replay** label visible. Never present replayed data as live.
+- Never edit generated code by hand: `mineos_remote_client/` and `mineos_remote_server/lib/src/generated/`.
+- If you change a model (`*.spy.yaml`) or an endpoint's signature, regenerate with `serverpod generate`.
+- If you change a model that has a `table`, also run `serverpod create-migration` and commit the new folder under `migrations/`. Pending migrations are applied when the server starts, locally and on Cloud.
+- No secrets in Git. `config/passwords.yaml` is ignored and must stay that way. Production secrets go in Serverpod Cloud (`serverpod cloud password …` / `serverpod cloud variable set --secret …`).
+
+### Work locally
+
+```
+cd mineos_remote/mineos_remote_server
+serverpod start        # server + embedded Postgres + the app, with hot reload
+```
+
+Before you deploy, check that nothing is broken:
+
+```
+cd mineos_remote/mineos_remote_flutter && flutter analyze     # expect 0 errors, 0 warnings (see Known issues)
+cd ../mineos_remote_server && dart test                       # expect all tests to pass
+```
+
+### Deploy
+
+Always run these from `mineos_remote_server`:
+
+```
+cd mineos_remote/mineos_remote_server
+serverpod run flutter_build      # REQUIRED if you changed the app: builds it into web/app
+serverpod cloud deploy           # uploads the server + web/app, builds and restarts on Cloud
+```
+
+**Why the build step matters:**
+
+- Serverpod Cloud does **not** build the Flutter app (`scloud.yaml` has no `pre_deploy` script). It ships whatever is in `web/app` on your machine.
+- `web/app` is git-ignored, so on a fresh clone it doesn't exist. Without `flutter_build`, you deploy an old app, or no app at all.
+
+To see what would be uploaded without deploying, run `serverpod cloud deploy --wet-run --show-files`.
+
+### Check the deploy
+
+```
+serverpod cloud status deployment show    # did the latest deploy succeed?
+serverpod cloud log --since 15m           # recent server logs (or: serverpod cloud log --tail)
+curl -X POST https://mineos-remote.api.serverpod.space/sessions -H "Content-Type: application/json" -d '{"method":"list"}'
+```
+
+- The `curl` call should print the 4 demo sessions as JSON.
+- In Windows PowerShell, write `curl.exe` and escape the quotes: `-d '{\"method\":\"list\"}'`.
+- Finally, open https://mineos-remote.serverpod.space/ on a phone. Open the running session on two devices; both should show the same step at the same time.
+
+### Undo a bad deploy
+
+Check out the last good commit, rebuild and deploy again:
+
+```
+git checkout <good-commit> -- mineos_remote
+cd mineos_remote/mineos_remote_server
+serverpod run flutter_build
+serverpod cloud deploy
+```
+
+If you only changed Cloud passwords or variables, `serverpod cloud deploy --redeploy` restarts the current build with them, without uploading anything.
+
 ## Android MVP
 
 The same Flutter UI runs on Android. Install the Android SDK, then build:
@@ -83,9 +188,6 @@ cloudflared tunnel --url http://127.0.0.1:54600 --protocol http2
 
 Tunnel the gateway, never the full Serverpod API. It checks the four public fixture identities, limits HTTP to sessions.list/get, limits WebSocket frames to sessions.watch for those four IDs, forwards no credentials, and blocks all authentication, storage and Insights routes. Build web/Android with the resulting HTTPS URL as `SERVER_URL`. Only the app frontend is static-hosted; the backend remains the real local Serverpod service. This demo stops working when the laptop, runner, gateway or tunnel stops. A restarted tunnel may get a new address; change the API URL in app Settings.
 
-## Permanent deployment (account login required)
-
-Run `serverpod cloud auth login`, then `serverpod cloud launch` with the database enabled, then `serverpod cloud deploy`. When the server serves the app, `/assets/assets/config.json` gives the app the server's own public API URL, so no URL is hard-coded. No secrets are in Git: `config/passwords.yaml` is ignored, and production secrets go in Serverpod Cloud's secret store.
 
 ## Next round: live mode
 
@@ -104,12 +206,12 @@ Run `serverpod cloud auth login`, then `serverpod cloud launch` with the databas
 - [x] Approval banner with the exact action; Approve/Deny disabled, "Coming next: approve from your phone"
 - [x] About screen
 - [x] Loading, empty, error-with-retry and stream-reconnect states
-- [x] `flutter analyze`: 0 errors, 0 warnings (9 infos, see Known issues)
-- [ ] Serverpod Cloud launch and deploy (deferred)
+- [x] `flutter analyze`: 0 errors, 0 warnings (see Known issues)
+- [x] Serverpod Cloud project `mineos-remote` created and deployed (web, API and seeded demo data verified)
 
 ## Known issues
 
-- `flutter analyze` reports 9 infos: Flutter 3.50 deprecates `package:flutter/material.dart` in favour of the separate `material_ui` package. The project keeps `flutter/material.dart` because the scaffold's Serverpod auth widgets still use it, and mixing the two copies of Material risks type clashes.
+- `flutter analyze` reports informational deprecations: Flutter 3.50 deprecates `package:flutter/material.dart` in favour of the separate `material_ui` package. The project keeps `flutter/material.dart` because the scaffold's Serverpod auth widgets still use it, and mixing the two copies of Material risks type clashes.
 - Opening an awaiting, done or failed session replays it from step 1. Only the running session follows a shared clock.
 - The scaffold's example `greeting` endpoint and screens are still in the project, unused by the app.
 
