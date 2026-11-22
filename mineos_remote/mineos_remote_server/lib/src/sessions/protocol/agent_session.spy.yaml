@@ -1,0 +1,25 @@
+### One recorded MineOS agent session (one turn of the terminal agent).
+class: AgentSession
+table: agent_session
+fields:
+  ### The user's request, as typed.
+  task: String
+  status: SessionStatus
+  ### The model as the agent logs it, e.g. qwen2.5-1.5b-instruct.
+  modelName: String
+  ### Where the model ran, e.g. "local".
+  provider: String
+  ### True when the model ran on the machine and no data left it.
+  isLocal: bool
+  ### The router's decision: "INTENT confidence via backend".
+  route: String
+  ### The turn's outcome when it ended: answered, stuck, declined...
+  outcome: String?
+  answer: String?
+  startedAt: DateTime
+  updatedAt: DateTime
+  stepCount: int
+  steps: List<AgentStep>?, relation(name=session_steps)
+indexes:
+  agent_session_started_idx:
+    fields: startedAt

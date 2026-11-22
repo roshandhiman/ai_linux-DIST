@@ -29,6 +29,12 @@ def approve_cli(title, detail):
 
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "dealreview":
+        binary = shutil.which("mino-review")
+        if not binary:
+            print("Install Deal Review with scripts/install-dealreview.sh.", file=sys.stderr)
+            return 1
+        os.execv(binary, [binary, *sys.argv[2:]])
     if len(sys.argv) > 1 and sys.argv[1] == "code":
         binary = shutil.which("mino-code")
         if not binary:

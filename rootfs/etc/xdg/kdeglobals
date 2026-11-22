@@ -1,3 +1,6 @@
+[KDE]
+LookAndFeelPackage=org.kde.breeze.desktop
+
 [General]
 ColorScheme=BreezeLight
 font=Inter,10

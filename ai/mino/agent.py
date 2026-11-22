@@ -2,6 +2,7 @@
 
 import json
 import re
+import shutil
 import subprocess
 from collections import deque
 from dataclasses import dataclass
@@ -34,8 +35,18 @@ class Tool:
         return self.handler(**args)
 
 
+def open_deal_review(prompt):
+    binary = shutil.which("mino-review")
+    if not binary:
+        raise ValueError("Install the public CUAD demo with scripts/install-dealreview.sh.")
+    subprocess.Popen([binary, "--gui", "--autorun", "--prompt", prompt],
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return "Opened the public CUAD review. Review the draft before saving."
+
+
 def registry(desk):
     return {
+        "deal_review": Tool(open_deal_review, {"prompt": str}, {}, "Open the reviewed public CUAD demo."),
         "open_app": Tool(desk.app, {"name": str}, {}, "Launch an installed desktop app."),
         "close_app": Tool(desk.close, {}, {}, "Ask the previously opened app to close."),
         "create_file": Tool(desk.create, {"path": str}, {"text": str}, "Create a new file without overwrite."),
@@ -76,6 +87,12 @@ def direct(text):
     text = WAKE.sub("", text.strip()).strip()
     norm = re.sub(r"^(?:(?:now|please|ab|अब|कृपया)[,\s]+)+", "", text, flags=re.I)
     norm = norm.rstrip("?!").strip()
+    try:
+        from dealreview.intent import matches as deal_review_request
+        if deal_review_request(norm):
+            return "deal_review", {"prompt": norm}
+    except ImportError:
+        pass
     if re.fullmatch(rf"(?:isko |ise |इसको |इसे )?(?:{EXPLAIN_HINDI})", norm, re.I):
         return "read_screen", {}
     if re.search(r"स्क्रीन|\bscreen\b|\bisko\b|इसको|इसे", norm, re.I) and EXPLAIN.search(norm):

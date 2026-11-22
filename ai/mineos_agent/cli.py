@@ -15,6 +15,8 @@ printed, and the cost. ``--quiet`` hides it for normal use.
 
 import argparse
 import os
+import shutil
+import subprocess
 import sys
 from functools import partial
 from pathlib import Path
@@ -40,6 +42,21 @@ def _c(code: str, text: str) -> str:
 def _out(text: str = "", *, end: str = "\n") -> None:
     sys.stdout.write(fold_ascii(text) + end)
     sys.stdout.flush()
+
+
+def _deal_review(request: str, options: list[str] | None = None) -> int | None:
+    try:
+        from dealreview.intent import matches
+    except ImportError:
+        return None
+    if options is None and not matches(request):
+        return None
+    binary = shutil.which("mino-review")
+    if not binary:
+        _out("Install Deal Review with scripts/install-dealreview.sh.")
+        return 1
+    arguments = options if options is not None else ["--prompt", request, "--autorun"]
+    return subprocess.call([binary, *arguments])
 
 
 def _indent(text: str, mark: str = "|", limit: int = 14) -> str:
@@ -243,6 +260,8 @@ def repl(agent: Agent, trace: Trace, config: AgentConfig, *,
             return 0
         if not line:
             continue
+        if not coding and _deal_review(line) is not None:
+            continue
         if line.startswith("/"):
             command, _, arg = line.partition(" ")
             if command in ("/quit", "/exit", "/q"):
@@ -325,6 +344,16 @@ def _code(argv: list[str]) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
+    if argv[:1] == ["dealreview"]:
+        result = _deal_review("", argv[1:])
+        if result is None:
+            _out("Install Deal Review with scripts/install-dealreview.sh.")
+            return 1
+        return result
+    if argv and not argv[0].startswith("-") and argv[0] != "code":
+        result = _deal_review(" ".join(argv))
+        if result is not None:
+            return result
     if argv[:1] == ["code"]:
         return _code(argv[1:])
     parser = argparse.ArgumentParser(

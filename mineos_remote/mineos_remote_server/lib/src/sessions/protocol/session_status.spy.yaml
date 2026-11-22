@@ -1,0 +1,8 @@
+### Where a recorded agent session stood when it was recorded.
+enum: SessionStatus
+serialized: byName
+values:
+  - running
+  - awaitingApproval
+  - done
+  - failed

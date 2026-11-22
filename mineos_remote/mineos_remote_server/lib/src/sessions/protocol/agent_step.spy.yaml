@@ -1,0 +1,17 @@
+### One step of a recorded agent session.
+class: AgentStep
+table: agent_step
+fields:
+  sessionId: int, relation(name=session_steps, parent=agent_session)
+  ### 1-based position in the session.
+  index: int
+  kind: StepKind
+  title: String
+  ### The trace text, shown in a monospace font.
+  detail: String
+  durationMs: int
+  createdAt: DateTime
+indexes:
+  agent_step_session_index_idx:
+    fields: sessionId, index
+    unique: true

@@ -471,7 +471,15 @@ class AssistantWindow(Gtk.ApplicationWindow):
         self.progress.set_text("Working…")
         self.add_message("user", text)
         self.history.append({"role": "user", "content": text})
-        if action:
+        try:
+            from dealreview.intent import matches as deal_review_request
+            deal_review = deal_review_request(text)
+        except ImportError:
+            deal_review = False
+        if deal_review:
+            snapshot = [dict(message) for message in self.history]
+            threading.Thread(target=self.worker, args=(text, snapshot, mode), daemon=True).start()
+        elif action:
             threading.Thread(target=self.prepare_plan, args=(action,), daemon=True).start()
         elif source or self.private_session or NOTE_REQUEST.search(text):
             self.begin_private_chat()
@@ -753,8 +761,19 @@ class AssistantWindow(Gtk.ApplicationWindow):
         sources = []
         artifact = None
         try:
-            request = requested_artifact(text, history) if mode != "Web" else None
-            if request:
+            try:
+                from dealreview.intent import matches as deal_review_request
+                deal_review = deal_review_request(text)
+            except ImportError:
+                deal_review = False
+            request = requested_artifact(text, history) if mode != "Web" and not deal_review else None
+            if deal_review:
+                binary = shutil.which("mino-review")
+                if not binary:
+                    raise ValueError("Install Deal Review with scripts/install-dealreview.sh.")
+                launch([binary, "--gui", "--autorun", "--prompt", text])
+                reply = "Opened the public CUAD review. The review window checks the PDFs, calculates deadlines and previews the draft before saving."
+            elif request:
                 filename, folder, specification = request
                 GLib.idle_add(self.update_progress, "Preparing file…")
                 kind = Path(filename).suffix[1:]

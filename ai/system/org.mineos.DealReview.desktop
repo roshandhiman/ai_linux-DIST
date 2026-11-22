@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Mino Deal Review
+Comment=Review the public CUAD due diligence demo
+Exec=mino-review --gui
+Icon=folder-documents
+Terminal=false
+Categories=Office;
+Keywords=Mino;CUAD;Contracts;Legal;Due Diligence;

@@ -1,0 +1,10 @@
+### One event of a session replay.
+class: ReplayEvent
+fields:
+  type: ReplayEventType
+  ### Which loop of a running session this belongs to.
+  cycle: int
+  step: AgentStep?
+  label: String?
+  ### When the current loop started (running sessions only).
+  startedAt: DateTime?

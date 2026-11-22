@@ -40,5 +40,6 @@ c789161ed43c8269fcd4e67c67eeeb4e80c622da2eb296a20bc6007bd18a0b7d  yolox-nano.onn
 cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30  NanoDet-LICENSE
 SUMS
 )
+bash "$(dirname -- "$(realpath -- "$0")")/fetch-camera-scene.sh" "$stage/florence"
 mv -T --no-clobber "$stage" "$dest"
 test ! -d "$stage"

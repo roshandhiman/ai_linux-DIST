@@ -35,7 +35,7 @@ packages=(
     light-locker ffmpeg gir1.2-gtk-3.0 gir1.2-wnck-3.0 gir1.2-gstreamer-1.0 gstreamer1.0-gtk3
     gstreamer1.0-libav python3-cairo python3-gi-cairo python3-requests
     desktop-file-utils x11-xserver-utils x11-utils dconf-cli fonts-inter arc-theme papirus-icon-theme
-    gir1.2-atspi-2.0 xdotool tesseract-ocr tesseract-ocr-eng python3-pil python3-opencv
+    gir1.2-atspi-2.0 xdotool tesseract-ocr tesseract-ocr-eng python3-pil python3-opencv python3-onnxruntime
 )
 missing=()
 for package in "${packages[@]}"; do
@@ -67,7 +67,7 @@ backup="$(mktemp -d "$state_dir/desktop-backup.XXXXXXXX")"
 sudo cp -a /opt/ai/desktop "$backup/desktop"
 mkdir -p "$backup/assistant" "$backup/config"
 coding_modules=(agent cli code_providers code_session coding config llm memory os_api prompt providers text)
-assistant_files=(jarvis_gui.py artifacts.py research.py screen_context.py desktop_actions.py camera.py camera_vision.py camera_overlay.py)
+assistant_files=(jarvis_gui.py artifacts.py research.py screen_context.py desktop_actions.py camera.py camera_vision.py camera_overlay.py camera_scene.py)
 for module in "${coding_modules[@]}"; do
     assistant_files+=("mineos_agent/$module.py")
 done
@@ -100,7 +100,7 @@ tar --exclude='__pycache__' --exclude='*.pyc' -C "$source_dir/desktop" -cf - . |
     sudo tar --no-same-owner -C "$stage" -xf -
 sudo find "$stage" -type d -exec chmod 755 {} +
 sudo chmod 755 "$stage/"*.sh
-sudo install -m 644 "$source_dir/ai/agent/"{artifacts,research,screen_context,desktop_actions,camera,camera_vision,camera_overlay}.py /opt/ai/
+sudo install -m 644 "$source_dir/ai/agent/"{artifacts,research,screen_context,desktop_actions,camera,camera_vision,camera_overlay,camera_scene}.py /opt/ai/
 for module in "${coding_modules[@]}"; do
     sudo install -m 644 "$source_dir/ai/mineos_agent/$module.py" /opt/ai/mineos_agent/
 done
@@ -137,12 +137,17 @@ if ! bash /opt/ai/desktop/apply-theme.sh; then
 fi
 sudo rm -rf -- "$stage.old"
 trap - EXIT
-if [[ "$(cat /etc/X11/default-display-manager 2>/dev/null || true)" == /usr/sbin/lightdm ]]; then
+if [[ -d /etc/lightdm ]]; then
     sudo bash "$source_dir/branding/install-login.sh"
+    bash /opt/ai/desktop/apply-signin-defaults.sh
 fi
 
 camera_model=/usr/share/mineos/models/camera
-camera_assets=(nanodet.onnx palm.onnx pose.onnx yolox-nano.onnx NanoDet-LICENSE MediaPipe-Pose-LICENSE YOLOX-LICENSE)
+camera_assets=(
+    nanodet.onnx palm.onnx pose.onnx yolox-nano.onnx NanoDet-LICENSE MediaPipe-Pose-LICENSE YOLOX-LICENSE
+    florence/tokenizer.json florence/vision_encoder_uint8.onnx florence/embed_tokens_int8.onnx
+    florence/encoder_model_int8.onnx florence/decoder_model_merged_int8.onnx florence/LICENSE florence/ATTRIBUTION
+)
 camera_assets_missing=false
 for file in "${camera_assets[@]}"; do
     if [[ ! -s "$camera_model/$file" ]]; then
@@ -172,6 +177,10 @@ if [[ -x /opt/llama.cpp/llama-mtmd-cli && ( ! -s "$vision_model/model.gguf" || !
         printf '%s\n' 'Run this updater again to download the offline visual question model.' >&2
     fi
     rm -rf -- "$model_stage"
+fi
+
+if [[ -f "$source_dir/ai/dealreview/core.py" ]]; then
+    bash "$source_dir/scripts/install-dealreview.sh"
 fi
 
 printf '%s\n' 'MineOS desktop update installed. Reopen Settings and Assistant to load the new version.'

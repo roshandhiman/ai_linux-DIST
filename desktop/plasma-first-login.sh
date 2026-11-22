@@ -3,9 +3,10 @@ set -euo pipefail
 
 config="${XDG_CONFIG_HOME:-$HOME/.config}"
 marker="$config/mineos/plasma-branding-v2"
+desktop="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+bash "$desktop/apply-signin-defaults.sh"
 [[ ! -e "$marker" ]] || exit 0
 
-desktop="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 gdbus wait --session --timeout 30 org.kde.plasmashell
 PYTHONPATH="$desktop" python3 -c "import preferences; preferences.terminal_defaults()"
 if [[ ! -e "$config/mineos/plasma-initialized" && ! -e "$config/mineos/plasma-branding-v1" ]]; then
