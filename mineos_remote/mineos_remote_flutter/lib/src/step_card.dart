@@ -14,12 +14,12 @@ IconData kindIcon(StepKind kind) => switch (kind) {
 };
 
 String kindLabel(StepKind kind) => switch (kind) {
-  StepKind.plan => 'plan',
-  StepKind.modelCall => 'model_call',
-  StepKind.toolCall => 'tool_call',
-  StepKind.approvalRequest => 'approval_request',
-  StepKind.result => 'result',
-  StepKind.error => 'error',
+  StepKind.plan => 'Plan',
+  StepKind.modelCall => 'Model call',
+  StepKind.toolCall => 'Tool call',
+  StepKind.approvalRequest => 'Approval request',
+  StepKind.result => 'Result',
+  StepKind.error => 'Error',
 };
 
 Color kindColor(StepKind kind) => switch (kind) {
@@ -87,10 +87,10 @@ class _StepCardState extends State<StepCard> {
               child: Material(
                 color: Palette.surface,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: AppStyle.rounded,
                   side: BorderSide(
                     color: step.kind == StepKind.approvalRequest
-                        ? Palette.awaiting.withValues(alpha: 0.6)
+                        ? Palette.awaiting.withValues(alpha: 0.3)
                         : Palette.border,
                   ),
                 ),
@@ -98,21 +98,24 @@ class _StepCardState extends State<StepCard> {
                 child: InkWell(
                   onTap: () => setState(() => _open = !_open),
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+                    padding: const EdgeInsets.all(Space.lg),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            Text(
-                              '#${step.index} ${kindLabel(step.kind)}',
-                              style: mono(size: 10.5, color: color),
+                            Expanded(
+                              child: Text(
+                                '#${step.index} ${kindLabel(step.kind)}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: uiText(size: 12, color: color),
+                              ),
                             ),
-                            const Spacer(),
                             if (duration.isNotEmpty)
                               Text(
                                 duration,
-                                style: mono(size: 10.5, color: Palette.faint),
+                                style: uiText(size: 12, color: Palette.faint),
                               ),
                             const SizedBox(width: 4),
                             AnimatedRotation(
@@ -143,15 +146,15 @@ class _StepCardState extends State<StepCard> {
                               ? Container(
                                   width: double.infinity,
                                   margin: const EdgeInsets.only(top: 8),
-                                  padding: const EdgeInsets.all(10),
+                                  padding: const EdgeInsets.all(Space.lg),
                                   decoration: BoxDecoration(
                                     color: Palette.background,
-                                    borderRadius: BorderRadius.circular(6),
+                                    borderRadius: AppStyle.smallRounded,
                                   ),
                                   child: SelectableText(
                                     step.detail,
                                     style: mono(
-                                      size: 11.5,
+                                      size: 13,
                                       color: Palette.muted,
                                     ),
                                   ),
@@ -169,19 +172,6 @@ class _StepCardState extends State<StepCard> {
       ),
     );
 
-    if (!widget.animateIn) return card;
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 380),
-      curve: Curves.easeOutCubic,
-      builder: (context, t, child) => Opacity(
-        opacity: t,
-        child: Transform.translate(
-          offset: Offset(0, 14 * (1 - t)),
-          child: child,
-        ),
-      ),
-      child: card,
-    );
+    return widget.animateIn ? Entrance(child: card) : card;
   }
 }

@@ -34,7 +34,7 @@ jobs:
         run: dart test
         working-directory: mineos_remote/mineos_remote_server
       - name: Flutter connection tests
-        run: flutter test test/connection_test.dart
+        run: flutter test test/connection_test.dart test/responsive_ui_test.dart
         working-directory: mineos_remote/mineos_remote_flutter
       - name: Build Android APK
         env:

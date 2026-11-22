@@ -55,3 +55,7 @@ The app displays the four public recorded MineOS sessions and streams their repl
 For an explicitly authorized temporary public demo, `tool/demo_gateway.dart` binds only to loopback port 54600 and permits only the four fixture IDs through sessions.list/get/watch. Never expose the raw API or Insights ports as a substitute. The frontend can be built with `--dart-define=SERVER_URL=https://<demo-api>/`. Temporary tunnel URLs require the laptop, runner, gateway and tunnel to stay running. Production deployment remains Serverpod Cloud.
 
 The root workflow `.github/workflows/mineos-remote.yml` tests the backend/gateway and Flutter connection validation, and uploads Android APK and web artifacts. It uses the optional repository variable `MINEOS_REMOTE_SERVER_URL`; URLs can also be changed in app Settings. Local release APKs use the scaffold's debug signing configuration for demo installation; configure production signing before a store release.
+
+## Flutter design system
+
+All UI colors, Inter typography, spacing, radii and Material 3 defaults live in `mineos_remote_flutter/lib/src/theme.dart`. `AppScaffold` owns responsive bottom navigation, tablet rail and desktop sidebar; `SessionCard`, `StatusChip`, skeletons and entrance transitions are reusable. Keep monospace only for agent code/output. The New task action explains the existing recorded-demo scope and must not pretend to create a live task. UI regression tests cover 320/390/820/1440px, small-phone detail/settings/About, error/loading states and 150% text scaling.

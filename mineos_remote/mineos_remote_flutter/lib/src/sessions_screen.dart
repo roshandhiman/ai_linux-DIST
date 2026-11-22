@@ -1,30 +1,25 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mineos_remote_client/mineos_remote_client.dart';
-
-import 'about_screen.dart';
-import 'connection_screen.dart';
+import 'app_scaffold.dart';
 import 'providers.dart';
-import 'session_detail_screen.dart';
+import 'session_card.dart';
 import 'theme.dart';
 import 'widgets.dart';
+export 'session_card.dart' show ElapsedText;
 
 class SessionsScreen extends ConsumerStatefulWidget {
   const SessionsScreen({super.key});
-
   @override
   ConsumerState<SessionsScreen> createState() => _SessionsScreenState();
 }
 
 class _SessionsScreenState extends ConsumerState<SessionsScreen> {
   Timer? _refresh;
-
   @override
   void initState() {
     super.initState();
-    // Keep the running session's step count fresh without a manual pull.
     _refresh = Timer.periodic(const Duration(seconds: 15), (_) {
       if (!ref.read(sessionsProvider).hasError) {
         ref.invalidate(sessionsProvider);
@@ -41,234 +36,206 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
   @override
   Widget build(BuildContext context) {
     final sessions = ref.watch(sessionsProvider);
-    return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 16,
-        title: Row(
-          children: [
-            Text('>', style: mono(size: 16, color: Palette.accent)),
-            const SizedBox(width: 8),
-            const Text('MineOS Remote'),
-          ],
+    return AppScaffold(
+      title: 'Sessions',
+      actions: [
+        IconButton(
+          tooltip: 'Refresh sessions',
+          onPressed: () => ref.invalidate(sessionsProvider),
+          icon: const Icon(Icons.refresh_rounded, size: 20),
         ),
-        actions: [
-          IconButton(
-            tooltip: 'Server connection',
-            icon: const Icon(Icons.settings_outlined, size: 20),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const ConnectionScreen()),
-            ),
-          ),
-          IconButton(
-            tooltip: 'About',
-            icon: const Icon(Icons.info_outline, size: 20),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const AboutScreen()),
-            ),
-          ),
-          const SizedBox(width: 4),
-        ],
+      ],
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => showNewTaskInfo(context),
+        icon: const Icon(Icons.add_rounded, size: 20),
+        label: const Text('New task'),
       ),
-      body: _Body(
-        child: switch (sessions) {
-          AsyncValue(:final value?) => RefreshIndicator(
-            color: Palette.accent,
-            backgroundColor: Palette.surfaceHigh,
-            onRefresh: () => ref.refresh(sessionsProvider.future),
-            child: value.isEmpty
-                ? ListView(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final padding = constraints.maxWidth < 600 ? Space.lg : Space.xxl;
+          return Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: AppStyle.pageWidth),
+              child: switch (sessions) {
+                AsyncValue(:final value?) => RefreshIndicator(
+                  onRefresh: () => ref.refresh(sessionsProvider.future),
+                  child: CustomScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    children: const [
-                      SizedBox(height: 120),
-                      StateMessage(
-                        icon: Icons.inbox_outlined,
-                        title: 'No sessions yet',
-                        message:
-                            'Agent sessions appear here as soon as the '
-                            'server has recordings.\nPull down to refresh.',
+                    slivers: [
+                      SliverPadding(
+                        padding: EdgeInsets.fromLTRB(
+                          padding,
+                          Space.xxl,
+                          padding,
+                          Space.xl,
+                        ),
+                        sliver: SliverToBoxAdapter(
+                          child: _Overview(sessions: value),
+                        ),
                       ),
+                      if (value.isEmpty)
+                        const SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: StateMessage(
+                            icon: Icons.inbox_outlined,
+                            title: 'A little quiet here',
+                            message:
+                                'Your recorded agent sessions will appear here. Pull down to check for updates.',
+                          ),
+                        )
+                      else
+                        SliverPadding(
+                          padding: EdgeInsets.fromLTRB(
+                            padding,
+                            0,
+                            padding,
+                            112,
+                          ),
+                          sliver: constraints.maxWidth >= 850
+                              ? SliverGrid(
+                                  delegate: SliverChildBuilderDelegate(
+                                    (context, i) => Entrance(
+                                      index: i,
+                                      child: SessionCard(
+                                        session: value[i],
+                                        fillHeight: true,
+                                      ),
+                                    ),
+                                    childCount: value.length,
+                                  ),
+                                  gridDelegate:
+                                      SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 2,
+                                        mainAxisSpacing: Space.lg,
+                                        crossAxisSpacing: Space.lg,
+                                        mainAxisExtent:
+                                            300 *
+                                            MediaQuery.textScalerOf(
+                                              context,
+                                            ).scale(1),
+                                      ),
+                                )
+                              : SliverList.separated(
+                                  itemCount: value.length,
+                                  separatorBuilder: (_, _) =>
+                                      const SizedBox(height: Space.lg),
+                                  itemBuilder: (context, i) => Entrance(
+                                    index: i,
+                                    child: SessionCard(session: value[i]),
+                                  ),
+                                ),
+                        ),
                     ],
-                  )
-                : ListView.separated(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                    itemCount: value.length + 1,
-                    separatorBuilder: (_, _) => const SizedBox(height: 10),
-                    itemBuilder: (context, i) => i == 0
-                        ? const _ListHeader()
-                        : SessionCard(session: value[i - 1]),
                   ),
-          ),
-          AsyncValue(:final error?) => StateMessage(
-            icon: Icons.cloud_off,
-            title: 'Could not reach the server',
-            message: _short(error),
-            actionLabel: 'Retry',
-            onAction: () => ref.invalidate(sessionsProvider),
-          ),
-          _ => const StateMessage.loading(title: 'Loading sessions…'),
+                ),
+                AsyncValue(error: != null) => StateMessage(
+                  icon: Icons.cloud_off_outlined,
+                  title: 'Let’s reconnect',
+                  message:
+                      'We couldn’t reach your MineOS server. Check your connection, then try again.',
+                  actionLabel: 'Try again',
+                  onAction: () => ref.invalidate(sessionsProvider),
+                ),
+                _ => const SessionsSkeleton(),
+              },
+            ),
+          );
         },
       ),
     );
   }
 }
 
-String _short(Object error) {
-  final text = error.toString();
-  return text.length > 140 ? '${text.substring(0, 140)}…' : text;
-}
-
-/// Keeps the content phone-width on a desktop browser.
-class _Body extends StatelessWidget {
-  const _Body({required this.child});
-
-  final Widget child;
-
+class _Overview extends StatelessWidget {
+  const _Overview({required this.sessions});
+  final List<AgentSession> sessions;
   @override
-  Widget build(BuildContext context) => Align(
-    alignment: Alignment.topCenter,
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 720),
-      child: child,
-    ),
-  );
-}
-
-class _ListHeader extends StatelessWidget {
-  const _ListHeader();
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: 4, bottom: 2),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const DemoReplayChip(),
-        const SizedBox(height: 10),
-        Text(
-          'Recorded sessions from a MineOS machine',
-          style: mono(size: 12, color: Palette.muted),
-        ),
-        const SizedBox(height: 4),
-      ],
-    ),
-  );
-}
-
-class SessionCard extends StatelessWidget {
-  const SessionCard({super.key, required this.session});
-
-  final AgentSession session;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = session;
-    return Material(
-      color: Palette.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(
-          color: s.status == SessionStatus.awaitingApproval
-              ? Palette.awaiting.withValues(alpha: 0.5)
-              : Palette.border,
-        ),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => SessionDetailScreen(sessionId: s.id!, initial: s),
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: Space.md,
+        children: [
+          Text('Sessions', style: Theme.of(context).textTheme.headlineLarge),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+            decoration: BoxDecoration(
+              color: Palette.surfaceHigh,
+              border: Border.all(color: Palette.border),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '${sessions.length}',
+              style: uiText(
+                size: 13,
+                color: Palette.muted,
+                weight: FontWeight.w500,
+              ),
+            ),
           ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  StatusBadge(status: s.status),
-                  const Spacer(),
-                  if (s.isLocal) const LocalBadge(),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(
-                s.task,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  height: 1.35,
-                ),
-              ),
-              const SizedBox(height: 10),
-              DefaultTextStyle(
-                style: mono(size: 11.5, color: Palette.muted),
-                child: Wrap(
-                  spacing: 14,
-                  runSpacing: 4,
-                  children: [
-                    _Meta(icon: Icons.memory, text: s.modelName),
-                    _Meta(
-                      icon: Icons.timer_outlined,
-                      child: ElapsedText(session: s),
-                    ),
-                    _Meta(
-                      icon: Icons.format_list_numbered,
-                      text: formatSteps(s.stepCount),
-                    ),
-                  ],
-                ),
-              ),
+        ],
+      ),
+      const SizedBox(height: Space.sm),
+      Text(
+        'A clear view of every agent run.',
+        style: uiText(size: 15, color: Palette.muted),
+      ),
+      const SizedBox(height: Space.xl),
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(Space.lg),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Palette.bannerStart,
+              Palette.bannerEnd,
             ],
           ),
+          border: Border.all(color: Palette.accent.withValues(alpha: .13)),
+          borderRadius: AppStyle.smallRounded,
+        ),
+        child: Wrap(
+          spacing: Space.md,
+          runSpacing: Space.sm,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            const DemoReplayChip(),
+            Text(
+              'Recorded sessions. Real insight into how your agent works.',
+              style: uiText(size: 13, color: Palette.muted),
+            ),
+          ],
         ),
       ),
-    );
-  }
-}
-
-class _Meta extends StatelessWidget {
-  const _Meta({required this.icon, this.text, this.child});
-
-  final IconData icon;
-  final String? text;
-  final Widget? child;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Icon(icon, size: 13, color: Palette.faint),
-      const SizedBox(width: 4),
-      child ?? Text(text ?? ''),
+      const SizedBox(height: Space.xxl),
+      Wrap(
+        spacing: Space.xl,
+        runSpacing: Space.md,
+        children: [
+          for (final status in SessionStatus.values)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.circle, size: 6, color: statusColor(status)),
+                const SizedBox(width: Space.sm),
+                Text(
+                  '${sessions.where((s) => s.status == status).length}',
+                  style: uiText(size: 13, weight: FontWeight.w600),
+                ),
+                const SizedBox(width: Space.xs),
+                Flexible(
+                  child: Text(
+                    statusLabel(status),
+                    style: uiText(size: 12, color: Palette.muted),
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+      const SizedBox(height: Space.sm),
     ],
   );
-}
-
-/// Elapsed time. Ticks every second while the session is running; for a
-/// finished or paused session it is how long the recording took.
-class ElapsedText extends StatelessWidget {
-  const ElapsedText({super.key, required this.session, this.startedAt});
-
-  final AgentSession session;
-
-  /// Overrides session.startedAt, e.g. the current replay loop's start.
-  final DateTime? startedAt;
-
-  @override
-  Widget build(BuildContext context) {
-    final start = (startedAt ?? session.startedAt).toLocal();
-    if (session.status != SessionStatus.running) {
-      return Text(
-        formatElapsed(session.updatedAt.difference(session.startedAt)),
-      );
-    }
-    return StreamBuilder<int>(
-      stream: Stream<int>.periodic(const Duration(seconds: 1), (i) => i),
-      builder: (context, _) =>
-          Text('${formatElapsed(DateTime.now().difference(start))} elapsed'),
-    );
-  }
 }

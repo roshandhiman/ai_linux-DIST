@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'providers.dart';
+import 'app_scaffold.dart';
 import 'theme.dart';
 
 /// Accept public HTTPS endpoints and HTTP only for local development.
@@ -76,24 +77,30 @@ class _ConnectionScreenState extends ConsumerState<ConnectionScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Server connection')),
+  Widget build(BuildContext context) => AppScaffold(
+    title: 'Server connection',
+    selectedIndex: 1,
+    showBack: true,
     body: Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 640),
         child: ListView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(Space.xl),
           children: [
-            const Icon(Icons.dns_outlined, color: Palette.accent, size: 40),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: BrandMark(size: 48),
+            ),
             const SizedBox(height: 20),
             Text(
               'Connect to MineOS Remote',
-              style: Theme.of(context).textTheme.titleLarge,
+              style: Theme.of(context).textTheme.headlineMedium,
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Enter your Serverpod API address. The connection is tested before it is saved on this device.',
+            Text(
+              'Enter your Serverpod API address. We’ll test the connection before saving it on this device.',
+              style: uiText(size: 15, color: Palette.muted),
             ),
             const SizedBox(height: 24),
             TextField(
@@ -108,7 +115,6 @@ class _ConnectionScreenState extends ConsumerState<ConnectionScreen> {
               decoration: const InputDecoration(
                 labelText: 'API server URL',
                 hintText: 'https://your-project.api.serverpod.space/',
-                border: OutlineInputBorder(),
               ),
             ),
             if (_error != null) ...[

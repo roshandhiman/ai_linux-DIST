@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mineos_remote_client/mineos_remote_client.dart';
 
 import 'providers.dart';
+import 'app_scaffold.dart';
 import 'sessions_screen.dart';
 import 'step_card.dart';
 import 'theme.dart';
@@ -60,108 +61,129 @@ class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
 
     final session = detail.value?.session ?? widget.initial;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Session'),
-        actions: const [DemoReplayChip(), SizedBox(width: 12)],
-      ),
+    return AppScaffold(
+      title: 'Session details',
+      showBack: true,
       body: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 720),
+          constraints: const BoxConstraints(maxWidth: 960),
           child: session == null
               ? (detail.hasError
                     ? StateMessage(
-                        icon: Icons.cloud_off,
-                        title: 'Could not load this session',
-                        message: detail.error.toString(),
-                        actionLabel: 'Retry',
+                        icon: Icons.cloud_off_outlined,
+                        title: 'This session is out of reach',
+                        message:
+                            'Check your connection and try loading it again.',
+                        actionLabel: 'Try again',
                         onAction: () =>
                             ref.invalidate(sessionDetailProvider(id)),
                       )
-                    : const StateMessage.loading(title: 'Loading session…'))
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _Header(session: session, timeline: timeline),
-                    if (timeline.usingPolling)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                        child: Text(
-                          'Refreshing every 2 seconds · replay stream reconnecting',
-                          style: mono(size: 12, color: Palette.accent),
-                        ),
-                      ),
-                    if (timeline.phase == StreamPhase.reconnecting)
-                      _ReconnectBanner(
-                        timeline: timeline,
-                        onRetry: () =>
-                            ref.read(timelineProvider(id).notifier).retryNow(),
-                      ),
-                    if (timeline.approval != null &&
-                        timeline.phase == StreamPhase.holding)
-                      _ApprovalBanner(step: timeline.approval!),
-                    const Divider(),
-                    Expanded(child: _timeline(session, timeline)),
-                  ],
-                ),
+                    : const StateMessage.loading())
+              : _timeline(session, timeline),
         ),
       ),
     );
   }
 
   Widget _timeline(AgentSession session, TimelineState t) {
-    if (t.steps.isEmpty) {
-      return switch (t.phase) {
-        StreamPhase.connecting => const StateMessage.loading(
-          title: 'Connecting to the replay…',
-        ),
-        StreamPhase.reconnecting => const StateMessage(
-          icon: Icons.wifi_off,
-          title: 'Waiting for the connection',
-          message: 'Steps appear here as soon as the stream is back.',
-        ),
-        StreamPhase.finished || StreamPhase.holding => const StateMessage(
-          icon: Icons.inbox_outlined,
-          title: 'This session has no steps',
-        ),
-        StreamPhase.live => ThinkingIndicator(
-          label: t.thinking ?? 'starting',
-          detail: '${session.modelName} on the CPU',
-        ),
-      };
-    }
-
-    final footer = <Widget>[
-      if (t.thinking != null && t.phase == StreamPhase.live)
-        ThinkingIndicator(
-          label: t.thinking!,
-          detail: '${session.modelName} via llama.cpp, on the CPU',
-        )
-      else if (t.phase == StreamPhase.live)
-        const ThinkingIndicator(label: 'running the next step'),
-      if (t.phase == StreamPhase.finished) _EndOfReplay(session: session),
-      if (t.phase == StreamPhase.holding)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(36, 6, 0, 0),
-          child: Text(
-            '— paused: nothing happens until someone answers y/N',
-            style: mono(size: 11.5, color: Palette.awaiting),
-          ),
-        ),
-    ];
-
+    final emptyState = switch (t.phase) {
+      StreamPhase.connecting => const StateMessage.loading(
+        title: 'Connecting to the replay…',
+      ),
+      StreamPhase.reconnecting => const StateMessage(
+        icon: Icons.wifi_off_rounded,
+        title: 'Waiting to reconnect',
+        message: 'Your timeline will continue when the connection returns.',
+      ),
+      StreamPhase.finished || StreamPhase.holding => const StateMessage(
+        icon: Icons.inbox_outlined,
+        title: 'No steps in this recording',
+      ),
+      StreamPhase.live => ThinkingIndicator(
+        label: t.thinking ?? 'Getting started',
+        detail: '${session.modelName} on the CPU',
+      ),
+    };
     return ListView(
       controller: _scroll,
-      padding: const EdgeInsets.fromLTRB(12, 14, 16, 40),
+      padding: const EdgeInsets.fromLTRB(
+        Space.lg,
+        Space.xl,
+        Space.lg,
+        Space.xxxl,
+      ),
       children: [
+        _Header(session: session, timeline: t),
+        if (t.usingPolling)
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Space.lg,
+              vertical: Space.md,
+            ),
+            child: Text(
+              'Refreshing every 2 seconds · replay stream reconnecting',
+              style: uiText(size: 12, color: Palette.accent),
+            ),
+          ),
+        if (t.phase == StreamPhase.reconnecting)
+          _ReconnectBanner(
+            timeline: t,
+            onRetry: () => ref
+                .read(timelineProvider(widget.sessionId).notifier)
+                .retryNow(),
+          ),
+        if (t.approval != null && t.phase == StreamPhase.holding)
+          _ApprovalBanner(step: t.approval!),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Space.lg,
+            Space.xl,
+            Space.lg,
+            Space.xl,
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.account_tree_outlined,
+                size: 18,
+                color: Palette.muted,
+              ),
+              const SizedBox(width: Space.sm),
+              Text(
+                'Activity timeline',
+                style: uiText(size: 15, weight: FontWeight.w600),
+              ),
+              const Spacer(),
+              Text(
+                formatSteps(t.steps.length),
+                style: uiText(size: 12, color: Palette.muted),
+              ),
+            ],
+          ),
+        ),
+        if (t.steps.isEmpty) SizedBox(height: 300, child: emptyState),
         for (var i = 0; i < t.steps.length; i++)
           StepCard(
             key: ValueKey('${t.cycle}-${t.steps[i].index}'),
             step: t.steps[i],
-            isLast: i == t.steps.length - 1 && footer.isEmpty,
+            isLast: i == t.steps.length - 1 && t.phase != StreamPhase.live,
           ),
-        ...footer,
+        if (t.steps.isNotEmpty && t.phase == StreamPhase.live)
+          ThinkingIndicator(
+            label: t.thinking ?? 'Working on the next step',
+            detail: '${session.modelName} via llama.cpp, on the CPU',
+          ),
+        if (t.steps.isNotEmpty && t.phase == StreamPhase.finished)
+          _EndOfReplay(session: session),
+        if (t.steps.isNotEmpty && t.phase == StreamPhase.holding)
+          Padding(
+            padding: const EdgeInsets.only(left: 44, top: Space.md),
+            child: Text(
+              'Paused until someone answers the approval prompt.',
+              style: uiText(size: 13, color: Palette.awaiting),
+            ),
+          ),
       ],
     );
   }
@@ -176,46 +198,55 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = session;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
+    return Container(
+      padding: const EdgeInsets.all(Space.xl),
+      decoration: BoxDecoration(
+        color: Palette.surface,
+        border: Border.all(color: Palette.border),
+        borderRadius: AppStyle.rounded,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            s.task,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              height: 1.3,
-            ),
-          ),
-          const SizedBox(height: 10),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: Space.sm,
+            runSpacing: Space.sm,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              StatusBadge(status: s.status),
+              const DemoReplayChip(),
+              StatusChip(status: s.status),
               if (s.isLocal) const LocalBadge(),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: Space.xl),
+          Text(
+            s.task,
+            style: uiText(
+              size: MediaQuery.sizeOf(context).width < 700 ? 20 : 24,
+              weight: FontWeight.w600,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: Space.xl),
+          const Divider(),
+          const SizedBox(height: Space.lg),
           DefaultTextStyle(
-            style: mono(size: 11.5, color: Palette.muted),
+            style: uiText(size: 12, color: Palette.muted),
             child: Wrap(
-              spacing: 14,
-              runSpacing: 4,
+              spacing: Space.lg,
+              runSpacing: Space.sm,
               children: [
-                Text('model ${s.modelName}'),
-                Text('provider ${s.provider}'),
+                Text('Model · ${s.modelName}'),
+                Text('Provider · ${s.provider}'),
                 ElapsedText(session: s, startedAt: timeline.startedAt),
                 Text(formatSteps(timeline.steps.length)),
               ],
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: Space.md),
           Text(
-            'route ${s.route}',
-            style: mono(size: 11.5, color: Palette.faint),
+            'Route · ${s.route}',
+            style: uiText(size: 12, color: Palette.faint),
           ),
         ],
       ),
@@ -240,8 +271,8 @@ class _ApprovalBanner extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         color: Palette.awaiting.withValues(alpha: 0.10),
-        border: Border.all(color: Palette.awaiting.withValues(alpha: 0.7)),
-        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Palette.awaiting.withValues(alpha: 0.25)),
+        borderRadius: AppStyle.rounded,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -257,7 +288,7 @@ class _ApprovalBanner extends StatelessWidget {
               Expanded(
                 child: Text(
                   'Agent paused: waiting for approval',
-                  style: mono(
+                  style: uiText(
                     size: 13,
                     color: Palette.awaiting,
                     weight: FontWeight.w700,
@@ -267,11 +298,11 @@ class _ApprovalBanner extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Text('It wants to:', style: mono(size: 11.5, color: Palette.muted)),
+          Text('It wants to:', style: uiText(size: 11.5, color: Palette.muted)),
           const SizedBox(height: 2),
           SelectableText(
             action,
-            style: mono(size: 13, weight: FontWeight.w600),
+            style: uiText(size: 13, weight: FontWeight.w600),
           ),
           const SizedBox(height: 12),
           Row(
@@ -297,7 +328,7 @@ class _ApprovalBanner extends StatelessWidget {
           Center(
             child: Text(
               'Coming next: approve from your phone',
-              style: mono(size: 11, color: Palette.muted),
+              style: uiText(size: 11, color: Palette.muted),
             ),
           ),
         ],
@@ -318,8 +349,8 @@ class _ReconnectBanner extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
     decoration: BoxDecoration(
       color: Palette.failed.withValues(alpha: 0.10),
-      border: Border.all(color: Palette.failed.withValues(alpha: 0.5)),
-      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: Palette.failed.withValues(alpha: 0.25)),
+      borderRadius: AppStyle.smallRounded,
     ),
     child: Row(
       children: [
@@ -329,7 +360,7 @@ class _ReconnectBanner extends StatelessWidget {
           child: Text(
             '${timeline.error ?? 'Connection lost'}. '
             'Reconnecting${timeline.retryInSeconds != null ? ' in ${timeline.retryInSeconds}s' : ''}…',
-            style: mono(size: 11.5, color: Palette.text),
+            style: uiText(size: 11.5, color: Palette.text),
           ),
         ),
         TextButton(onPressed: onRetry, child: const Text('Retry now')),
@@ -348,7 +379,7 @@ class _EndOfReplay extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(36, 6, 0, 0),
     child: Text(
       '— end of recording${session.outcome != null ? ' (outcome: ${session.outcome})' : ''}',
-      style: mono(size: 11.5, color: Palette.faint),
+      style: uiText(size: 11.5, color: Palette.faint),
     ),
   );
 }
