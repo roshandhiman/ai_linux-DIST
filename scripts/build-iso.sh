@@ -49,10 +49,10 @@ apt-get "${APT_OPTIONS[@]}" update
 DEBIAN_FRONTEND=noninteractive apt-get "${APT_OPTIONS[@]}" install -y --no-install-recommends \
     debootstrap debian-archive-keyring ca-certificates curl git python3 wget squashfs-tools xorriso mtools grub-common "${grub_packages[@]}"
 
-# Arguments after grub-mkrescue's -- use native xorriso syntax, not mkisofs
-# syntax. Exercise the exact command with a >4 GiB file before the costly build.
+# Set the mkisofs file-size level before xorriso adds any source files.
+# Exercise the exact command with a >4 GiB file before the costly build.
 master_iso() {
-    grub-mkrescue -o "$1" "$2" -- -compliance iso_9660_level=3 -volid MINEOS
+    grub-mkrescue -o "$1" -iso-level 3 "$2" -- -volid MINEOS
 }
 mkdir "$WORK/mastering-probe"
 truncate -s 4294967296 "$WORK/mastering-probe/large-file"
