@@ -49,6 +49,18 @@ apt-get "${APT_OPTIONS[@]}" update
 DEBIAN_FRONTEND=noninteractive apt-get "${APT_OPTIONS[@]}" install -y --no-install-recommends \
     debootstrap debian-archive-keyring ca-certificates curl git python3 wget squashfs-tools xorriso mtools grub-common "${grub_packages[@]}"
 
+# Arguments after grub-mkrescue's -- use native xorriso syntax, not mkisofs
+# syntax. Exercise the exact command with a >4 GiB file before the costly build.
+master_iso() {
+    grub-mkrescue -o "$1" "$2" -- -compliance iso_9660_level=3 -volid MINEOS
+}
+mkdir "$WORK/mastering-probe"
+truncate -s 4294967296 "$WORK/mastering-probe/large-file"
+master_iso "$WORK/mastering-probe.iso" "$WORK/mastering-probe"
+test "$(stat -c %s "$WORK/mastering-probe.iso")" -gt 4294967296
+rm -rf -- "$WORK/mastering-probe" "$WORK/mastering-probe.iso"
+printf '%s\n' 'PASS: bootable ISO mastering accepts files larger than 4 GiB.'
+
 DEBIAN_FRONTEND=noninteractive apt-get "${APT_OPTIONS[@]}" build-dep -y xfce4-terminal=1.1.4-1
 printf 'Dir::Etc::sourcelist "%s";\nDir::Etc::sourceparts "-";\n' "$HOST_SOURCES" > "$WORK/terminal-apt.conf"
 APT_CONFIG="$WORK/terminal-apt.conf" bash "$SOURCE/scripts/build-terminal.sh" "$WORK/terminal"
@@ -274,7 +286,7 @@ mksquashfs "$ROOTFS" "$IMAGE/live/filesystem.squashfs" -noappend -comp zstd -Xco
 rm -rf -- "$ROOTFS"
 PARTIAL=$(mktemp "$(dirname -- "$OUTPUT")/.mineos-XXXXXXXX.iso")
 # The complete offline payload exceeds the level-2 single-file 4 GiB limit.
-grub-mkrescue -o "$PARTIAL" "$IMAGE" -- -iso-level 3 -volid MINEOS
+master_iso "$PARTIAL" "$IMAGE"
 boot_report=$(xorriso -indev "$PARTIAL" -report_el_torito plain)
 printf '%s\n' "$boot_report"
 grep -Eq '^El Torito boot img[[:space:]]*:[[:space:]]+[0-9]+[[:space:]]+UEFI([[:space:]]|$)' <<< "$boot_report"
