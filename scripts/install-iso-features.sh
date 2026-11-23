@@ -7,6 +7,8 @@ arch=${2:?Specify the target architecture}
 [[ $EUID == 0 && "$root" = /* && -d "$root/etc" ]]
 [[ "$arch" == arm64 || "$arch" == amd64 ]]
 version=$(tr -d '[:space:]' < "$source_dir/VERSION")
+source_sha=$(git -c safe.directory="$source_dir" -C "$source_dir" rev-parse HEAD)
+[[ "$source_sha" =~ ^[0-9a-f]{40}$ ]]
 
 # Native Freebuff client and the separate direct-provider SDK bridge.
 client="$source_dir/build/mino-code/$arch"
@@ -82,7 +84,7 @@ test -s "$root/usr/share/plasma/wallpapers/org.mineos.video/contents/ui/main.qml
 test -s "$root/usr/share/backgrounds/mineos/graphite.svg"
 find "$root/opt/ai" "$root$release/lib" -type d -name __pycache__ -prune -exec rm -rf {} +
 install -d "$root/usr/share/mineos"
-python3 - "$root/usr/share/mineos/build-manifest.json" "$version" "$(git -C "$source_dir" rev-parse HEAD)" "$arch" <<'PY'
+python3 - "$root/usr/share/mineos/build-manifest.json" "$version" "$source_sha" "$arch" <<'PY'
 import json, sys
 from pathlib import Path
 Path(sys.argv[1]).write_text(json.dumps({
