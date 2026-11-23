@@ -47,7 +47,7 @@ printf 'deb http://deb.debian.org/debian trixie main\ndeb-src http://deb.debian.
 APT_OPTIONS=(-o "Dir::Etc::sourcelist=$HOST_SOURCES" -o "Dir::Etc::sourceparts=-")
 apt-get "${APT_OPTIONS[@]}" update
 DEBIAN_FRONTEND=noninteractive apt-get "${APT_OPTIONS[@]}" install -y --no-install-recommends \
-    debootstrap debian-archive-keyring ca-certificates wget squashfs-tools xorriso mtools grub-common "${grub_packages[@]}"
+    debootstrap debian-archive-keyring ca-certificates curl git python3 wget squashfs-tools xorriso mtools grub-common "${grub_packages[@]}"
 
 DEBIAN_FRONTEND=noninteractive apt-get "${APT_OPTIONS[@]}" build-dep -y xfce4-terminal=1.1.4-1
 printf 'Dir::Etc::sourcelist "%s";\nDir::Etc::sourceparts "-";\n' "$HOST_SOURCES" > "$WORK/terminal-apt.conf"
