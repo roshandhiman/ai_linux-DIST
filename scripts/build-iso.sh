@@ -273,7 +273,8 @@ mksquashfs "$ROOTFS" "$IMAGE/live/filesystem.squashfs" -noappend -comp zstd -Xco
 # for both at once. Its /dev, /sys and /proc were unmounted above.
 rm -rf -- "$ROOTFS"
 PARTIAL=$(mktemp "$(dirname -- "$OUTPUT")/.mineos-XXXXXXXX.iso")
-grub-mkrescue -o "$PARTIAL" "$IMAGE" -- -volid MINEOS
+# The complete offline payload exceeds the level-2 single-file 4 GiB limit.
+grub-mkrescue -o "$PARTIAL" "$IMAGE" -- -iso-level 3 -volid MINEOS
 boot_report=$(xorriso -indev "$PARTIAL" -report_el_torito plain)
 printf '%s\n' "$boot_report"
 grep -Eq '^El Torito boot img[[:space:]]*:[[:space:]]+[0-9]+[[:space:]]+UEFI([[:space:]]|$)' <<< "$boot_report"
