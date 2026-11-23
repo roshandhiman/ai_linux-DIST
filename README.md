@@ -11,6 +11,17 @@ The Flutter Android and web MVP replays four recorded agent sessions through a S
 - **Try the live system.** Download the matching architecture from [GitHub Releases](https://github.com/roshandhiman/ai_linux-DIST/releases/latest). Choose ARM64 for Apple Silicon VMs such as Parallels, or AMD64 for Intel and AMD systems. When a release splits the ISO into parts, follow its instructions to join the files and verify the SHA-256 checksum.
 - **Update a running installation.** Use the desktop updater below to get the Camera apps and other desktop changes from `main`.
 
+The 1.0.5 image packages Mino voice with offline tiny/base/small speech models and
+English/Hindi Piper voices, the native Mino Code client, the direct-provider coding
+engine, MineOS IDE, local Qwen/Laya, the camera models, desktop and video-wallpaper
+support, and the labelled 20-contract CUAD review demo. Open **CUAD Demo** on the
+desktop or run `mino dealreview`; saving a generated report still requires approval.
+Mino Code's hosted client requires its upstream sign-in; direct-provider coding
+requires your own configured keys. No personal API keys or account sessions ship
+in the ISO. A component manifest is installed at
+`/usr/share/mineos/build-manifest.json`. MineOS Remote remains a separate phone/web
+app; its replay demo is not live control of the ISO.
+
 ### Update the desktop
 
 Run these commands in MineOS Terminal as a normal user with sudo access. For an existing checkout, use its directory and run the last two commands.

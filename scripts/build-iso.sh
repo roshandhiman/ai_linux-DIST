@@ -248,6 +248,8 @@ if [[ -n "${MINEOS_AI_DIR:-}" ]]; then
     fi
 fi
 
+bash "$SOURCE/scripts/install-iso-features.sh" "$ROOTFS" "$ARCH"
+
 install -m 644 "$SOURCE/branding/render_frames.py" "$ROOTFS/opt/ai/boot-render.py"
 chroot "$ROOTFS" python3 /opt/ai/boot-render.py /usr/share/plymouth/themes/mineos
 rm "$ROOTFS/opt/ai/boot-render.py"

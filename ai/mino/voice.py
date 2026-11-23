@@ -17,7 +17,7 @@ from dataclasses import asdict
 from collections import deque
 from pathlib import Path
 
-from .config import model_dir
+from .config import model_asset
 
 RATE = 16000
 FRAME = 320
@@ -150,8 +150,8 @@ class Recognizer:
                 self.process = None
 
     def model_path(self):
-        preferred = model_dir() / f"whisper-{self.settings.stt_size}"
-        lightweight = model_dir() / "whisper-tiny"
+        preferred = model_asset(f"whisper-{self.settings.stt_size}")
+        lightweight = model_asset("whisper-tiny")
         if (preferred / "model.bin").is_file() or not (lightweight / "model.bin").is_file():
             return preferred
         return lightweight
@@ -443,8 +443,8 @@ class Speaker:
                 from kokoro_onnx import Kokoro
                 key = "kokoro"
                 if key != self.voice_id:
-                    self.engine = Kokoro(str(model_dir() / "kokoro-v1.0.onnx"),
-                                         str(model_dir() / "voices-v1.0.bin"))
+                    self.engine = Kokoro(str(model_asset("kokoro-v1.0.onnx")),
+                                         str(model_asset("voices-v1.0.bin")))
                     self.voice_id = key
                 for sentence in re.split(r"(?<=[.!?])\s+", text):
                     floats, rate = self.engine.create(sentence, voice="af_heart",
@@ -453,7 +453,7 @@ class Speaker:
                 return
             except (ImportError, OSError, ValueError, RuntimeError):
                 self.warn("Kokoro isn't ready. Using Piper.")
-        path = model_dir() / f"{identifier}.onnx"
+        path = model_asset(f"{identifier}.onnx")
         if path.is_file():
             try:
                 from piper import PiperVoice, SynthesisConfig

@@ -9,6 +9,7 @@ from pathlib import Path
 VOICES = ("en_US-amy-low", "en_US-lessac-medium", "hi_IN-rohan-medium", "hi_IN-pratham-medium")
 SIZES = ("auto", "tiny", "base", "small")
 LANGUAGES = ("auto", "en", "hi")
+SYSTEM_MODELS = Path("/usr/share/mineos/models/voice")
 
 
 def config_path():
@@ -19,6 +20,15 @@ def model_dir():
     override = os.environ.get("MINO_MODEL_DIR")
     return Path(override) if override else Path(os.environ.get(
         "XDG_DATA_HOME", Path.home() / ".local/share")) / "mineos/mino/models"
+
+
+def model_asset(name):
+    """Prefer personal models, then the read-only models shipped on the ISO."""
+    personal = model_dir() / name
+    if personal.exists() or os.environ.get("MINO_MODEL_DIR"):
+        return personal
+    bundled = SYSTEM_MODELS / name
+    return bundled if bundled.exists() else personal
 
 
 def memory_mib():

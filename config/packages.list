@@ -94,3 +94,18 @@ bubblewrap
 libgomp1
 libssl3t64
 libnotify-bin
+
+# ---- Mino voice, desktop tools and browser/media actions -----------------
+python3-xlib
+python3-numpy
+libspeexdsp1
+libportaudio2
+ripgrep
+fd-find
+xdg-utils
+wmctrl
+maim
+grim
+slurp
+espeak-ng
+util-linux

@@ -1,4 +1,5 @@
 import json
+import os
 import tempfile
 import subprocess
 import unittest
@@ -8,11 +9,32 @@ from unittest.mock import Mock, patch
 from mineos_agent.os_api import ApiError
 from mino.agent import Mino, Tool, direct
 from mino.config import Settings
+from mino.config import model_asset, model_dir
 from mino.desk import SOURAV_CHANNEL, SOURAV_FEED, Desktop
 from mino.voice import Recognizer
 
 
 class MinoTest(unittest.TestCase):
+    def test_bundled_voice_models_do_not_change_personal_download_location(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            system = root / "system"
+            system.mkdir()
+            bundled = system / "whisper-tiny"
+            bundled.mkdir()
+            (bundled / "model.bin").write_bytes(b"bundled")
+            with patch.dict(os.environ, {"XDG_DATA_HOME": str(root / "user")}), \
+                 patch("mino.config.SYSTEM_MODELS", system):
+                os.environ.pop("MINO_MODEL_DIR", None)
+                self.assertEqual(model_asset("whisper-tiny"), bundled)
+                self.assertNotEqual(model_dir(), system)
+                personal = model_dir() / "whisper-tiny"
+                personal.mkdir(parents=True)
+                (personal / "model.bin").write_bytes(b"personal")
+                self.assertEqual(model_asset("whisper-tiny"), personal)
+                os.environ['MINO_MODEL_DIR'] = str(root / 'explicit')
+                self.assertEqual(model_asset('whisper-tiny'), root / 'explicit/whisper-tiny')
+
     def test_stalled_speech_is_killed_and_reaped(self):
         child = Mock()
         child.communicate.side_effect = [subprocess.TimeoutExpired("recognizer", 12), (b"", b"")]
